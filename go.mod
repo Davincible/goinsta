@@ -1,3 +1,3 @@
-module github.com/Davincible/goinsta/v2
+module github.com/Davincible/goinsta/v3
 
-go 1.12
+go 1.16

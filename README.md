@@ -1,3 +1,6 @@
+###FORK
+This repository has been forked from [ahmdrz/goinsta](https://github.com/ahmdrz/goinsta). As the maintainer of this repositry as been absend the last few months, and the code in the repository was based on a 2 year old instagram app version, since which a lot has changed, I have taken the courtesy to bulid upon his great framework and update the code to be compatible with apk v195.0.0.31.123 (July 6, 2021). Currently, not all endpoints have been moved over to the new version yet, if you run into problems please open an issue. 
+
 #### Golang + Instagram Private API
 <p align="center"><img width=100% src="https://raw.githubusercontent.com/Davincible/goinsta/v1/resources/goinsta-image.png"></p>
 
@@ -17,7 +20,7 @@
 
 ### Package installation 
 
-`go get -u -v gopkg.in/Davincible/goinsta.v2`
+`go get -u -v github.com/Davincible/goinsta/v3@latest`
 
 ### Example
 
@@ -27,7 +30,7 @@ package main
 import (
 	"fmt"
 
-	"gopkg.in/Davincible/goinsta.v2"
+	"github.com/Davincible/goinsta/v3"
 )
 
 func main() {  
@@ -43,23 +46,6 @@ func main() {
 }
 ```
 
-### Projects using `goinsta`
-
-- [go-instabot](https://github.com/tducasse/go-instabot)
-- [nick_bot](https://github.com/icholy/nick_bot)
-- [instagraph](https://github.com/Davincible/instagraph)
-- [icrawler](https://github.com/themester/icrawler)
-- [ermes](https://github.com/borteo/ermes)
-- [instafeed](https://github.com/falzm/instafeed)
-- [goinstadownload](https://github.com/alejoloaiza/goinstadownload)
-- [InstagramStoriesDownloader](https://github.com/DiSiqueira/InstagramStoriesDownloader)
-- [gridcube-challenge](https://github.com/rodrwan/gridcube-challenge)
-- [nyaakitties](https://github.com/gracechang/nyaakitties)
-- [InstaFollower](https://github.com/Unanoc/InstaFollower)
-- [follow-sync](https://github.com/kirsle/follow-sync)
-- [Game DB](https://github.com/gamedb/gamedb)
-- ...
-
 ### Legal
 
 This code is in no way affiliated with, authorized, maintained, sponsored or endorsed by Instagram or any of its affiliates or subsidiaries. This is an independent and unofficial API. Use at your own risk.
@@ -69,7 +55,7 @@ This code is in no way affiliated with, authorized, maintained, sponsored or end
 Goinsta used gopkg.in as versioning control. Stable new API is the version v2.0. You can get it using:
 
 ```bash
-$ go get -u -v gopkg.in/Davincible/goinsta.v2
+$ go get -u -v github.com/Davincible/goinsta/v3
 ```
 
 Or 
@@ -77,19 +63,6 @@ Or
 If you have `GO111MODULE=on`
 
 ```
-$ go get -u github.com/Davincible/goinsta/v2
+$ go get -u github.com/Davincible/goinsta/v3
 ```
-
-### Donate
-
-**Davincible**
-
-![btc](https://raw.githubusercontent.com/reek/anti-adblock-killer/gh-pages/images/bitcoin.png) Bitcoin: `1KjcfrBPJtM4MfBSGTqpC6RcoEW1KBh15X`
-
-**Mester**
-
-![btc](https://raw.githubusercontent.com/reek/anti-adblock-killer/gh-pages/images/bitcoin.png) Bitcoin: `37aogDJYBFkdSJTWG7TgcpgNweGHPCy1Ks`
-
-
-[![Analytics](https://ga-beacon.appspot.com/UA-107698067-1/readme-page)](https://github.com/igrigorik/ga-beacon)
 
