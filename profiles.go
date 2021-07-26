@@ -7,25 +7,25 @@ import (
 
 // Profiles allows user function interactions
 type Profiles struct {
-	inst *Instagram
+	insta *Instagram
 }
 
-func newProfiles(inst *Instagram) *Profiles {
+func newProfiles(insta *Instagram) *Profiles {
 	profiles := &Profiles{
-		inst: inst,
+		insta: insta,
 	}
 	return profiles
 }
 
 // ByName return a *User structure parsed by username
 func (prof *Profiles) ByName(name string) (*User, error) {
-	body, err := prof.inst.sendSimpleRequest(urlUserByName, name)
+	body, err := prof.insta.sendSimpleRequest(urlUserByName, name)
 	if err == nil {
 		resp := userResp{}
 		err = json.Unmarshal(body, &resp)
 		if err == nil {
 			user := &resp.User
-			user.inst = prof.inst
+			user.insta = prof.insta
 			return user, err
 		}
 	}
@@ -34,12 +34,12 @@ func (prof *Profiles) ByName(name string) (*User, error) {
 
 // ByID returns a *User structure parsed by user id
 func (prof *Profiles) ByID(id int64) (*User, error) {
-	data, err := prof.inst.prepareData()
+	data, err := prof.insta.prepareData()
 	if err != nil {
 		return nil, err
 	}
 
-	body, err := prof.inst.sendRequest(
+	body, _, err := prof.insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlUserByID, id),
 			Query:    generateSignature(data),
@@ -50,7 +50,7 @@ func (prof *Profiles) ByID(id int64) (*User, error) {
 		err = json.Unmarshal(body, &resp)
 		if err == nil {
 			user := &resp.User
-			user.inst = prof.inst
+			user.insta = prof.insta
 			return user, err
 		}
 	}
@@ -59,7 +59,7 @@ func (prof *Profiles) ByID(id int64) (*User, error) {
 
 // Blocked returns a list of blocked profiles.
 func (prof *Profiles) Blocked() ([]BlockedUser, error) {
-	body, err := prof.inst.sendSimpleRequest(urlBlockedList)
+	body, err := prof.insta.sendSimpleRequest(urlBlockedList)
 	if err == nil {
 		resp := blockedListResp{}
 		err = json.Unmarshal(body, &resp)

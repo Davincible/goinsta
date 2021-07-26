@@ -29,7 +29,7 @@ type Comments struct {
 	CommentLikesEnabled            bool            `json:"comment_likes_enabled"`
 	DisplayRealtimeTypingIndicator bool            `json:"display_realtime_typing_indicator"`
 	Status                         string          `json:"status"`
-	//PreviewComments                []Comment `json:"preview_comments"`
+	// PreviewComments                []Comment `json:"preview_comments"`
 }
 
 func (comments *Comments) setValues() {
@@ -69,7 +69,7 @@ func (comments *Comments) Disable() error {
 		return err
 	}
 
-	_, err = insta.sendRequest(
+	_, _, err = insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlCommentDisable, comments.item.ID),
 			Query:    generateSignature(data),
@@ -99,7 +99,7 @@ func (comments *Comments) Enable() error {
 		return err
 	}
 
-	_, err = insta.sendRequest(
+	_, _, err = insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlCommentEnable, comments.item.ID),
 			Query:    generateSignature(data),
@@ -133,7 +133,7 @@ func (comments *Comments) Next() bool {
 		query["min_id"] = next
 	}
 
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint:   endpoint,
 			Connection: "keep-alive",
@@ -222,7 +222,7 @@ func (comments *Comments) Add(text string) (err error) {
 	}
 
 	// ignoring response
-	_, err = insta.sendRequest(opt)
+	_, _, err = insta.sendRequest(opt)
 	return err
 }
 
@@ -236,7 +236,7 @@ func (comments *Comments) Del(comment *Comment) error {
 	}
 	id := comment.getid()
 
-	_, err = insta.sendRequest(
+	_, _, err = insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlCommentDelete, comments.item.ID, id),
 			Query:    generateSignature(data),
@@ -286,7 +286,7 @@ floop:
 
 // Comment is a type of Media retrieved by the Comments methods
 type Comment struct {
-	inst  *Instagram
+	insta *Instagram
 	idstr string
 
 	ID                             int64     `json:"pk"`
@@ -315,13 +315,13 @@ type Comment struct {
 	Status                         string    `json:"status"`
 }
 
-func (c *Comment) setValues(inst *Instagram) {
-	c.User.inst = inst
+func (c *Comment) setValues(insta *Instagram) {
+	c.User.insta = insta
 	for i := range c.OtherPreviewUsers {
-		c.OtherPreviewUsers[i].inst = inst
+		c.OtherPreviewUsers[i].insta = insta
 	}
 	for i := range c.PreviewChildComments {
-		c.PreviewChildComments[i].setValues(inst)
+		c.PreviewChildComments[i].setValues(insta)
 	}
 }
 
@@ -337,12 +337,12 @@ func (c Comment) getid() string {
 
 // Like likes comment.
 func (c *Comment) Like() error {
-	data, err := c.inst.prepareData()
+	data, err := c.insta.prepareData()
 	if err != nil {
 		return err
 	}
 
-	_, err = c.inst.sendRequest(
+	_, _, err = c.insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlCommentLike, c.getid()),
 			Query:    generateSignature(data),
@@ -354,12 +354,12 @@ func (c *Comment) Like() error {
 
 // Unlike unlikes comment.
 func (c *Comment) Unlike() error {
-	data, err := c.inst.prepareData()
+	data, err := c.insta.prepareData()
 	if err != nil {
 		return err
 	}
 
-	_, err = c.inst.sendRequest(
+	_, _, err = c.insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlCommentUnlike, c.getid()),
 			Query:    generateSignature(data),

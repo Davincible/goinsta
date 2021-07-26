@@ -29,5 +29,6 @@ _testmain.go
 .idea/
 
 .vscode/
+.vim/
 .tests/
 examples/configs/

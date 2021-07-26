@@ -9,7 +9,7 @@ import (
 
 // Search is the object for all searches like Facebook, Location or Tag search.
 type Search struct {
-	inst *Instagram
+	insta *Instagram
 }
 
 // SearchResult handles the data for the results given by each type of Search.
@@ -63,9 +63,9 @@ type SearchResult struct {
 }
 
 // newSearch creates new Search structure
-func newSearch(inst *Instagram) *Search {
+func newSearch(insta *Instagram) *Search {
 	search := &Search{
-		inst: inst,
+		insta: insta,
 	}
 	return search
 }
@@ -76,8 +76,8 @@ func (search *Search) User(user string, countParam ...int) (*SearchResult, error
 	if len(countParam) > 0 {
 		count = countParam[0]
 	}
-	insta := search.inst
-	body, err := insta.sendRequest(
+	insta := search.insta
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlSearchUser,
 			Query: map[string]string{
@@ -96,15 +96,15 @@ func (search *Search) User(user string, countParam ...int) (*SearchResult, error
 	res := &SearchResult{}
 	err = json.Unmarshal(body, res)
 	for id := range res.Users {
-		res.Users[id].inst = insta
+		res.Users[id].insta = insta
 	}
 	return res, err
 }
 
 // Tags search by tag
 func (search *Search) Tags(tag string) (*SearchResult, error) {
-	insta := search.inst
-	body, err := insta.sendRequest(
+	insta := search.insta
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlSearchTag,
 			Query: map[string]string{
@@ -127,7 +127,7 @@ func (search *Search) Tags(tag string) (*SearchResult, error) {
 // DEPRECATED - Instagram does not allow Location search method.
 // Lat and Lng (Latitude & Longitude) cannot be ""
 func (search *Search) Location(lat, lng, location string) (*SearchResult, error) {
-	insta := search.inst
+	insta := search.insta
 	q := map[string]string{
 		"rank_token":     insta.rankToken,
 		"latitude":       lat,
@@ -141,7 +141,7 @@ func (search *Search) Location(lat, lng, location string) (*SearchResult, error)
 		q["timestamp"] = strconv.FormatInt(time.Now().Unix(), 10)
 	}
 
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlSearchLocation,
 			Query:    q,
@@ -158,8 +158,8 @@ func (search *Search) Location(lat, lng, location string) (*SearchResult, error)
 
 // Facebook search by facebook user.
 func (search *Search) Facebook(user string) (*SearchResult, error) {
-	insta := search.inst
-	body, err := insta.sendRequest(
+	insta := search.insta
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlSearchFacebook,
 			Query: map[string]string{

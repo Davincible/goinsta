@@ -16,6 +16,7 @@ type ChallengeStepData struct {
 	ContactPoint     string      `json:"contact_point"`
 	FormType         string      `json:"form_type"`
 }
+
 type Challenge struct {
 	insta        *Instagram
 	StepName     string            `json:"step_name"`
@@ -50,7 +51,7 @@ func (challenge *Challenge) updateState() error {
 		return err
 	}
 
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: challenge.insta.challengeURL,
 			Query:    generateSignature(data),
@@ -85,7 +86,7 @@ func (challenge *Challenge) selectVerifyMethod(choice string, isReplay ...bool) 
 		return err
 	}
 
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: url,
 			Query:    generateSignature(data),
@@ -117,7 +118,7 @@ func (challenge *Challenge) SendSecurityCode(code string) error {
 		return err
 	}
 
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: url,
 			Query:    generateSignature(data),
@@ -130,7 +131,7 @@ func (challenge *Challenge) SendSecurityCode(code string) error {
 		if err == nil {
 			*challenge = *resp.Challenge
 			challenge.insta = insta
-			challenge.LoggedInUser.inst = insta
+			challenge.LoggedInUser.insta = insta
 			insta.Account = challenge.LoggedInUser
 		}
 	}

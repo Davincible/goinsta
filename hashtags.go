@@ -7,8 +7,8 @@ import (
 
 // Hashtag is used for getting the media that matches a hashtag on instagram.
 type Hashtag struct {
-	inst *Instagram
-	err  error
+	insta *Instagram
+	err   error
 
 	Name string `json:"name"`
 
@@ -44,7 +44,7 @@ func (h *Hashtag) setValues() {
 	for i := range h.Sections {
 		for j := range h.Sections[i].LayoutContent.Medias {
 			m := &FeedMedia{
-				inst: h.inst,
+				insta: h.insta,
 			}
 			setToItem(&h.Sections[i].LayoutContent.Medias[j].Item, m)
 		}
@@ -53,16 +53,16 @@ func (h *Hashtag) setValues() {
 
 // NewHashtag returns initialised hashtag structure
 // Name parameter is hashtag name
-func (inst *Instagram) NewHashtag(name string) *Hashtag {
+func (insta *Instagram) NewHashtag(name string) *Hashtag {
 	return &Hashtag{
-		inst: inst,
-		Name: name,
+		insta: insta,
+		Name:  name,
 	}
 }
 
 // Sync updates Hashtag information preparing it to Next call.
 func (h *Hashtag) Sync() error {
-	insta := h.inst
+	insta := h.insta
 
 	body, err := insta.sendSimpleRequest(urlTagSync, h.Name)
 	if err == nil {
@@ -87,9 +87,9 @@ func (h *Hashtag) Next() bool {
 	if h.err != nil {
 		return false
 	}
-	insta := h.inst
+	insta := h.insta
 	name := h.Name
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Query: map[string]string{
 				"max_id":     h.NextID,
@@ -105,7 +105,7 @@ func (h *Hashtag) Next() bool {
 		err = json.Unmarshal(body, ht)
 		if err == nil {
 			*h = *ht
-			h.inst = insta
+			h.insta = insta
 			h.Name = name
 			if !h.MoreAvailable {
 				h.err = ErrNoMore
@@ -125,7 +125,7 @@ func (h *Hashtag) Error() error {
 
 // Stories returns hashtag stories.
 func (h *Hashtag) Stories() (*StoryMedia, error) {
-	body, err := h.inst.sendSimpleRequest(
+	body, err := h.insta.sendSimpleRequest(
 		urlTagStories, h.Name,
 	)
 	if err == nil {

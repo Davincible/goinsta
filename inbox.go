@@ -43,8 +43,8 @@ type InboxItem struct {
 // Inbox contains Conversations. Each conversation has InboxItems.
 // InboxItems are the message of the chat.
 type Inbox struct {
-	inst *Instagram
-	err  error
+	insta *Instagram
+	err   error
 
 	Conversations []Conversation `json:"threads"`
 
@@ -53,7 +53,16 @@ type Inbox struct {
 	Cursor              string `json:"oldest_cursor"`
 	UnseenCount         int    `json:"unseen_count"`
 	UnseenCountTs       int64  `json:"unseen_count_ts"`
+	MostRecentInviter   User   `json:"most_recent_inviter"`
 	BlendedInboxEnabled bool   `json:"blended_inbox_enabled"`
+	NextCursor          struct {
+		CursorV2ID         float64 `json:"cursor_thread_v2_id"`
+		CursorTimestampSec float64 `json:"cursor_timestamp_seconds"`
+	} `json:"next_cursor"`
+	PrevCursor struct {
+		CursorV2ID         float64 `json:"cursor_thread_v2_id"`
+		CursorTimestampSec float64 `json:"cursor_timestamp_seconds"`
+	} `json:"prev_cursor"`
 	// this fields are copied from response
 	SeqID                int64 `json:"seq_id"`
 	PendingRequestsTotal int   `json:"pending_requests_total"`
@@ -61,15 +70,16 @@ type Inbox struct {
 }
 
 type inboxResp struct {
-	Inbox                Inbox  `json:"inbox"`
-	SeqID                int64  `json:"seq_id"`
-	PendingRequestsTotal int    `json:"pending_requests_total"`
-	SnapshotAtMs         int64  `json:"snapshot_at_ms"`
-	Status               string `json:"status"`
+	Inbox                 Inbox  `json:"inbox"`
+	SeqID                 int64  `json:"seq_id"`
+	PendingRequestsTotal  int    `json:"pending_requests_total"`
+	SnapshotAtMs          int64  `json:"snapshot_at_ms"`
+	Status                string `json:"status"`
+	HasPendingTopRequests bool   `json:"has_pending_top_requests"`
 }
 
-func newInbox(inst *Instagram) *Inbox {
-	return &Inbox{inst: inst}
+func newInbox(insta *Instagram) *Inbox {
+	return &Inbox{insta: insta}
 }
 
 func (inbox *Inbox) sync(pending bool, params map[string]string) error {
@@ -78,8 +88,8 @@ func (inbox *Inbox) sync(pending bool, params map[string]string) error {
 		endpoint = urlInboxPending
 	}
 
-	insta := inbox.inst
-	body, err := insta.sendRequest(
+	insta := inbox.insta
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: endpoint,
 			Query:    params,
@@ -91,12 +101,12 @@ func (inbox *Inbox) sync(pending bool, params map[string]string) error {
 		err = json.Unmarshal(body, &resp)
 		if err == nil {
 			*inbox = resp.Inbox
-			inbox.inst = insta
+			inbox.insta = insta
 			inbox.SeqID = resp.Inbox.SeqID
 			inbox.PendingRequestsTotal = resp.Inbox.PendingRequestsTotal
 			inbox.SnapshotAtMs = resp.Inbox.SnapshotAtMs
 			for i := range inbox.Conversations {
-				inbox.Conversations[i].inst = insta
+				inbox.Conversations[i].insta = insta
 				inbox.Conversations[i].firstRun = true
 			}
 		}
@@ -112,8 +122,8 @@ func (inbox *Inbox) next(pending bool, params map[string]string) bool {
 	if inbox.err != nil {
 		return false
 	}
-	insta := inbox.inst
-	body, err := insta.sendRequest(
+	insta := inbox.insta
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: endpoint,
 			Query:    params,
@@ -124,14 +134,15 @@ func (inbox *Inbox) next(pending bool, params map[string]string) bool {
 		err = json.Unmarshal(body, &resp)
 		if err == nil {
 			*inbox = resp.Inbox
-			inbox.inst = insta
+			inbox.insta = insta
 			inbox.SeqID = resp.Inbox.SeqID
 			inbox.PendingRequestsTotal = resp.Inbox.PendingRequestsTotal
 			inbox.SnapshotAtMs = resp.Inbox.SnapshotAtMs
 			for i := range inbox.Conversations {
-				inbox.Conversations[i].inst = insta
+				inbox.Conversations[i].insta = insta
 				inbox.Conversations[i].firstRun = true
 			}
+			inbox.MostRecentInviter.insta = insta
 			if inbox.Cursor == "" || !inbox.HasOlder {
 				inbox.err = ErrNoMore
 			}
@@ -163,7 +174,7 @@ func (inbox *Inbox) SyncPending() error {
 //
 // See example: examples/inbox/newconversation.go
 func (inbox *Inbox) New(user *User, text string) error {
-	insta := inbox.inst
+	insta := inbox.insta
 	to, err := prepareRecipients(user.ID)
 	if err != nil {
 		return err
@@ -178,7 +189,7 @@ func (inbox *Inbox) New(user *User, text string) error {
 			"text":            text,
 		},
 	)
-	_, err = insta.sendRequest(
+	_, _, err = insta.sendRequest(
 		&reqOptions{
 			Connection: "keep-alive",
 			Endpoint:   urlInboxSend,
@@ -205,6 +216,16 @@ func (inbox *Inbox) Next() bool {
 	})
 }
 
+func (inbox *Inbox) initialSnapshot() bool {
+	return inbox.next(false, map[string]string{
+		"visual_message_return_type": "unseen",
+		"thread_message_limit":       "10",
+		"persistentBadging":          "true",
+		"limit":                      "20",
+		"fetch_reason":               "initial_snapshot",
+	})
+}
+
 // NextPending allows pagination over pending messages.
 //
 // See example: examples/inbox/next.go
@@ -216,7 +237,7 @@ func (inbox *Inbox) NextPending() bool {
 
 // Conversation is the representation of an instagram already established conversation through direct messages.
 type Conversation struct {
-	inst     *Instagram
+	insta    *Instagram
 	err      error
 	firstRun bool
 
@@ -269,7 +290,7 @@ func (c Conversation) lastItemID() string {
 //
 // See example: examples/media/likeAll.go
 func (c *Conversation) Like() error {
-	insta := c.inst
+	insta := c.insta
 	to, err := prepareRecipients(c)
 	if err != nil {
 		return err
@@ -288,7 +309,7 @@ func (c *Conversation) Like() error {
 			"action":          "send_item",
 		},
 	)
-	_, err = insta.sendRequest(
+	_, _, err = insta.sendRequest(
 		&reqOptions{
 			Connection: "keep-alive",
 			Endpoint:   urlInboxSendLike,
@@ -303,7 +324,7 @@ func (c *Conversation) Like() error {
 //
 // See example: examples/inbox/sms.go
 func (c *Conversation) Send(text string) error {
-	insta := c.inst
+	insta := c.insta
 	// I DON'T KNOW WHY BUT INSTAGRAM WANTS A DOUBLE SLICE OF INTS FOR ONE ID.
 	to, err := prepareRecipients(c)
 	if err != nil {
@@ -325,7 +346,7 @@ func (c *Conversation) Send(text string) error {
 			"text":            text,
 		},
 	)
-	_, err = insta.sendRequest(
+	_, _, err = insta.sendRequest(
 		&reqOptions{
 			Connection: "keep-alive",
 			Endpoint:   urlInboxSend,
@@ -354,8 +375,8 @@ func (c *Conversation) Next() bool {
 		return true
 	}
 
-	insta := c.inst
-	body, err := insta.sendRequest(
+	insta := c.insta
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlInboxThread, c.ID),
 			Query: map[string]string{
@@ -370,7 +391,7 @@ func (c *Conversation) Next() bool {
 		err = json.Unmarshal(body, &resp)
 		if err == nil {
 			*c = resp.Conversation
-			c.inst = insta
+			c.insta = insta
 			if !c.HasOlder {
 				c.err = ErrNoMore
 			}

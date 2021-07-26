@@ -9,7 +9,7 @@ import (
 
 // Users is a struct that stores many user's returned by many different methods.
 type Users struct {
-	inst *Instagram
+	insta *Instagram
 
 	// It's a bit confusing have the same structure
 	// in the Instagram strucure and in the multiple users
@@ -26,15 +26,15 @@ type Users struct {
 	NextID    string          `json:"-"`
 }
 
-func newUsers(inst *Instagram) *Users {
-	users := &Users{inst: inst}
+func newUsers(insta *Instagram) *Users {
+	users := &Users{insta: insta}
 
 	return users
 }
 
 // SetInstagram sets new instagram to user structure
-func (users *Users) SetInstagram(inst *Instagram) {
-	users.inst = inst
+func (users *Users) SetInstagram(insta *Instagram) {
+	users.insta = insta
 }
 
 // ErrNoMore is an error that comes when there is no more elements available on the list.
@@ -51,10 +51,10 @@ func (users *Users) Next() bool {
 		return false
 	}
 
-	insta := users.inst
+	insta := users.insta
 	endpoint := users.endpoint
 
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: endpoint,
 			Query: map[string]string{
@@ -73,7 +73,7 @@ func (users *Users) Next() bool {
 					users.err = err
 					return false
 				}
-			} else {
+			} else if usrs.RawNextID != nil {
 				var nextID int64
 				if err := json.Unmarshal(usrs.RawNextID, &nextID); err != nil {
 					users.err = err
@@ -85,7 +85,7 @@ func (users *Users) Next() bool {
 			if !usrs.BigList || usrs.NextID == "" {
 				users.err = ErrNoMore
 			}
-			users.inst = insta
+			users.insta = insta
 			users.endpoint = endpoint
 			users.setValues()
 			return true
@@ -102,7 +102,7 @@ func (users *Users) Error() error {
 
 func (users *Users) setValues() {
 	for i := range users.Users {
-		users.Users[i].inst = users.inst
+		users.Users[i].insta = users.insta
 	}
 }
 
@@ -113,7 +113,7 @@ type userResp struct {
 
 // User is the representation of instagram's user profile
 type User struct {
-	inst *Instagram
+	insta *Instagram
 
 	ID                         int64   `json:"pk"`
 	Username                   string  `json:"username"`
@@ -183,12 +183,12 @@ type User struct {
 
 // SetInstagram will update instagram instance for selected User.
 func (user *User) SetInstagram(insta *Instagram) {
-	user.inst = insta
+	user.insta = insta
 }
 
 // NewUser returns prepared user to be used with his functions.
-func (inst *Instagram) NewUser() *User {
-	return &User{inst: inst}
+func (insta *Instagram) NewUser() *User {
+	return &User{insta: insta}
 }
 
 // Sync updates user info
@@ -198,14 +198,14 @@ func (inst *Instagram) NewUser() *User {
 //
 // See example: examples/user/friendship.go
 func (user *User) Sync(params ...interface{}) error {
-	insta := user.inst
+	insta := user.insta
 	body, err := insta.sendSimpleRequest(urlUserInfo, user.ID)
 	if err == nil {
 		resp := userResp{}
 		err = json.Unmarshal(body, &resp)
 		if err == nil {
 			*user = resp.User
-			user.inst = insta
+			user.insta = insta
 			for _, param := range params {
 				switch b := param.(type) {
 				case bool:
@@ -226,7 +226,7 @@ func (user *User) Sync(params ...interface{}) error {
 // See example: examples/user/following.go
 func (user *User) Following() *Users {
 	users := &Users{}
-	users.inst = user.inst
+	users.insta = user.insta
 	users.endpoint = fmt.Sprintf(urlFollowing, user.ID)
 	return users
 }
@@ -238,7 +238,7 @@ func (user *User) Following() *Users {
 // See example: examples/user/followers.go
 func (user *User) Followers() *Users {
 	users := &Users{}
-	users.inst = user.inst
+	users.insta = user.insta
 	users.endpoint = fmt.Sprintf(urlFollowers, user.ID)
 	return users
 }
@@ -249,7 +249,7 @@ func (user *User) Followers() *Users {
 //
 // See example: examples/user/block.go
 func (user *User) Block() error {
-	insta := user.inst
+	insta := user.insta
 	data, err := insta.prepareData(
 		map[string]interface{}{
 			"user_id": user.ID,
@@ -258,7 +258,7 @@ func (user *User) Block() error {
 	if err != nil {
 		return err
 	}
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlUserBlock, user.ID),
 			Query:    generateSignature(data),
@@ -284,7 +284,7 @@ func (user *User) Block() error {
 //
 // See example: examples/user/unblock.go
 func (user *User) Unblock() error {
-	insta := user.inst
+	insta := user.insta
 	data, err := insta.prepareData(
 		map[string]interface{}{
 			"user_id": user.ID,
@@ -293,7 +293,7 @@ func (user *User) Unblock() error {
 	if err != nil {
 		return err
 	}
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlUserUnblock, user.ID),
 			Query:    generateSignature(data),
@@ -332,14 +332,14 @@ func (user *User) Unmute(opt muteOption) error {
 }
 
 func muteOrUnmute(user *User, opt muteOption, endpoint string) error {
-	insta := user.inst
+	insta := user.insta
 	data, err := insta.prepareData(
 		generateMuteData(user, opt),
 	)
 	if err != nil {
 		return err
 	}
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: endpoint,
 			Query:    generateSignature(data),
@@ -386,7 +386,7 @@ func generateMuteData(user *User, opt muteOption) map[string]interface{} {
 //
 // See example: examples/user/follow.go
 func (user *User) Follow() error {
-	insta := user.inst
+	insta := user.insta
 	data, err := insta.prepareData(
 		map[string]interface{}{
 			"user_id": user.ID,
@@ -395,7 +395,7 @@ func (user *User) Follow() error {
 	if err != nil {
 		return err
 	}
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlUserFollow, user.ID),
 			Query:    generateSignature(data),
@@ -421,7 +421,7 @@ func (user *User) Follow() error {
 //
 // See example: examples/user/unfollow.go
 func (user *User) Unfollow() error {
-	insta := user.inst
+	insta := user.insta
 	data, err := insta.prepareData(
 		map[string]interface{}{
 			"user_id": user.ID,
@@ -430,7 +430,7 @@ func (user *User) Unfollow() error {
 	if err != nil {
 		return err
 	}
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlUserUnfollow, user.ID),
 			Query:    generateSignature(data),
@@ -454,7 +454,7 @@ func (user *User) Unfollow() error {
 //
 // The result is stored in user.Friendship
 func (user *User) FriendShip() error {
-	insta := user.inst
+	insta := user.insta
 	data, err := insta.prepareData(
 		map[string]interface{}{
 			"user_id": user.ID,
@@ -464,7 +464,7 @@ func (user *User) FriendShip() error {
 		return err
 	}
 
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlFriendship, user.ID),
 			Query:    generateSignature(data),
@@ -485,10 +485,10 @@ func (user *User) FriendShip() error {
 //
 // See example: examples/user/feed.go
 func (user *User) Feed(params ...interface{}) *FeedMedia {
-	insta := user.inst
+	insta := user.insta
 
 	media := &FeedMedia{}
-	media.inst = insta
+	media.insta = insta
 	media.endpoint = urlUserFeed
 	media.uid = user.ID
 
@@ -510,7 +510,7 @@ func (user *User) Feed(params ...interface{}) *FeedMedia {
 func (user *User) Stories() *StoryMedia {
 	media := &StoryMedia{}
 	media.uid = user.ID
-	media.inst = user.inst
+	media.insta = user.insta
 	media.endpoint = urlUserStories
 	return media
 }
@@ -529,7 +529,7 @@ func (user *User) Highlights() ([]StoryMedia, error) {
 	if err != nil {
 		return nil, err
 	}
-	body, err := user.inst.sendRequest(
+	body, _, err := user.insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlUserHighlights, user.ID),
 			Query:    generateSignature(b2s(data)),
@@ -539,7 +539,7 @@ func (user *User) Highlights() ([]StoryMedia, error) {
 		tray := &Tray{}
 		err = json.Unmarshal(body, &tray)
 		if err == nil {
-			tray.set(user.inst, "")
+			tray.set(user.insta, "")
 			for i := range tray.Stories {
 				if len(tray.Stories[i].Items) == 0 {
 					err = tray.Stories[i].Sync()
@@ -561,12 +561,12 @@ func (user *User) Highlights() ([]StoryMedia, error) {
 // See example: examples/user/tags.go
 func (user *User) Tags(minTimestamp []byte) (*FeedMedia, error) {
 	timestamp := b2s(minTimestamp)
-	body, err := user.inst.sendRequest(
+	body, _, err := user.insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlUserTags, user.ID),
 			Query: map[string]string{
 				"max_id":         "",
-				"rank_token":     user.inst.rankToken,
+				"rank_token":     user.insta.rankToken,
 				"min_timestamp":  timestamp,
 				"ranked_content": "true",
 			},
@@ -578,7 +578,7 @@ func (user *User) Tags(minTimestamp []byte) (*FeedMedia, error) {
 
 	media := &FeedMedia{}
 	err = json.Unmarshal(body, media)
-	media.inst = user.inst
+	media.insta = user.insta
 	media.endpoint = urlUserTags
 	media.uid = user.ID
 	return media, err

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"mime/multipart"
+	"math/rand"
 	"net/http"
 	neturl "net/url"
 	"os"
@@ -19,15 +19,18 @@ import (
 
 // StoryReelMention represent story reel mention
 type StoryReelMention struct {
-	X        float64 `json:"x"`
-	Y        float64 `json:"y"`
-	Z        int     `json:"z"`
-	Width    float64 `json:"width"`
-	Height   float64 `json:"height"`
-	Rotation float64 `json:"rotation"`
-	IsPinned int     `json:"is_pinned"`
-	IsHidden int     `json:"is_hidden"`
-	User     User
+	X           float64 `json:"x"`
+	Y           float64 `json:"y"`
+	Z           int     `json:"z"`
+	Width       float64 `json:"width"`
+	Height      float64 `json:"height"`
+	Rotation    float64 `json:"rotation"`
+	IsPinned    int     `json:"is_pinned"`
+	IsHidden    int     `json:"is_hidden"`
+	IsSticker   int     `json:"is_sticker"`
+	IsFBSticker int     `json:"is_fb_sticker"`
+	User        User
+	DisplayType string `json:"display_type"`
 }
 
 // StoryCTA represent story cta
@@ -54,23 +57,41 @@ type Item struct {
 	media    Media
 	Comments *Comments `json:"-"`
 
-	TakenAt          int64   `json:"taken_at"`
-	Pk               int64   `json:"pk"`
-	ID               string  `json:"id"`
-	CommentsDisabled bool    `json:"comments_disabled"`
-	DeviceTimestamp  int64   `json:"device_timestamp"`
-	MediaType        int     `json:"media_type"`
-	Code             string  `json:"code"`
-	ClientCacheKey   string  `json:"client_cache_key"`
-	FilterType       int     `json:"filter_type"`
-	CarouselParentID string  `json:"carousel_parent_id"`
-	CarouselMedia    []Item  `json:"carousel_media,omitempty"`
-	User             User    `json:"user"`
-	CanViewerReshare bool    `json:"can_viewer_reshare"`
-	Caption          Caption `json:"caption"`
-	CaptionIsEdited  bool    `json:"caption_is_edited"`
-	Likes            int     `json:"like_count"`
-	HasLiked         bool    `json:"has_liked"`
+	TakenAt           int64  `json:"taken_at"`
+	Pk                int64  `json:"pk"`
+	ID                string `json:"id"`
+	CommentsDisabled  bool   `json:"comments_disabled"`
+	DeviceTimestamp   int64  `json:"device_timestamp"`
+	FacepileTopLikers []struct {
+		FollowFrictionType float64 `json:"follow_friction_type"`
+		FullNeme           string  `json:"ful_name"`
+		IsPrivate          bool    `json:"is_private"`
+		IsVerified         bool    `json:"is_verified"`
+		Pk                 float64 `json:"pk"`
+		ProfilePicID       string  `json:"profile_pic_id"`
+		ProfilePicURL      string  `json:"profile_pic_url"`
+		Username           string  `json:"username"`
+	} `json:"facepile_top_likers"`
+	MediaType             int     `json:"media_type"`
+	Code                  string  `json:"code"`
+	ClientCacheKey        string  `json:"client_cache_key"`
+	FilterType            int     `json:"filter_type"`
+	CarouselParentID      string  `json:"carousel_parent_id"`
+	CarouselMedia         []Item  `json:"carousel_media,omitempty"`
+	User                  User    `json:"user"`
+	CanViewerReshare      bool    `json:"can_viewer_reshare"`
+	Caption               Caption `json:"caption"`
+	CaptionIsEdited       bool    `json:"caption_is_edited"`
+	LikeViewCountDisabled bool    `json:"like_and_view_counts_disabled"`
+	IsCommercial          bool    `json:"is_commercial"`
+	CommercialityStatus   string  `json:"commerciality_status"`
+	FundraiserTag         struct {
+		HasStandaloneFundraiser bool `json:"has_standalone_fundraiser"`
+	} `json:"fundraiser_tag"`
+	IsPaidPartnership bool   `json:"is_paid_partnership"`
+	ProductType       string `json:"product_type"`
+	Likes             int    `json:"like_count"`
+	HasLiked          bool   `json:"has_liked"`
 	// Toplikers can be `string` or `[]string`.
 	// Use TopLikers function instead of getting it directly.
 	Toplikers                    interface{} `json:"top_likers"`
@@ -103,10 +124,12 @@ type Item struct {
 
 	// Videos
 	Videos            []Video `json:"video_versions,omitempty"`
+	VideoCodec        string  `json:"video_codec"`
 	HasAudio          bool    `json:"has_audio,omitempty"`
 	VideoDuration     float64 `json:"video_duration,omitempty"`
 	ViewCount         float64 `json:"view_count,omitempty"`
 	IsDashEligible    int     `json:"is_dash_eligible,omitempty"`
+	IsUnifiedVideo    bool    `json:"is_unified_video"`
 	VideoDashManifest string  `json:"video_dash_manifest,omitempty"`
 	NumberOfQualities int     `json:"number_of_qualities,omitempty"`
 
@@ -122,7 +145,12 @@ type Item struct {
 	StoryQuestions           []interface{}      `json:"story_questions"`
 	StoryProductItems        []interface{}      `json:"story_product_items"`
 	StoryCTA                 []StoryCTA         `json:"story_cta"`
+	IntegrityReviewDecision  string             `json:"integrity_review_decision"`
+	IsReelMedia              bool               `json:"is_reel_media"`
+	ProfileGridControl       bool               `json:"profile_grid_control_enabled"`
 	ReelMentions             []StoryReelMention `json:"reel_mentions"`
+	ExpiringAt               int64              `json:"expiring_at"`
+	CanSendCustomEmojis      bool               `json:"can_send_custom_emojis"`
 	SupportsReelReactions    bool               `json:"supports_reel_reactions"`
 	ShowOneTapFbShareTooltip bool               `json:"show_one_tap_fb_share_tooltip"`
 	HasSharedToFb            int64              `json:"has_shared_to_fb"`
@@ -220,7 +248,7 @@ func (item *Item) Comment(text string) error {
 	}
 
 	// ignoring response
-	_, err = insta.sendRequest(opt)
+	_, _, err = insta.sendRequest(opt)
 	return err
 }
 
@@ -239,7 +267,7 @@ func (item *Item) MediaToString() string {
 
 func setToItem(item *Item, media Media) {
 	item.media = media
-	item.User.inst = media.instagram()
+	item.User.insta = media.instagram()
 	item.Comments = newComments(item)
 	for i := range item.CarouselMedia {
 		item.CarouselMedia[i].User = item.User
@@ -251,7 +279,7 @@ func setToItem(item *Item, media Media) {
 // mimics the setToItem but for the SavedMedia items
 func setToMediaItem(item *MediaItem, media Media) {
 	item.Media.media = media
-	item.Media.User.inst = media.instagram()
+	item.Media.User.insta = media.instagram()
 
 	item.Media.Comments = newComments(&item.Media)
 
@@ -280,14 +308,14 @@ func getname(name string) string {
 	return name
 }
 
-func download(inst *Instagram, url, dst string) (string, error) {
+func download(insta *Instagram, url, dst string) (string, error) {
 	file, err := os.Create(dst)
 	if err != nil {
 		return "", err
 	}
 	defer file.Close()
 
-	resp, err := inst.c.Get(url)
+	resp, err := insta.c.Get(url)
 	if err != nil {
 		return "", err
 	}
@@ -373,7 +401,7 @@ func (item *Item) Delete() error {
 		return err
 	}
 
-	_, err = insta.sendRequest(
+	_, _, err = insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlMediaDelete, item.ID),
 			Query:    generateSignature(data),
@@ -414,7 +442,7 @@ func (item *Item) Unlike() error {
 		return err
 	}
 
-	_, err = insta.sendRequest(
+	_, _, err = insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlMediaUnlike, item.ID),
 			Query:    generateSignature(data),
@@ -438,7 +466,7 @@ func (item *Item) Like() error {
 		return err
 	}
 
-	_, err = insta.sendRequest(
+	_, _, err = insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlMediaLike, item.ID),
 			Query:    generateSignature(data),
@@ -462,7 +490,7 @@ func (item *Item) Save() error {
 		return err
 	}
 
-	_, err = insta.sendRequest(
+	_, _, err = insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlMediaSave, item.ID),
 			Query:    generateSignature(data),
@@ -484,7 +512,7 @@ func (item *Item) Unsave() error {
 		return err
 	}
 
-	_, err = insta.sendRequest(
+	_, _, err = insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlMediaUnsave, item.ID),
 			Query:    generateSignature(data),
@@ -513,11 +541,11 @@ func (item *Item) Download(folder, name string) (imgs, vds string, err error) {
 	var nname string
 	imgFolder := path.Join(folder, "images")
 	vidFolder := path.Join(folder, "videos")
-	inst := item.media.instagram()
+	insta := item.media.instagram()
 
-	os.MkdirAll(folder, 0777)
-	os.MkdirAll(imgFolder, 0777)
-	os.MkdirAll(vidFolder, 0777)
+	os.MkdirAll(folder, 0o777)
+	os.MkdirAll(imgFolder, 0o777)
+	os.MkdirAll(vidFolder, 0o777)
 
 	vds = GetBest(item.Videos)
 	if vds != "" {
@@ -533,7 +561,7 @@ func (item *Item) Download(folder, name string) (imgs, vds string, err error) {
 		}
 		nname = getname(nname)
 
-		vds, err = download(inst, vds, nname)
+		vds, err = download(insta, vds, nname)
 		return "", vds, err
 	}
 
@@ -551,7 +579,7 @@ func (item *Item) Download(folder, name string) (imgs, vds string, err error) {
 		}
 		nname = getname(nname)
 
-		imgs, err = download(inst, imgs, nname)
+		imgs, err = download(insta, imgs, nname)
 		return imgs, "", err
 	}
 
@@ -623,7 +651,7 @@ func (item *Item) StoryIsCloseFriends() bool {
 	return item.Audience == "besties"
 }
 
-//Media interface defines methods for both StoryMedia and FeedMedia.
+// Media interface defines methods for both StoryMedia and FeedMedia.
 type Media interface {
 	// Next allows pagination
 	Next(...interface{}) bool
@@ -637,28 +665,45 @@ type Media interface {
 	instagram() *Instagram
 }
 
-//StoryMedia is the struct that handles the information from the methods to get info about Stories.
+// StoryMedia is the struct that handles the information from the methods to get info about Stories.
 type StoryMedia struct {
-	inst     *Instagram
+	insta    *Instagram
 	endpoint string
 	uid      int64
 
 	err error
 
-	Pk              interface{} `json:"id"`
-	LatestReelMedia int64       `json:"latest_reel_media"`
-	ExpiringAt      float64     `json:"expiring_at"`
-	HaveBeenSeen    float64     `json:"seen"`
-	CanReply        bool        `json:"can_reply"`
-	Title           string      `json:"title"`
-	CanReshare      bool        `json:"can_reshare"`
-	ReelType        string      `json:"reel_type"`
-	User            User        `json:"user"`
-	Items           []Item      `json:"items"`
-	ReelMentions    []string    `json:"reel_mentions"`
-	PrefetchCount   int         `json:"prefetch_count"`
+	Pk                     interface{} `json:"id"`
+	MediaCount             int64       `json:"media_count"`
+	MediaIDs               []int64     `json:"media_ids"`
+	Muted                  bool        `json:"muted"`
+	LatestReelMedia        int64       `json:"latest_reel_media"`
+	LatestBestiesReelMedia float64     `json:"latest_besties_reel_media"`
+	ExpiringAt             float64     `json:"expiring_at"`
+	Seen                   float64     `json:"seen"`
+	SeenRankedPosition     int         `json:"seen_ranked_position"`
+	CanReply               bool        `json:"can_reply"`
+	CanGifQuickReply       bool        `json:"can_gif_quick_reply"`
+	ClientPrefetchScore    float64     `json:"client_prefetch_score"`
+	Title                  string      `json:"title"`
+	CanReshare             bool        `json:"can_reshare"`
+	ReelType               string      `json:"reel_type"`
+	User                   User        `json:"user"`
+	Items                  []Item      `json:"items"`
+	ReelMentions           []string    `json:"reel_mentions"`
+	PrefetchCount          int         `json:"prefetch_count"`
 	// this field can be int or bool
-	HasBestiesMedia      interface{} `json:"has_besties_media"`
+	HasBestiesMedia       interface{} `json:"has_besties_media"`
+	HasPrideMedia         bool        `json:"has_pride_media"`
+	HasVideo              bool        `json:"has_video"`
+	IsCacheable           bool        `json:"is_cacheable"`
+	IsSensitiveVerticalAd bool        `json:"is_sensitive_vertical_ad"`
+	RankedPosition        int         `json:"ranked_position"`
+	RankerScores          struct {
+		Fp   float64 `json:"fp"`
+		Ptap float64 `json:"ptap"`
+		Vm   float64 `json:"vm"`
+	} `json:"ranker_scores"`
 	StoryRankingToken    string      `json:"story_ranking_token"`
 	Broadcasts           []Broadcast `json:"broadcasts"`
 	FaceFilterNuxVersion int         `json:"face_filter_nux_version"`
@@ -670,14 +715,14 @@ type StoryMedia struct {
 //
 // See example: examples/media/deleteStories.go
 func (media *StoryMedia) Delete() error {
-	insta := media.inst
+	insta := media.insta
 	data, err := insta.prepareData(
 		map[string]interface{}{
 			"media_id": media.ID(),
 		},
 	)
 	if err == nil {
-		_, err = insta.sendRequest(
+		_, _, err = insta.sendRequest(
 			&reqOptions{
 				Endpoint: fmt.Sprintf(urlMediaDelete, media.ID()),
 				Query:    generateSignature(data),
@@ -700,7 +745,7 @@ func (media *StoryMedia) ID() string {
 }
 
 func (media *StoryMedia) instagram() *Instagram {
-	return media.inst
+	return media.insta
 }
 
 func (media *StoryMedia) setValues() {
@@ -730,7 +775,7 @@ func (media *StoryMedia) Seen() error {
 		},
 	)
 	if err == nil {
-		_, err = insta.sendRequest(
+		_, _, err = insta.sendRequest(
 			&reqOptions{
 				Endpoint: urlMediaSeen, // reel=1&live_vod=0
 				Query:    generateSignature(data),
@@ -755,7 +800,7 @@ type trayRequest struct {
 //
 // This function updates StoryMedia.Items
 func (media *StoryMedia) Sync() error {
-	insta := media.inst
+	insta := media.insta
 	query := []trayRequest{
 		{"SUPPORTED_SDK_VERSIONS", "9.0,10.0,11.0,12.0,13.0,14.0,15.0,16.0,17.0,18.0,19.0,20.0,21.0,22.0,23.0,24.0"},
 		{"FACE_TRACKER_VERSION", "10"},
@@ -778,7 +823,7 @@ func (media *StoryMedia) Sync() error {
 		return err
 	}
 
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlReelMedia,
 			Query:    generateSignature(data),
@@ -812,7 +857,7 @@ func (media *StoryMedia) Next(params ...interface{}) bool {
 		return false
 	}
 
-	insta := media.inst
+	insta := media.insta
 	endpoint := media.endpoint
 	if media.uid != 0 {
 		endpoint = fmt.Sprintf(endpoint, media.uid)
@@ -825,7 +870,7 @@ func (media *StoryMedia) Next(params ...interface{}) bool {
 		if err == nil {
 			// TODO check NextID media
 			*media = m
-			media.inst = insta
+			media.insta = insta
 			media.endpoint = endpoint
 			media.err = ErrNoMore // TODO: See if stories has pagination
 			media.setValues()
@@ -838,7 +883,7 @@ func (media *StoryMedia) Next(params ...interface{}) bool {
 
 // FeedMedia represent a set of media items
 type FeedMedia struct {
-	inst *Instagram
+	insta *Instagram
 
 	err error
 
@@ -867,12 +912,12 @@ func (media *FeedMedia) Delete() error {
 }
 
 func (media *FeedMedia) instagram() *Instagram {
-	return media.inst
+	return media.insta
 }
 
 // SetInstagram set instagram
-func (media *FeedMedia) SetInstagram(inst *Instagram) {
-	media.inst = inst
+func (media *FeedMedia) SetInstagram(insta *Instagram) {
+	media.insta = insta
 }
 
 // SetID sets media ID
@@ -884,7 +929,7 @@ func (media *FeedMedia) SetID(id interface{}) {
 // Sync updates media values.
 func (media *FeedMedia) Sync() error {
 	id := media.ID()
-	insta := media.inst
+	insta := media.insta
 
 	data, err := insta.prepareData(
 		map[string]interface{}{
@@ -895,7 +940,7 @@ func (media *FeedMedia) Sync() error {
 		return err
 	}
 
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlMediaInfo, id),
 			Query:    generateSignature(data),
@@ -910,7 +955,7 @@ func (media *FeedMedia) Sync() error {
 	err = json.Unmarshal(body, &m)
 	*media = m
 	media.endpoint = urlMediaInfo
-	media.inst = insta
+	media.insta = insta
 	media.NextID = id
 	media.setValues()
 	return err
@@ -949,7 +994,7 @@ func (media *FeedMedia) Next(params ...interface{}) bool {
 		return false
 	}
 
-	insta := media.inst
+	insta := media.insta
 	endpoint := media.endpoint
 	next := media.ID()
 	ranked := "true"
@@ -970,7 +1015,7 @@ func (media *FeedMedia) Next(params ...interface{}) bool {
 			}
 		}
 	}
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: endpoint,
 			Query: map[string]string{
@@ -988,7 +1033,7 @@ func (media *FeedMedia) Next(params ...interface{}) bool {
 		err = d.Decode(&m)
 		if err == nil {
 			*media = m
-			media.inst = insta
+			media.insta = insta
 			media.endpoint = endpoint
 			if m.NextID == 0 || !m.MoreAvailable {
 				media.err = ErrNoMore
@@ -1008,7 +1053,7 @@ type MediaItem struct {
 
 // SavedMedia stores the information about media being saved before in my account.
 type SavedMedia struct {
-	inst     *Instagram
+	insta    *Instagram
 	endpoint string
 
 	err error
@@ -1031,7 +1076,7 @@ func (media *SavedMedia) Next(params ...interface{}) bool {
 		return false
 	}
 
-	insta := media.inst
+	insta := media.insta
 	endpoint := media.endpoint
 	next := media.ID()
 
@@ -1042,7 +1087,7 @@ func (media *SavedMedia) Next(params ...interface{}) bool {
 		},
 	}
 
-	body, err := insta.sendRequest(opts)
+	body, _, err := insta.sendRequest(opts)
 	if err != nil {
 		media.err = err
 		return false
@@ -1057,7 +1102,7 @@ func (media *SavedMedia) Next(params ...interface{}) bool {
 
 	*media = m
 
-	media.inst = insta
+	media.insta = insta
 	media.endpoint = endpoint
 	media.err = nil
 
@@ -1096,7 +1141,7 @@ func (media *SavedMedia) Delete() error {
 
 // instagram returns the media instagram
 func (media *SavedMedia) instagram() *Instagram {
-	return media.inst
+	return media.insta
 }
 
 // setValues set the SavedMedia items values
@@ -1119,7 +1164,7 @@ func (insta *Instagram) UploadPhoto(photo io.Reader, photoCaption string, qualit
 		return out, err
 	}
 
-	body, err := insta.sendRequest(&reqOptions{
+	body, _, err := insta.sendRequest(&reqOptions{
 		Endpoint: "media/configure/?",
 		Query:    generateSignature(data),
 		IsPost:   true,
@@ -1144,37 +1189,119 @@ func (insta *Instagram) UploadPhoto(photo io.Reader, photoCaption string, qualit
 	return uploadResult.Media, nil
 }
 
-func (insta *Instagram) postPhoto(photo io.Reader, photoCaption string, quality int, filterType int, isSidecar bool) (map[string]interface{}, error) {
+// UploadVideo post video and thumbnail from io.Reader to instagram.
+func (insta *Instagram) UploadVideo(video io.Reader, title string, caption string, thumbnail io.Reader) (Item, error) {
+	out := Item{}
+	config, err := insta.postVideo(video, title, caption, thumbnail)
+	if err != nil {
+		return out, err
+	}
+
+	data, err := insta.prepareData(config)
+	if err != nil {
+		return out, err
+	}
+
+	body, _, err := insta.sendRequest(&reqOptions{
+		Endpoint: "media/configure/?",
+		Query:    generateSignature(data),
+		IsPost:   true,
+	})
+	if err != nil {
+		return out, err
+	}
+
+	var result struct {
+		Media    Item   `json:"media"`
+		UploadID string `json:"upload_id"`
+		Status   string `json:"status"`
+	}
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return out, err
+	}
+	if result.Status != "ok" {
+		return out, fmt.Errorf("unknown error, status: %s", result.Status)
+	}
+
+	return result.Media, nil
+}
+
+func (insta *Instagram) postThumbnail(uploadID int64, name string, thumbnail io.Reader) error {
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(thumbnail)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest("POST", goInstaBaseUrl+"rupload_igphoto/"+name, buf)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-IG-Capabilities", "3Q4=")
+	req.Header.Set("X-IG-Connection-Type", "WIFI")
+	req.Header.Set("Cookie2", "$Version=1")
+	req.Header.Set("Accept-Language", "en-US")
+	req.Header.Set("Content-type", "image/jpeg")
+	req.Header.Set("Connection", "close")
+	req.Header.Set("User-Agent", goInstaUserAgent)
+	req.Header.Set("X-Entity-Name", name)
+	req.Header.Set("X-Entity-Length", strconv.FormatInt(req.ContentLength, 10))
+	req.Header.Set("Offset", "0")
+	ruploadParams := map[string]string{
+		"media_type":          "2",
+		"upload_id":           strconv.FormatInt(uploadID, 10),
+		"upload_media_height": "240",
+		"upload_media_width":  "320",
+	}
+	params, err := json.Marshal(ruploadParams)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-Instagram-Rupload-Params", string(params))
+
+	resp, err := insta.c.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("postThumbnail invalid status code, result: %s with body %s", resp.Status, string(body))
+	}
+	var result struct {
+		UploadID       string      `json:"upload_id"`
+		XsharingNonces interface{} `json:"xsharing_nonces"`
+		Status         string      `json:"status"`
+	}
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return err
+	}
+	if result.Status != "ok" {
+		return fmt.Errorf("unknown error, status: %s", result.Status)
+	}
+
+	return nil
+}
+
+func (insta *Instagram) postVideo(
+	video io.Reader,
+	title string,
+	caption string,
+	thumbnail io.Reader,
+) (map[string]interface{}, error) {
 	uploadID := time.Now().Unix()
-	photoName := fmt.Sprintf("pending_media_%d.jpg", uploadID)
-	var b bytes.Buffer
-	w := multipart.NewWriter(&b)
-	w.WriteField("upload_id", strconv.FormatInt(uploadID, 10))
-	w.WriteField("_uuid", insta.uuid)
-	w.WriteField("_csrftoken", insta.token)
-	var compression = map[string]interface{}{
-		"lib_name":    "jt",
-		"lib_version": "1.3.0",
-		"quality":     quality,
-	}
-	cBytes, _ := json.Marshal(compression)
-	w.WriteField("image_compression", toString(cBytes))
-	if isSidecar {
-		w.WriteField("is_sidecar", toString(1))
-	}
-	fw, err := w.CreateFormFile("photo", photoName)
+	rndNumber := rand.Intn(9999999999-1000000000) + 1000000000
+	name := "igtv_" + strconv.Itoa(rndNumber)
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(video)
 	if err != nil {
 		return nil, err
 	}
-	var buf bytes.Buffer
-	rdr := io.TeeReader(photo, &buf)
-	if _, err = io.Copy(fw, rdr); err != nil {
-		return nil, err
-	}
-	if err := w.Close(); err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequest("POST", goInstaAPIUrl+"upload/photo/", &b)
+	req, err := http.NewRequest("POST", goInstaBaseUrl+"rupload_igvideo/"+name, buf)
 	if err != nil {
 		return nil, err
 	}
@@ -1182,10 +1309,22 @@ func (insta *Instagram) postPhoto(photo io.Reader, photoCaption string, quality 
 	req.Header.Set("X-IG-Connection-Type", "WIFI")
 	req.Header.Set("Cookie2", "$Version=1")
 	req.Header.Set("Accept-Language", "en-US")
-	req.Header.Set("Accept-Encoding", "gzip, deflate")
-	req.Header.Set("Content-type", w.FormDataContentType())
+	req.Header.Set("Content-type", "video/mp4")
 	req.Header.Set("Connection", "close")
 	req.Header.Set("User-Agent", goInstaUserAgent)
+	req.Header.Set("X-Entity-Name", name)
+	req.Header.Set("X-Entity-Length", strconv.FormatInt(req.ContentLength, 10))
+	req.Header.Set("Offset", "0")
+	ruploadParams := map[string]string{
+		"media_type":   "2",
+		"video_format": "video/mp4",
+		"upload_id":    strconv.FormatInt(uploadID, 10),
+	}
+	params, err := json.Marshal(ruploadParams)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("X-Instagram-Rupload-Params", string(params))
 
 	resp, err := insta.c.Do(req)
 	if err != nil {
@@ -1197,7 +1336,7 @@ func (insta *Instagram) postPhoto(photo io.Reader, photoCaption string, quality 
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("invalid status code, result: %s", resp.Status)
+		return nil, fmt.Errorf("postVideo invalid status code, result: %s with body %s", resp.Status, string(body))
 	}
 	var result struct {
 		UploadID       string      `json:"upload_id"`
@@ -1211,15 +1350,103 @@ func (insta *Instagram) postPhoto(photo io.Reader, photoCaption string, quality 
 	if result.Status != "ok" {
 		return nil, fmt.Errorf("unknown error, status: %s", result.Status)
 	}
-	width, height, err := getImageDimensionFromReader(&buf)
+
+	err = insta.postThumbnail(uploadID, name, thumbnail)
 	if err != nil {
 		return nil, err
 	}
+	now := time.Now()
+
+	config := map[string]interface{}{
+		"caption":            caption,
+		"upload_id":          strconv.FormatInt(uploadID, 10),
+		"device_id":          insta.dID,
+		"source_type":        4,
+		"date_time_original": now.Format("2020:51:21 22:51:37"),
+	}
+
+	return config, nil
+}
+
+func (insta *Instagram) postPhoto(
+	photo io.Reader,
+	photoCaption string,
+	quality int,
+	filterType int,
+	isSidecar bool,
+) (map[string]interface{}, error) {
+	uploadID := time.Now().Unix()
+	rndNumber := rand.Intn(9999999999-1000000000) + 1000000000
+	name := strconv.FormatInt(uploadID, 10) + "_0_" + strconv.Itoa(rndNumber)
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(photo)
+	if err != nil {
+		return nil, err
+	}
+	bs := buf.Bytes()
+	req, err := http.NewRequest("POST", goInstaBaseUrl+"rupload_igphoto/"+name, buf)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("X-IG-Capabilities", "3Q4=")
+	req.Header.Set("X-IG-Connection-Type", "WIFI")
+	req.Header.Set("Cookie2", "$Version=1")
+	req.Header.Set("Accept-Language", "en-US")
+	req.Header.Set("Content-type", "application/octet-stream")
+	req.Header.Set("Connection", "close")
+	req.Header.Set("User-Agent", goInstaUserAgent)
+	req.Header.Set("X-Entity-Name", name)
+	ruploadParams := map[string]string{
+		"retry_context":     `{"num_step_auto_retry": 0, "num_reupload": 0, "num_step_manual_retry": 0}`,
+		"media_type":        "1",
+		"upload_id":         strconv.FormatInt(uploadID, 10),
+		"xsharing_user_ids": "[]",
+		"image_compression": `{"lib_name": "moz", "lib_version": "3.1.m", "quality": "80"}`,
+	}
+	params, err := json.Marshal(ruploadParams)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("X-Instagram-Rupload-Params", string(params))
+	req.Header.Set("Offset", "0")
+	req.Header.Set("X-Entity-Length", strconv.FormatInt(req.ContentLength, 10))
+
+	resp, err := insta.c.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("invalid status code, result: %s with body %s", resp.Status, string(body))
+	}
+	var result struct {
+		UploadID       string      `json:"upload_id"`
+		XsharingNonces interface{} `json:"xsharing_nonces"`
+		Status         string      `json:"status"`
+	}
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, err
+	}
+	if result.Status != "ok" {
+		return nil, fmt.Errorf("unknown error, status: %s", result.Status)
+	}
+	width, height, err := getImageDimensionFromReader(bytes.NewReader(bs))
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+
 	config := map[string]interface{}{
 		"media_folder": "Instagram",
 		"source_type":  4,
 		"caption":      photoCaption,
 		"upload_id":    strconv.FormatInt(uploadID, 10),
+		"device_id":    insta.dID,
 		"device":       goInstaDeviceSettings,
 		"edits": map[string]interface{}{
 			"crop_original_size": []int{width * 1.0, height * 1.0},
@@ -1231,12 +1458,25 @@ func (insta *Instagram) postPhoto(photo io.Reader, photoCaption string, quality 
 			"source_width":  width,
 			"source_height": height,
 		},
+		"height":                height,
+		"width":                 width,
+		"camera_model":          goInstaDeviceSettings["model"],
+		"scene_capture_type":    "standard",
+		"timezone_offset":       "3600",
+		"date_time_original":    now.Format("2020:51:21 22:51:37"),
+		"date_time_digitalized": now.Format("2020:51:21 22:51:37"),
+		"software":              "1",
 	}
 	return config, nil
 }
 
 // UploadAlbum post image from io.Reader to instagram.
-func (insta *Instagram) UploadAlbum(photos []io.Reader, photoCaption string, quality int, filterType int) (Item, error) {
+func (insta *Instagram) UploadAlbum(
+	photos []io.Reader,
+	photoCaption string,
+	quality int,
+	filterType int,
+) (Item, error) {
 	out := Item{}
 
 	var childrenMetadata []map[string]interface{}
@@ -1260,7 +1500,7 @@ func (insta *Instagram) UploadAlbum(photos []io.Reader, photoCaption string, qua
 		return out, err
 	}
 
-	body, err := insta.sendRequest(&reqOptions{
+	body, _, err := insta.sendRequest(&reqOptions{
 		Endpoint: "media/configure_sidecar/?",
 		Query:    generateSignature(data),
 		IsPost:   true,

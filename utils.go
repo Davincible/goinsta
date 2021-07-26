@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"image"
 	// Required for getImageDimensionFromReader in jpg and png format
+	"fmt"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
 	"strconv"
+	"time"
 	"unsafe"
 )
 
@@ -78,4 +80,37 @@ func getImageDimensionFromReader(rdr io.Reader) (int, int, error) {
 		return 0, 0, err
 	}
 	return image.Width, image.Height, nil
+}
+
+func getTimeOffset() string {
+	_, offset := time.Now().Zone()
+	return strconv.Itoa(offset)
+}
+
+func Jazoest(str string) string {
+	b := []byte(str)
+	var s int
+	for v := range b {
+		s += v
+	}
+	return "2" + strconv.Itoa(s)
+}
+
+func createUserAgent() string {
+	// Instagram 195.0.0.31.123 Android (28/9; 560dpi; 1440x2698; LGE/lge; LG-H870DS; lucye; lucye; en_GB; 302733750)
+	// Instagram 195.0.0.31.123 Android (28/9; 560dpi; 1440x2872; Genymotion/Android; Samsung Galaxy S10; vbox86p; vbox86; en_US; 302733773)  # version_code: 302733773
+	// Instagram 195.0.0.31.123 Android (30/11; 560dpi; 1440x2898; samsung; SM-G975F; beyond2; exynos9820; en_US; 302733750)
+	return fmt.Sprintf("Instagram %s Android (%d/%s; %s; %s; %s; %s; %s; %s; %s; %s)",
+		appVersion,
+		goInstaDeviceSettings["android_version"],
+		goInstaDeviceSettings["android_release"],
+		goInstaDeviceSettings["screen_dpi"],
+		goInstaDeviceSettings["screen_resolution"],
+		goInstaDeviceSettings["manufacturer"],
+		goInstaDeviceSettings["model"],
+		goInstaDeviceSettings["code_name"],
+		goInstaDeviceSettings["chipset"],
+		locale,
+		appVersionCode,
+	)
 }

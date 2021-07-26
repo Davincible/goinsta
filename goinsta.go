@@ -3,6 +3,8 @@ package goinsta
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -35,11 +37,13 @@ type Instagram struct {
 	pass string
 	// device id: android-1923fjnma8123
 	dID string
+	// family device id: 71cd1aec-e146-4380-8d60-d216127c7b4e
+	fID string
 	// uuid: 8493-1233-4312312-5123
 	uuid string
 	// rankToken
 	rankToken string
-	// token
+	// token -- I think this is depricated, as I don't see any csrf tokens being used anymore, but not 100% sure
 	token string
 	// phone id
 	pid string
@@ -47,6 +51,12 @@ type Instagram struct {
 	adid string
 	// challenge URL
 	challengeURL string
+	// pigeonSessionId
+	psID string
+	// contains header options set by Instagram
+	headerOptions map[string]string
+	// expiry of X-Mid cookie
+	xmidExpiry int64
 
 	// Instagram objects
 
@@ -77,42 +87,42 @@ type Instagram struct {
 // SetHTTPClient sets http client.  This further allows users to use this functionality
 // for HTTP testing using a mocking HTTP client Transport, which avoids direct calls to
 // the Instagram, instead of returning mocked responses.
-func (inst *Instagram) SetHTTPClient(client *http.Client) {
-	inst.c = client
+func (insta *Instagram) SetHTTPClient(client *http.Client) {
+	insta.c = client
 }
 
 // SetHTTPTransport sets http transport. This further allows users to tweak the underlying
 // low level transport for adding additional fucntionalities.
-func (inst *Instagram) SetHTTPTransport(transport http.RoundTripper) {
-	inst.c.Transport = transport
+func (insta *Instagram) SetHTTPTransport(transport http.RoundTripper) {
+	insta.c.Transport = transport
 }
 
 // SetDeviceID sets device id
-func (inst *Instagram) SetDeviceID(id string) {
-	inst.dID = id
+func (insta *Instagram) SetDeviceID(id string) {
+	insta.dID = id
 }
 
 // SetUUID sets uuid
-func (inst *Instagram) SetUUID(uuid string) {
-	inst.uuid = uuid
+func (insta *Instagram) SetUUID(uuid string) {
+	insta.uuid = uuid
 }
 
 // SetPhoneID sets phone id
-func (inst *Instagram) SetPhoneID(id string) {
-	inst.pid = id
+func (insta *Instagram) SetPhoneID(id string) {
+	insta.pid = id
 }
 
 // SetCookieJar sets the Cookie Jar. This further allows to use a custom implementation
 // of a cookie jar which may be backed by a different data store such as redis.
-func (inst *Instagram) SetCookieJar(jar http.CookieJar) error {
+func (insta *Instagram) SetCookieJar(jar http.CookieJar) error {
 	url, err := neturl.Parse(goInstaAPIUrl)
 	if err != nil {
 		return err
 	}
 	// First grab the cookies from the existing jar and we'll put it in the new jar.
-	cookies := inst.c.Jar.Cookies(url)
-	inst.c.Jar = jar
-	inst.c.Jar.SetCookies(url, cookies)
+	cookies := insta.c.Jar.Cookies(url)
+	insta.c.Jar = jar
+	insta.c.Jar.SetCookies(url, cookies)
 	return nil
 }
 
@@ -120,14 +130,18 @@ func (inst *Instagram) SetCookieJar(jar http.CookieJar) error {
 func New(username, password string) *Instagram {
 	// this call never returns error
 	jar, _ := cookiejar.New(nil)
-	inst := &Instagram{
+	insta := &Instagram{
 		user: username,
 		pass: password,
 		dID: generateDeviceID(
 			generateMD5Hash(username + password),
 		),
-		uuid: generateUUID(), // both uuid must be differents
-		pid:  generateUUID(),
+		uuid:          generateUUID(), // both uuid must be differents
+		pid:           generateUUID(),
+		fID:           generateUUID(),
+		psID:          "UFS-" + generateUUID() + "-0",
+		headerOptions: map[string]string{"X-Ig-Www-Claim": "0"},
+		xmidExpiry:    -1,
 		c: &http.Client{
 			Transport: &http.Transport{
 				Proxy: http.ProxyFromEnvironment,
@@ -135,29 +149,30 @@ func New(username, password string) *Instagram {
 			Jar: jar,
 		},
 	}
-	inst.init()
+	insta.init()
 
-	return inst
+	return insta
 }
 
-func (inst *Instagram) init() {
-	inst.Challenge = newChallenge(inst)
-	inst.Profiles = newProfiles(inst)
-	inst.Activity = newActivity(inst)
-	inst.Timeline = newTimeline(inst)
-	inst.Search = newSearch(inst)
-	inst.Inbox = newInbox(inst)
-	inst.Feed = newFeed(inst)
-	inst.Contacts = newContacts(inst)
-	inst.Locations = newLocation(inst)
+func (insta *Instagram) init() {
+	insta.Challenge = newChallenge(insta)
+	insta.Profiles = newProfiles(insta)
+	insta.Activity = newActivity(insta)
+	insta.Timeline = newTimeline(insta)
+	insta.Search = newSearch(insta)
+	insta.Inbox = newInbox(insta)
+	insta.Feed = newFeed(insta)
+	insta.Contacts = newContacts(insta)
+	insta.Locations = newLocation(insta)
 }
 
 // SetProxy sets proxy for connection.
-func (inst *Instagram) SetProxy(url string, insecure bool) error {
+func (insta *Instagram) SetProxy(url string, insecure bool, forceHTTP2 bool) error {
 	uri, err := neturl.Parse(url)
 	if err == nil {
-		inst.c.Transport = &http.Transport{
-			Proxy: http.ProxyURL(uri),
+		insta.c.Transport = &http.Transport{
+			Proxy:             http.ProxyURL(uri),
+			ForceAttemptHTTP2: forceHTTP2,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: insecure,
 			},
@@ -167,60 +182,66 @@ func (inst *Instagram) SetProxy(url string, insecure bool) error {
 }
 
 // UnsetProxy unsets proxy for connection.
-func (inst *Instagram) UnsetProxy() {
-	inst.c.Transport = nil
+func (insta *Instagram) UnsetProxy() {
+	insta.c.Transport = nil
 }
 
 // Save exports config to ~/.goinsta
-func (inst *Instagram) Save() error {
+func (insta *Instagram) Save() error {
 	home := os.Getenv("HOME")
 	if home == "" {
 		home = os.Getenv("home") // for plan9
 	}
-	return inst.Export(filepath.Join(home, ".goinsta"))
+	return insta.Export(filepath.Join(home, ".goinsta"))
 }
 
 // Export exports *Instagram object options
-func (inst *Instagram) Export(path string) error {
+func (insta *Instagram) Export(path string) error {
 	url, err := neturl.Parse(goInstaAPIUrl)
 	if err != nil {
 		return err
 	}
 
 	config := ConfigFile{
-		ID:        inst.Account.ID,
-		User:      inst.user,
-		DeviceID:  inst.dID,
-		UUID:      inst.uuid,
-		RankToken: inst.rankToken,
-		Token:     inst.token,
-		PhoneID:   inst.pid,
-		Cookies:   inst.c.Jar.Cookies(url),
+		ID:            insta.Account.ID,
+		User:          insta.user,
+		DeviceID:      insta.dID,
+		FamilyID:      insta.fID,
+		UUID:          insta.uuid,
+		RankToken:     insta.rankToken,
+		Token:         insta.token,
+		PhoneID:       insta.pid,
+		XmidExpiry:    insta.xmidExpiry,
+		HeaderOptions: insta.headerOptions,
+		Cookies:       insta.c.Jar.Cookies(url),
 	}
 	bytes, err := json.Marshal(config)
 	if err != nil {
 		return err
 	}
 
-	return ioutil.WriteFile(path, bytes, 0644)
+	return ioutil.WriteFile(path, bytes, 0o644)
 }
 
 // Export exports selected *Instagram object options to an io.Writer
-func Export(inst *Instagram, writer io.Writer) error {
+func Export(insta *Instagram, writer io.Writer) error {
 	url, err := neturl.Parse(goInstaAPIUrl)
 	if err != nil {
 		return err
 	}
 
 	config := ConfigFile{
-		ID:        inst.Account.ID,
-		User:      inst.user,
-		DeviceID:  inst.dID,
-		UUID:      inst.uuid,
-		RankToken: inst.rankToken,
-		Token:     inst.token,
-		PhoneID:   inst.pid,
-		Cookies:   inst.c.Jar.Cookies(url),
+		ID:            insta.Account.ID,
+		User:          insta.user,
+		DeviceID:      insta.dID,
+		FamilyID:      insta.fID,
+		UUID:          insta.uuid,
+		RankToken:     insta.rankToken,
+		Token:         insta.token,
+		PhoneID:       insta.pid,
+		XmidExpiry:    insta.xmidExpiry,
+		HeaderOptions: insta.headerOptions,
+		Cookies:       insta.c.Jar.Cookies(url),
 	}
 	bytes, err := json.Marshal(config)
 	if err != nil {
@@ -251,35 +272,38 @@ func ImportReader(r io.Reader) (*Instagram, error) {
 //
 // This function does not set proxy automatically. Use SetProxy after this call.
 func ImportConfig(config ConfigFile) (*Instagram, error) {
-	url, err := neturl.Parse(goInstaAPIUrl)
+	url, err := neturl.Parse(goInstaBaseUrl)
 	if err != nil {
 		return nil, err
 	}
 
-	inst := &Instagram{
-		user:      config.User,
-		dID:       config.DeviceID,
-		uuid:      config.UUID,
-		rankToken: config.RankToken,
-		token:     config.Token,
-		pid:       config.PhoneID,
+	insta := &Instagram{
+		user:          config.User,
+		dID:           config.DeviceID,
+		fID:           config.FamilyID,
+		uuid:          config.UUID,
+		rankToken:     config.RankToken,
+		token:         config.Token,
+		pid:           config.PhoneID,
+		xmidExpiry:    config.XmidExpiry,
+		headerOptions: config.HeaderOptions,
 		c: &http.Client{
 			Transport: &http.Transport{
 				Proxy: http.ProxyFromEnvironment,
 			},
 		},
 	}
-	inst.c.Jar, err = cookiejar.New(nil)
+	insta.c.Jar, err = cookiejar.New(nil)
 	if err != nil {
-		return inst, err
+		return insta, err
 	}
-	inst.c.Jar.SetCookies(url, config.Cookies)
+	insta.c.Jar.SetCookies(url, config.Cookies)
 
-	inst.init()
-	inst.Account = &Account{inst: inst, ID: config.ID}
-	inst.Account.Sync()
+	insta.init()
+	insta.Account = &Account{insta: insta, ID: config.ID}
+	insta.Account.Sync()
 
-	return inst, nil
+	return insta, nil
 }
 
 // Import imports instagram configuration
@@ -294,170 +318,293 @@ func Import(path string) (*Instagram, error) {
 	return ImportReader(f)
 }
 
-func (inst *Instagram) readMsisdnHeader() error {
-	data, err := json.Marshal(
-		map[string]string{
-			"device_id": inst.uuid,
+// Login performs instagram login sequence in close resemblance to the android apk.
+//
+// Password will be deleted after login
+func (insta *Instagram) Login() (err error) {
+	err = insta.zrToken()
+	if err != nil {
+		return
+	}
+	_, _, err = insta.sync()
+	if err != nil {
+		return
+	}
+
+	err = insta.getPrefill()
+	if err != nil {
+		return
+	}
+
+	err = insta.contactPrefill()
+	if err != nil {
+		return
+	}
+
+	pkey, pkeyID, err := insta.sync()
+	if err != nil {
+		return
+	}
+	if pkey == "" || pkeyID == 0 {
+		return errors.New("Sync returned empty public key and/or public key id")
+	}
+
+	timestamp := strconv.Itoa(int(time.Now().Unix()))
+	encrypted, err := EncryptPassword(insta.pass, pkey, pkeyID, timestamp)
+	if err != nil {
+		return
+	}
+
+	result, err := json.Marshal(
+		map[string]interface{}{
+			"jazoest":      Jazoest(insta.dID),
+			"country_code": "[{\"country_code\":\"44\",\"source\":[\"default\"]}]",
+			"phone_id":     insta.fID,
+			"enc_password": fmt.Sprintf(
+				"#PWD_INSTAGRAM:4:%s:%s",
+				timestamp,
+				encrypted,
+			),
+			"username":            insta.user,
+			"adid":                insta.adid,
+			"guid":                insta.uuid,
+			"device_id":           insta.dID,
+			"google_tokens":       "[]",
+			"login_attempt_count": 0,
+		},
+	)
+	if err != nil {
+		return
+	}
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlLogin,
+			Query:    map[string]string{"signed_body": "SIGNATURE." + string(result)},
+			IsPost:   true,
 		},
 	)
 	if err != nil {
 		return err
 	}
-	_, err = inst.sendRequest(
-		&reqOptions{
-			Endpoint:   urlMsisdnHeader,
-			IsPost:     true,
-			Connection: "keep-alive",
-			Query:      generateSignature(b2s(data)),
-		},
-	)
+	insta.pass = ""
+
+	res := accountResp{}
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		return
+	}
+
+	insta.Account = &res.Account
+	insta.Account.insta = insta
+	insta.rankToken = strconv.FormatInt(insta.Account.ID, 10) + "_" + insta.uuid
+
+	err = insta.zrToken()
+	if err != nil {
+		return
+	}
+
+	err = insta.getAccountFamily()
+	if err != nil {
+		return
+	}
+	_, _, err = insta.syncb()
+	if err != nil {
+		return
+	}
+
+	err = insta.getNdxSteps()
+	if err != nil {
+		return
+	}
+
+	if !insta.Timeline.Next() {
+		return errors.New("Failed to fetch timeline during login procedure: " +
+			insta.Timeline.err.Error())
+	}
+
+	err = insta.callNotifBadge()
+	if err != nil {
+		return
+	}
+
+	err = insta.banyan()
+	if err != nil {
+		return
+	}
+
+	err = insta.callMediaBlocked()
+	if err != nil {
+		return
+	}
+
+	// no clue what theses values could be used for
+	_, err = insta.getCooldowns()
+	if err != nil {
+		return
+	}
+
+	// Missing call to /api/v1/discover/topical_explore
+
+	err = insta.getConfig()
+	if err != nil {
+		return
+	}
+
+	// no clue what theses values could be used for
+	_, err = insta.getScoresBootstrapUsers()
+	if err != nil {
+		return
+	}
+
+	if !insta.Activity.Next() {
+		return errors.New("Failed to fetch recent activity: " +
+			insta.Activity.err.Error())
+	}
+
+	err = insta.sendAdID()
+	if err != nil {
+		return
+	}
+
+	err = insta.callStClPushPerm()
+	if err != nil {
+		return
+	}
+
+	if !insta.Inbox.initialSnapshot() {
+		return errors.New("Failed to fetch initial messages inbox snapshot: " +
+			insta.Inbox.err.Error())
+	}
+
+	err = insta.callContPointSig()
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+// Logout closes current session
+func (insta *Instagram) Logout() error {
+	_, err := insta.sendSimpleRequest(urlLogout)
+	insta.c.Jar = nil
+	insta.c = nil
 	return err
 }
 
-func (inst *Instagram) contactPrefill() error {
+func (insta *Instagram) getPrefill() error {
 	data, err := json.Marshal(
 		map[string]string{
-			"phone_id":   inst.pid,
-			"_csrftoken": inst.token,
-			"usage":      "prefill",
+			"android_device_id": insta.dID,
+			"phone_id":          insta.fID,
+			"usages":            "[\"account_recovery_omnibox\"]",
+			"device_id":         insta.uuid,
 		},
 	)
 	if err != nil {
 		return err
 	}
-	_, err = inst.sendRequest(
+
+	// ignore the error returned by the request, because 429 if often returned
+	insta.sendRequest(
 		&reqOptions{
-			Endpoint:   urlContactPrefill,
-			IsPost:     true,
-			Connection: "keep-alive",
-			Query:      generateSignature(b2s(data)),
+			Endpoint: urlGetPrefill,
+			IsPost:   true,
+			Query:    map[string]string{"signed_body": "SIGNATURE." + string(data)},
 		},
 	)
-	return err
+	return nil
 }
 
-func (inst *Instagram) zrToken() error {
-	_, err := inst.sendRequest(
+func (insta *Instagram) contactPrefill() error {
+	data, err := json.Marshal(
+		map[string]string{
+			"phone_id": insta.fID,
+			"usage":    "prefill",
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	// ignore the error returned by the request, because 429 if often returned
+	insta.sendRequest(
 		&reqOptions{
-			Endpoint:   urlZrToken,
-			IsPost:     false,
-			Connection: "keep-alive",
+			Endpoint: urlContactPrefill,
+			IsPost:   true,
+			Query:    map[string]string{"signed_body": "SIGNATURE." + string(data)},
+		},
+	)
+	return nil
+}
+
+func (insta *Instagram) zrToken() error {
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlZrToken,
+			IsPost:   false,
 			Query: map[string]string{
-				"device_id":        inst.dID,
+				"device_id":        insta.dID,
 				"token_hash":       "",
-				"custom_device_id": inst.uuid,
+				"custom_device_id": insta.uuid,
 				"fetch_reason":     "token_expired",
+			},
+			IgnoreHeaders: []string{
+				"X-Pigeon-Session-Id",
+				"X-Pigeon-Rawclienttime",
+				"X-Ig-App-Locale",
+				"X-Ig-Device-Locale",
+				"X-Ig-Mapped-Locale",
+				"X-Ig-App-Startup-Country",
+			},
+		},
+	)
+
+	var res map[string]interface{}
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		return err
+	}
+
+	// Get the expiry time of the token
+	token := res["token"].(map[string]interface{})
+	ttl := token["ttl"].(float64)
+	t := token["request_time"].(float64)
+	insta.xmidExpiry = int64(t + ttl)
+
+	return err
+}
+
+func (insta *Instagram) sendAdID() error {
+	_, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlLogAttribution,
+			IsPost:   true,
+			Query:    map[string]string{"signed_body": "SIGNATURE.{}"},
+		},
+	)
+	return err
+}
+
+func (insta *Instagram) callStClPushPerm() error {
+	_, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlStoreClientPushPermissions,
+			IsPost:   true,
+			Query: map[string]string{
+				"enabled":   "true",
+				"device_id": insta.uuid,
+				"_uuid":     insta.uuid,
 			},
 		},
 	)
 	return err
 }
 
-func (inst *Instagram) sendAdID() error {
-	data, err := inst.prepareData(
+func (insta *Instagram) syncFeatures() error {
+	data, err := insta.prepareData(
 		map[string]interface{}{
-			"adid": inst.adid,
-		},
-	)
-	if err != nil {
-		return err
-	}
-	_, err = inst.sendRequest(
-		&reqOptions{
-			Endpoint:   urlLogAttribution,
-			IsPost:     true,
-			Connection: "keep-alive",
-			Query:      generateSignature(data),
-		},
-	)
-	return err
-}
-
-// Login performs instagram login.
-//
-// Password will be deleted after login
-func (inst *Instagram) Login() error {
-	err := inst.readMsisdnHeader()
-	if err != nil {
-		return err
-	}
-
-	err = inst.syncFeatures()
-	if err != nil {
-		return err
-	}
-
-	err = inst.zrToken()
-	if err != nil {
-		return err
-	}
-
-	err = inst.sendAdID()
-	if err != nil {
-		return err
-	}
-
-	err = inst.contactPrefill()
-	if err != nil {
-		return err
-	}
-
-	result, err := json.Marshal(
-		map[string]interface{}{
-			"guid":                inst.uuid,
-			"login_attempt_count": 0,
-			"_csrftoken":          inst.token,
-			"device_id":           inst.dID,
-			"adid":                inst.adid,
-			"phone_id":            inst.pid,
-			"username":            inst.user,
-			"password":            inst.pass,
-			"google_tokens":       "[]",
-		},
-	)
-	if err != nil {
-		return err
-	}
-	body, err := inst.sendRequest(
-		&reqOptions{
-			Endpoint: urlLogin,
-			Query:    generateSignature(b2s(result)),
-			IsPost:   true,
-			Login:    true,
-		},
-	)
-	if err != nil {
-		return err
-	}
-	inst.pass = ""
-
-	// getting account data
-	res := accountResp{}
-	err = json.Unmarshal(body, &res)
-	if err != nil {
-		return err
-	}
-
-	inst.Account = &res.Account
-	inst.Account.inst = inst
-	inst.rankToken = strconv.FormatInt(inst.Account.ID, 10) + "_" + inst.uuid
-	inst.zrToken()
-
-	return err
-}
-
-// Logout closes current session
-func (inst *Instagram) Logout() error {
-	_, err := inst.sendSimpleRequest(urlLogout)
-	inst.c.Jar = nil
-	inst.c = nil
-	return err
-}
-
-func (inst *Instagram) syncFeatures() error {
-	data, err := inst.prepareData(
-		map[string]interface{}{
-			"id":          inst.uuid,
+			"id":          insta.uuid,
 			"experiments": goInstaExperiments,
 		},
 	)
@@ -465,46 +612,240 @@ func (inst *Instagram) syncFeatures() error {
 		return err
 	}
 
-	_, err = inst.sendRequest(
+	_, _, err = insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlQeSync,
 			Query:    generateSignature(data),
 			IsPost:   true,
-			Login:    true,
 		},
 	)
 	return err
 }
 
-func (inst *Instagram) megaphoneLog() error {
-	data, err := inst.prepareData(
+func (insta *Instagram) sync() (string, int, error) {
+	data, err := json.Marshal(
 		map[string]interface{}{
-			"id":        inst.Account.ID,
-			"type":      "feed_aysf",
-			"action":    "seen",
-			"reason":    "",
-			"device_id": inst.dID,
-			"uuid":      generateMD5Hash(string(time.Now().Unix())),
+			"id":                      insta.uuid,
+			"server_config_retrieval": 1,
 		},
 	)
 	if err != nil {
-		return err
+		return "", -1, err
 	}
-	_, err = inst.sendRequest(
+
+	_, h, err := insta.sendRequest(
 		&reqOptions{
-			Endpoint: urlMegaphoneLog,
-			Query:    generateSignature(data),
+			Endpoint: urlSync,
+			Query:    map[string]string{"signed_body": "SIGNATURE." + string(data)},
 			IsPost:   true,
-			Login:    true,
+			IgnoreHeaders: []string{
+				"Authorization",
+			},
+		},
+	)
+
+	hkey := h["Ig-Set-Password-Encryption-Pub-Key"]
+	hkeyID := h["Ig-Set-Password-Encryption-Key-Id"]
+	var key string
+	var keyID string
+	if len(hkey) > 0 && len(hkeyID) > 0 && hkey[0] != "" && hkeyID[0] != "" {
+		key = hkey[0]
+		keyID = hkeyID[0]
+	}
+
+	id, err := strconv.Atoi(keyID)
+	if err != nil {
+		return "", -1, err
+	}
+
+	return key, id, err
+}
+
+// syncb calls b.i.instagram.com, with auth data after login
+func (insta *Instagram) syncb() (string, int, error) {
+	data, err := json.Marshal(
+		map[string]interface{}{
+			"id":                      insta.Account.ID,
+			"_id":                     insta.Account.ID,
+			"_uuid":                   insta.uuid,
+			"server_config_retrieval": 1,
+		},
+	)
+	if err != nil {
+		return "", -1, err
+	}
+
+	_, h, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlSync,
+			Query:    map[string]string{"signed_body": "SIGNATURE." + string(data)},
+			IsPost:   true,
+			Useb:     true,
+			IgnoreHeaders: []string{
+				"X-Pigeon-Session-Id",
+				"X-Pigeon-Rawclienttime",
+			},
+		},
+	)
+
+	hkey := h["Ig-Set-Password-Encryption-Pub-Key"]
+	hkeyID := h["Ig-Set-Password-Encryption-Key-Id"]
+	var key string
+	var keyID string
+	if len(hkey) > 0 && len(hkeyID) > 0 && hkey[0] != "" && hkeyID[0] != "" {
+		key = hkey[0]
+		keyID = hkeyID[0]
+	}
+
+	id, err := strconv.Atoi(keyID)
+	if err != nil {
+		return "", -1, err
+	}
+
+	return key, id, err
+}
+
+func (insta *Instagram) getAccountFamily() error {
+	_, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlGetAccFamily,
 		},
 	)
 	return err
 }
 
-func (inst *Instagram) expose() error {
-	data, err := inst.prepareData(
+func (insta *Instagram) getNdxSteps() error {
+	_, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlGetNdxSteps,
+		},
+	)
+	return err
+}
+
+func (insta *Instagram) banyan() error {
+	// TODO: process body, and put the data in a struct
+	_, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlBanyan,
+			Query: map[string]string{
+				"views": `["story_share_sheet","direct_user_search_nullstate","forwarding_recipient_sheet","threads_people_picker","direct_inbox_active_now","group_stories_share_sheet","call_recipients","reshare_share_sheet","direct_user_search_keypressed"]`,
+			},
+		},
+	)
+	return err
+}
+
+func (insta *Instagram) callNotifBadge() error {
+	_, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlNotifBadge,
+			IsPost:   true,
+			Query: map[string]string{
+				"phone_id":  insta.fID,
+				"user_ids":  strconv.Itoa(int(insta.Account.ID)),
+				"device_id": insta.uuid,
+				"_uuid":     insta.uuid,
+			},
+		},
+	)
+	return err
+}
+
+func (insta *Instagram) callContPointSig() error {
+	query := map[string]string{
+		"phone_id":      insta.fID,
+		"_uid":          strconv.Itoa(int(insta.Account.ID)),
+		"device_id":     insta.uuid,
+		"_uuid":         insta.uuid,
+		"google_tokens": "[]",
+	}
+	b, err := json.Marshal(query)
+	if err != nil {
+		return err
+	}
+	_, _, err = insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlProcessContactPointSignals,
+			IsPost:   true,
+			Query:    map[string]string{"signed_body": "SIGNATURE." + string(b)},
+		},
+	)
+	return err
+}
+
+func (insta *Instagram) callMediaBlocked() error {
+	_, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlMediaBlocked,
+		},
+	)
+	return err
+}
+
+func (insta *Instagram) getCooldowns() (*Cooldowns, error) {
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlCooldowns,
+			Query: map[string]string{
+				"signed_body": "SIGNATURE.{}",
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// No clue what to use these values for
+	temp := Cooldowns{}
+	err = json.Unmarshal(body, &temp)
+	if err != nil {
+		return nil, err
+	}
+	return &temp, nil
+}
+
+func (insta *Instagram) getScoresBootstrapUsers() (*ScoresBootstrapUsers, error) {
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlCooldowns,
+			Query: map[string]string{
+				"surfaces": `["autocomplete_user_list","coefficient_besties_list_ranking","coefficient_rank_recipient_user_suggestion","coefficient_ios_section_test_bootstrap_ranking","coefficient_direct_recipients_ranking_variant_2"]`,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// No clue what to use these values for
+	s := ScoresBootstrapUsers{}
+	err = json.Unmarshal(body, &s)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, u := range s.Users {
+		u.insta = insta
+	}
+	return &s, nil
+}
+
+func (insta *Instagram) getConfig() error {
+	// returns a bunch of values with single letter labels
+	// see unparsedResp/loom_fetch_config/*.json for examples
+	_, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlFetchConfig,
+		},
+	)
+	return err
+}
+
+func (insta *Instagram) expose() error {
+	data, err := insta.prepareData(
 		map[string]interface{}{
-			"id":         inst.Account.ID,
+			"id":         insta.Account.ID,
 			"experiment": "ig_android_profile_contextual_feed",
 		},
 	)
@@ -512,7 +853,7 @@ func (inst *Instagram) expose() error {
 		return err
 	}
 
-	_, err = inst.sendRequest(
+	_, _, err = insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlExpose,
 			Query:    generateSignature(data),
@@ -528,9 +869,9 @@ func (inst *Instagram) expose() error {
 // The argument can be int64 or string
 //
 // See example: examples/media/like.go
-func (inst *Instagram) GetMedia(o interface{}) (*FeedMedia, error) {
+func (insta *Instagram) GetMedia(o interface{}) (*FeedMedia, error) {
 	media := &FeedMedia{
-		inst:   inst,
+		insta:  insta,
 		NextID: o,
 	}
 	return media, media.Sync()

@@ -6,7 +6,7 @@ import (
 )
 
 type Contacts struct {
-	inst *Instagram
+	insta *Instagram
 }
 
 type Contact struct {
@@ -32,22 +32,21 @@ type SyncAnswer struct {
 	Status  string `json:"status"`
 }
 
-func newContacts(inst *Instagram) *Contacts {
-	return &Contacts{inst: inst}
+func newContacts(insta *Instagram) *Contacts {
+	return &Contacts{insta: insta}
 }
 
 func (c *Contacts) SyncContacts(contacts *[]Contact) (*SyncAnswer, error) {
 	acquireContacts := &reqOptions{
 		Endpoint: "address_book/acquire_owner_contacts/",
 		IsPost:   true,
-		Login:    true,
 		UseV2:    false,
 		Query: map[string]string{
-			"phone_id": c.inst.pid,
+			"phone_id": c.insta.pid,
 			"me":       `{"phone_numbers":[],"email_addresses":[]}`,
 		},
 	}
-	body, err := c.inst.sendRequest(acquireContacts)
+	body, _, err := c.insta.sendRequest(acquireContacts)
 	if err != nil {
 		return nil, err
 	}
@@ -60,16 +59,14 @@ func (c *Contacts) SyncContacts(contacts *[]Contact) (*SyncAnswer, error) {
 	syncContacts := &reqOptions{
 		Endpoint: `address_book/link/`,
 		IsPost:   true,
-		Login:    true,
-		UseV2:    false,
 		Query: map[string]string{
-			"_uuid":      c.inst.uuid,
-			"_csrftoken": c.inst.token,
+			"_uuid":      c.insta.uuid,
+			"_csrftoken": c.insta.token,
 			"contacts":   string(byteContacts),
 		},
 	}
 
-	body, err = c.inst.sendRequest(syncContacts)
+	body, _, err = c.insta.sendRequest(syncContacts)
 	if err != nil {
 		return nil, err
 	}
@@ -81,9 +78,9 @@ func (c *Contacts) SyncContacts(contacts *[]Contact) (*SyncAnswer, error) {
 
 func (c *Contacts) UnlinkContacts() error {
 	toSign := map[string]string{
-		"_csrftoken": c.inst.token,
-		"_uid":       strconv.Itoa(int(c.inst.Account.ID)),
-		"_uuid":      c.inst.uuid,
+		"_csrftoken": c.insta.token,
+		"_uid":       strconv.Itoa(int(c.insta.Account.ID)),
+		"_uuid":      c.insta.uuid,
 	}
 
 	bytesS, _ := json.Marshal(toSign)
@@ -91,12 +88,10 @@ func (c *Contacts) UnlinkContacts() error {
 	unlinkBody := &reqOptions{
 		Endpoint: "address_book/unlink/",
 		IsPost:   true,
-		Login:    true,
-		UseV2:    false,
 		Query:    generateSignature(string(bytesS)),
 	}
 
-	_, err := c.inst.sendRequest(unlinkBody)
+	_, _, err := c.insta.sendRequest(unlinkBody)
 	if err != nil {
 		return err
 	}

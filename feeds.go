@@ -7,20 +7,20 @@ import (
 
 // Feed is the object for all feed endpoints.
 type Feed struct {
-	inst *Instagram
+	insta *Instagram
 }
 
 // newFeed creates new Feed structure
-func newFeed(inst *Instagram) *Feed {
+func newFeed(insta *Instagram) *Feed {
 	return &Feed{
-		inst: inst,
+		insta: insta,
 	}
 }
 
 // Feed search by locationID
 func (feed *Feed) LocationID(locationID int64) (*FeedLocation, error) {
-	insta := feed.inst
-	body, err := insta.sendRequest(
+	insta := feed.insta
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlFeedLocationID, locationID),
 			Query: map[string]string{
@@ -55,8 +55,8 @@ type FeedLocation struct {
 //
 // (sorry for returning FeedTag. See #FeedTag)
 func (feed *Feed) Tags(tag string) (*FeedTag, error) {
-	insta := feed.inst
-	body, err := insta.sendRequest(
+	insta := feed.insta
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlFeedTag, tag),
 			Query: map[string]string{
@@ -74,7 +74,7 @@ func (feed *Feed) Tags(tag string) (*FeedTag, error) {
 		return nil, err
 	}
 	res.name = tag
-	res.inst = feed.inst
+	res.insta = feed.insta
 	res.setValues()
 
 	return res, nil
@@ -82,8 +82,8 @@ func (feed *Feed) Tags(tag string) (*FeedTag, error) {
 
 // FeedTag is the struct that fits the structure returned by instagram on TagSearch.
 type FeedTag struct {
-	inst *Instagram
-	err  error
+	insta *Instagram
+	err   error
 
 	name string
 
@@ -100,14 +100,14 @@ type FeedTag struct {
 func (ft *FeedTag) setValues() {
 	for i := range ft.RankedItems {
 		ft.RankedItems[i].media = &FeedMedia{
-			inst:   ft.inst,
+			insta:  ft.insta,
 			NextID: ft.RankedItems[i].ID,
 		}
 	}
 
 	for i := range ft.Images {
 		ft.Images[i].media = &FeedMedia{
-			inst:   ft.inst,
+			insta:  ft.insta,
 			NextID: ft.Images[i].ID,
 		}
 	}
@@ -119,9 +119,9 @@ func (ft *FeedTag) Next() bool {
 		return false
 	}
 
-	insta := ft.inst
+	insta := ft.insta
 	name := ft.name
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Query: map[string]string{
 				"max_id":     ft.NextID,
@@ -135,7 +135,7 @@ func (ft *FeedTag) Next() bool {
 		err = json.Unmarshal(body, newFT)
 		if err == nil {
 			*ft = *newFT
-			ft.inst = insta
+			ft.insta = insta
 			ft.name = name
 			if !ft.MoreAvailable {
 				ft.err = ErrNoMore
@@ -148,7 +148,7 @@ func (ft *FeedTag) Next() bool {
 	return false
 }
 
-//Error returns hashtag error
+// Error returns hashtag error
 func (ft *FeedTag) Error() error {
 	return ft.err
 }

@@ -2,103 +2,20 @@ package goinsta
 
 import (
 	"encoding/json"
-	"strconv"
+	"fmt"
 )
 
-// Activity is the activity of your instagram account
-//
-// You can get Recent and Following activities.
-type Activity struct {
-	inst *Instagram
-}
-
-//FollowingActivity is the latest activity of the people you are following
-type FollowingActivity struct {
-	inst *Instagram
-	err  error
-
-	AutoLoadMoreEnabled bool  `json:"auto_load_more_enabled"`
-	NextID              int64 `json:"next_max_id"`
-	Stories             []struct {
-		Type      int `json:"type"`
-		StoryType int `json:"story_type"`
-		Args      struct {
-			MediaDestination string `json:"media_destination"`
-			Destination      string `json:"destination"`
-			Text             string `json:"text"`
-			Links            []struct {
-				Start int    `json:"start"`
-				End   int    `json:"end"`
-				Type  string `json:"type"`
-				ID    string `json:"id"`
-			} `json:"links"`
-			ProfileID               int64  `json:"profile_id"`
-			ProfileImage            string `json:"profile_image"`
-			SecondProfileID         int64  `json:"second_profile_id"`
-			SecondProfileImage      string `json:"second_profile_image"`
-			ProfileImageDestination string `json:"profile_image_destination"`
-			Media                   []struct {
-				ID    string `json:"id"`
-				Image string `json:"image"`
-			} `json:"media"`
-			Timestamp int64  `json:"timestamp"`
-			Tuuid     string `json:"tuuid"`
-		} `json:"args"`
-		Counts struct {
-		} `json:"counts"`
-		Pk string `json:"pk"`
-	} `json:"stories"`
-	Status string `json:"status"`
-}
-
-func (act *FollowingActivity) Error() error {
-	return act.err
-}
-
-// Next allows pagination over following recent activity.
-//
-// See example:
-func (act *FollowingActivity) Next() bool {
-	if act.err != nil {
-		return false
-	}
-	insta := act.inst
-	body, err := insta.sendRequest(
-		&reqOptions{
-			Endpoint: urlActivityFollowing,
-			Query: map[string]string{
-				"max_id": strconv.FormatInt(act.NextID, 10),
-			},
-			IsPost: false,
-		},
-	)
-	if err == nil {
-		act2 := FollowingActivity{}
-		err = json.Unmarshal(body, &act2)
-		if err == nil {
-			*act = act2
-			act.inst = insta
-			if len(act.Stories) == 0 || act.NextID == 0 {
-				act.err = ErrNoMore
-			}
-			return true
-		}
-	}
-	act.err = err
-	return false
-}
-
-// MineActivity is the recent activity menu.
+// Activity is the recent activity menu.
 //
 // See example: examples/activity/recent.go
-type MineActivity struct {
-	inst *Instagram
-	err  error
+type Activity struct {
+	insta *Instagram
+	err   error
 
 	// Ad is every column of Activity section
 	Ad struct {
 		Items []struct {
-			//User            User          `json:"user"`
+			// User            User          `json:"user"`
 			Algorithm       string        `json:"algorithm"`
 			SocialContext   string        `json:"social_context"`
 			Icon            string        `json:"icon"`
@@ -113,73 +30,97 @@ type MineActivity struct {
 		MoreAvailable bool `json:"more_available"`
 	} `json:"aymf"`
 	Counts struct {
-		PhotosOfYou int `json:"photos_of_you"`
-		Requests    int `json:"requests"`
+		Campaign      int `json:"campaign_notification"`
+		CommentLikes  int `json:"comment_likes"`
+		Comments      int `json:"comments"`
+		Fundraiser    int `json:"fundraiser"`
+		Likes         int `json:"likes"`
+		NewPosts      int `json:"new_posts"`
+		PhotosOfYou   int `json:"photos_of_you"`
+		Relationships int `json:"relationships"`
+		Requests      int `json:"requests"`
+		Shopping      int `json:"shopping_notification"`
+		UserTags      int `json:"usertags"`
 	} `json:"counts"`
 	FriendRequestStories []interface{} `json:"friend_request_stories"`
-	Stories              []struct {
-		Type      int `json:"type"`
-		StoryType int `json:"story_type"`
-		Args      struct {
-			Text  string `json:"text"`
-			Links []struct {
-				Start int    `json:"start"`
-				End   int    `json:"end"`
-				Type  string `json:"type"`
-				ID    string `json:"id"`
-			} `json:"links"`
-			InlineFollow struct {
-				UserInfo        User `json:"user_info"`
-				Following       bool `json:"following"`
-				OutgoingRequest bool `json:"outgoing_request"`
-			} `json:"inline_follow"`
-			Actions         []string `json:"actions"`
-			ProfileID       int64    `json:"profile_id"`
-			ProfileImage    string   `json:"profile_image"`
-			Timestamp       float64  `json:"timestamp"`
-			Tuuid           string   `json:"tuuid"`
-			Clicked         bool     `json:"clicked"`
-			ProfileName     string   `json:"profile_name"`
-			LatestReelMedia int64    `json:"latest_reel_media"`
-		} `json:"args"`
-		Counts struct {
-		} `json:"counts"`
-		Pk string `json:"pk"`
-	} `json:"old_stories"`
-	ContinuationToken int64       `json:"continuation_token"`
-	Subscription      interface{} `json:"subscription"`
-	NextID            int64       `json:"next_max_id"`
-	Status            string      `json:"status"`
+	NewStories           []RecentItems `json:"new_stories"`
+	OldStories           []RecentItems `json:"old_stories"`
+	ContinuationToken    int64         `json:"continuation_token"`
+	Subscription         interface{}   `json:"subscription"`
+	NextID               string        `json:"next_max_id"`
+	LastChecked          float64       `json:"last_checked"`
+	FirstRecTs           float64       `json:"pagination_first_record_timestamp"`
+
+	Status string `json:"status"`
 }
 
-func (act *MineActivity) Error() error {
+// TODO: Needs to be updated
+type RecentItems struct {
+	Type      int `json:"type"`
+	StoryType int `json:"story_type"`
+	Args      struct {
+		Text  string `json:"text"`
+		Links []struct {
+			Start int    `json:"start"`
+			End   int    `json:"end"`
+			Type  string `json:"type"`
+			ID    string `json:"id"`
+		} `json:"links"`
+		InlineFollow struct {
+			UserInfo        User `json:"user_info"`
+			Following       bool `json:"following"`
+			OutgoingRequest bool `json:"outgoing_request"`
+		} `json:"inline_follow"`
+		Actions         []string `json:"actions"`
+		ProfileID       int64    `json:"profile_id"`
+		ProfileImage    string   `json:"profile_image"`
+		Timestamp       float64  `json:"timestamp"`
+		Tuuid           string   `json:"tuuid"`
+		Clicked         bool     `json:"clicked"`
+		ProfileName     string   `json:"profile_name"`
+		LatestReelMedia int64    `json:"latest_reel_media"`
+	} `json:"args"`
+	Counts struct{} `json:"counts"`
+	Pk     string   `json:"pk"`
+}
+
+func (act *Activity) Error() error {
 	return act.err
 }
 
 // Next function allows pagination over notifications.
 //
 // See example: examples/activity/recent.go
-func (act *MineActivity) Next() bool {
+func (act *Activity) Next() bool {
 	if act.err != nil {
 		return false
 	}
-	insta := act.inst
-	body, err := insta.sendRequest(
+
+	query := map[string]string{
+		"mark_as_seen":    "false",
+		"timezone_offset": timeOffset,
+	}
+	if act.NextID != "" {
+		query["max_id"] = act.NextID
+		query["last_checked"] = fmt.Sprintf("%f", act.LastChecked)
+		query["pagination_first_record_timestamp"] = fmt.Sprintf("%f", act.FirstRecTs)
+	}
+
+	insta := act.insta
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlActivityRecent,
-			Query: map[string]string{
-				"max_id": strconv.FormatInt(act.NextID, 10),
-			},
-			IsPost: false,
+			Query:    query,
+			IsPost:   false,
 		},
 	)
 	if err == nil {
-		act2 := MineActivity{}
+		act2 := Activity{}
 		err = json.Unmarshal(body, &act2)
 		if err == nil {
 			*act = act2
-			act.inst = insta
-			if len(act.Stories) == 0 || act.NextID == 0 {
+			act.insta = insta
+			if len(act.NewStories) == 0 || act.NextID == "" {
 				act.err = ErrNoMore
 			}
 			return true
@@ -189,31 +130,9 @@ func (act *MineActivity) Next() bool {
 	return false
 }
 
-func newActivity(inst *Instagram) *Activity {
+func newActivity(insta *Instagram) *Activity {
 	act := &Activity{
-		inst: inst,
+		insta: insta,
 	}
 	return act
-}
-
-// Following allows to receive recent following activity.
-//
-// Use Next to paginate over activities
-//
-// See example: examples/activity/following.go
-func (act *Activity) Following() *FollowingActivity {
-	insta := act.inst
-	nact := &FollowingActivity{inst: insta}
-	return nact
-}
-
-// Recent allows to receive recent activity (notifications).
-//
-// Use Activities.Next to paginate over activities.
-//
-// See example: examples/activity/recent.go
-func (act *Activity) Recent() *MineActivity {
-	insta := act.inst
-	nact := &MineActivity{inst: insta}
-	return nact
 }

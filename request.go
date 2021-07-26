@@ -2,6 +2,7 @@ package goinsta
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -17,9 +18,6 @@ type reqOptions struct {
 	// Connection is connection header. Default is "close".
 	Connection string
 
-	// Login process
-	Login bool
-
 	// Endpoint is the request path of instagram api
 	Endpoint string
 
@@ -28,40 +26,69 @@ type reqOptions struct {
 	// By default this option is false.
 	IsPost bool
 
+	// Compress post form data with gzip
+	Gzip bool
+
 	// UseV2 is set when API endpoint uses v2 url.
 	UseV2 bool
+
+	// Use b.i.instagram.com
+	Useb bool
 
 	// Query is the parameters of the request
 	//
 	// This parameters are independents of the request method (POST|GET)
 	Query map[string]string
+
+	// List of headers to ignore
+	IgnoreHeaders []string
+
+	// Extra headers to add
+	ExtraHeaders map[string]string
+
+	// Timestamp
+	Timestamp string
 }
 
 func (insta *Instagram) sendSimpleRequest(uri string, a ...interface{}) (body []byte, err error) {
-	return insta.sendRequest(
+	body, _, err = insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(uri, a...),
 		},
 	)
+	return body, err
 }
 
-func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, err error) {
+func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, err error) {
+	checkCookieExpiry(insta)
+
 	method := "GET"
 	if o.IsPost {
 		method = "POST"
 	}
 	if o.Connection == "" {
-		o.Connection = "keep-alive"
+		o.Connection = "close"
 	}
 
-	nu := goInstaAPIUrl
-	if o.UseV2 {
+	if o.Timestamp == "" {
+		o.Timestamp = strconv.Itoa(int(time.Now().Unix()))
+	}
+
+	var nu string
+	if o.Useb {
+		nu = goInstaAPIUrlb
+	} else {
+		nu = goInstaAPIUrl
+	}
+	if o.UseV2 && !o.Useb {
 		nu = goInstaAPIUrlv2
+	} else if o.UseV2 && o.Useb {
+		nu = goInstaAPIUrlv2b
 	}
 
 	u, err := url.Parse(nu + o.Endpoint)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	vs := url.Values{}
@@ -71,7 +98,17 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, err error) {
 		vs.Add(k, v)
 	}
 
-	if o.IsPost {
+	var contentEncoding string
+	if o.IsPost && o.Gzip {
+		zw := gzip.NewWriter(bf)
+		if _, err := zw.Write([]byte(vs.Encode())); err != nil {
+			return nil, nil, err
+		}
+		if err := zw.Close(); err != nil {
+			return nil, nil, err
+		}
+		contentEncoding = "gzip"
+	} else if o.IsPost {
 		bf.WriteString(vs.Encode())
 	} else {
 		for k, v := range u.Query() {
@@ -87,36 +124,110 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, err error) {
 		return
 	}
 
-	req.Header.Set("Connection", o.Connection)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-	req.Header.Set("Accept-Language", "en-US")
-	req.Header.Set("User-Agent", goInstaUserAgent)
-	req.Header.Set("X-IG-App-ID", fbAnalytics)
-	req.Header.Set("X-IG-Capabilities", igCapabilities)
-	req.Header.Set("X-IG-Connection-Type", connType)
-	req.Header.Set("X-IG-Connection-Speed", fmt.Sprintf("%dkbps", acquireRand(1000, 3700)))
-	req.Header.Set("X-IG-Bandwidth-Speed-KBPS", "-1.000")
-	req.Header.Set("X-IG-Bandwidth-TotalBytes-B", "0")
-	req.Header.Set("X-IG-Bandwidth-TotalTime-MS", "0")
+	ignoreHeader := func(h string) bool {
+		for _, k := range o.IgnoreHeaders {
+			if k == h {
+				return true
+			}
+		}
+		return false
+	}
+
+	setHeaders := func(r *http.Request, h map[string]string) {
+		for k, v := range h {
+			if v != "" && !ignoreHeader(k) {
+				r.Header.Set(k, v)
+			}
+		}
+	}
+
+	accID := "0"
+	if insta.Account != nil {
+		accID = strconv.Itoa(int(insta.Account.ID))
+	}
+
+	headers := map[string]string{
+		"Accept-Language":             locale,
+		"Authorization":               insta.headerOptions["Authorization"],
+		"Connection":                  o.Connection,
+		"Content-Type":                "application/x-www-form-urlencoded; charset=UTF-8",
+		"Ig-Intended-User-Id":         accID,
+		"Ig-U-Shbid":                  insta.headerOptions["Ig-U-Shbid"],
+		"Ig-U-Shbts":                  insta.headerOptions["Ig-U-Shbts"],
+		"Ig-U-Ds-User-Id":             insta.headerOptions["Ig-U-Ds-User-Id"],
+		"Ig-U-Rur":                    insta.headerOptions["Ig-U-Rur"],
+		"Ig-U-Ig-Direct-Region-Hint":  insta.headerOptions["Ig-U-Ig-Direct-Region-Hint"],
+		"User-Agent":                  userAgent,
+		"X-Ig-App-Locale":             locale,
+		"X-Ig-Device-Locale":          locale,
+		"X-Ig-Mapped-Locale":          locale,
+		"X-Ig-App-Id":                 fbAnalytics,
+		"X-Ig-Device-Id":              insta.uuid,
+		"X-Ig-Family-Device-Id":       insta.fID,
+		"X-Ig-Android-Id":             insta.dID,
+		"X-Ig-Timezone-Offset":        timeOffset,
+		"X-Ig-Capabilities":           igCapabilities,
+		"X-Ig-Connection-Type":        connType,
+		"X-Pigeon-Session-Id":         insta.psID,
+		"X-Pigeon-Rawclienttime":      fmt.Sprintf("%s.%d", o.Timestamp, acquireRand(100, 900)),
+		"X-Ig-Bandwidth-Speed-KBPS":   fmt.Sprintf("%d.000", acquireRand(1000, 9000)),
+		"X-Ig-Bandwidth-TotalBytes-B": strconv.Itoa(acquireRand(1000000, 5000000)),
+		"X-Ig-Bandwidth-Totaltime-Ms": strconv.Itoa(acquireRand(200, 800)),
+		"X-Ig-App-Startup-Country":    "unkown",
+		"X-Ig-Www-Claim":              insta.headerOptions["X-Ig-Www-Claim"],
+		"X-Bloks-Version-Id":          goInstaBloksVerID,
+		"X-Bloks-Is-Layout-Rtl":       "false",
+		"X-Bloks-Is-Panorama-Enabled": "true",
+		"X-Mid":                       insta.headerOptions["X-Mid"],
+		"X-Fb-Http-Engine":            "Liger",
+		"X-Fb-Client-Ip":              "True",
+		"X-Fb-Server-Cluster":         "True",
+	}
+	if contentEncoding != "" {
+		headers["Content-Encoding"] = contentEncoding
+	}
+
+	setHeaders(req, headers)
+	setHeaders(req, o.ExtraHeaders)
 
 	resp, err := insta.c.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
-
-	u, _ = url.Parse(goInstaAPIUrl)
-	for _, value := range insta.c.Jar.Cookies(u) {
-		if strings.Contains(value.Name, "csrftoken") {
-			insta.token = value.Value
-		}
-	}
 
 	body, err = ioutil.ReadAll(resp.Body)
 	if err == nil {
 		err = isError(resp.StatusCode, body)
 	}
-	return body, err
+	extractHeaders(insta, resp.Header)
+
+	return body, resp.Header.Clone(), err
+}
+
+func checkCookieExpiry(insta *Instagram) {
+	if insta.xmidExpiry != -1 && time.Now().Unix() > insta.xmidExpiry-10 {
+		insta.xmidExpiry = -1
+		insta.zrToken()
+	}
+}
+
+func extractHeaders(insta *Instagram, h http.Header) {
+	extract := func(in string, out string) {
+		x := h[in]
+		if len(x) > 0 && x[0] != "" {
+			insta.headerOptions[out] = x[0]
+		}
+	}
+
+	extract("Ig-Set-Authorization", "Authorization")
+	extract("Ig-Set-X-Mid", "X-Mid")
+	extract("X-Ig-Set-Www-Claim", "X-Ig-Www-Claim")
+	extract("Ig-Set-Ig-U-Ig-Direct-Region-Hint", "Ig-U-Ig-Direct-Region-Hint")
+	extract("Ig-Set-Ig-U-Shbid", "Ig-U-Shbid")
+	extract("Ig-Set-Ig-U-Shbts", "Ig-U-Shbts")
+	extract("Ig-Set-Ig-U-Rur", "Ig-U-Rur")
+	extract("Ig-Set-Ig-U-Ds-User-Id", "Ig-U-Ds-User-Id")
 }
 
 func isError(code int, body []byte) (err error) {
@@ -135,7 +246,6 @@ func isError(code int, body []byte) (err error) {
 
 		if ierr.Message == "challenge_required" {
 			return ierr.ChallengeError
-
 		}
 
 		if err == nil && ierr.Message != "" {

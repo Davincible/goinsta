@@ -1,9 +1,9 @@
 #### Golang + Instagram Private API
-<p align="center"><img width=100% src="https://raw.githubusercontent.com/ahmdrz/goinsta/v1/resources/goinsta-image.png"></p>
+<p align="center"><img width=100% src="https://raw.githubusercontent.com/Davincible/goinsta/v1/resources/goinsta-image.png"></p>
 
 > Unofficial Instagram API for Golang
 
-[![Build Status](https://travis-ci.org/ahmdrz/goinsta.svg?branch=master)](https://travis-ci.org/ahmdrz/goinsta) [![GoDoc](https://godoc.org/github.com/ahmdrz/goinsta?status.svg)](https://godoc.org/github.com/ahmdrz/goinsta) [![Go Report Card](https://goreportcard.com/badge/github.com/ahmdrz/goinsta)](https://goreportcard.com/report/github.com/ahmdrz/goinsta) [![Gitter chat](https://badges.gitter.im/goinsta/community.png)](https://gitter.im/goinsta/community)
+[![Build Status](https://travis-ci.org/Davincible/goinsta.svg?branch=master)](https://travis-ci.org/Davincible/goinsta) [![GoDoc](https://godoc.org/github.com/Davincible/goinsta?status.svg)](https://godoc.org/github.com/Davincible/goinsta) [![Go Report Card](https://goreportcard.com/badge/github.com/Davincible/goinsta)](https://goreportcard.com/report/github.com/Davincible/goinsta) [![Gitter chat](https://badges.gitter.im/goinsta/community.png)](https://gitter.im/goinsta/community)
 
 ### Features
 
@@ -17,7 +17,7 @@
 
 ### Package installation 
 
-`go get -u -v gopkg.in/ahmdrz/goinsta.v2`
+`go get -u -v gopkg.in/Davincible/goinsta.v2`
 
 ### Example
 
@@ -27,7 +27,7 @@ package main
 import (
 	"fmt"
 
-	"gopkg.in/ahmdrz/goinsta.v2"
+	"gopkg.in/Davincible/goinsta.v2"
 )
 
 func main() {  
@@ -47,7 +47,7 @@ func main() {
 
 - [go-instabot](https://github.com/tducasse/go-instabot)
 - [nick_bot](https://github.com/icholy/nick_bot)
-- [instagraph](https://github.com/ahmdrz/instagraph)
+- [instagraph](https://github.com/Davincible/instagraph)
 - [icrawler](https://github.com/themester/icrawler)
 - [ermes](https://github.com/borteo/ermes)
 - [instafeed](https://github.com/falzm/instafeed)
@@ -69,7 +69,7 @@ This code is in no way affiliated with, authorized, maintained, sponsored or end
 Goinsta used gopkg.in as versioning control. Stable new API is the version v2.0. You can get it using:
 
 ```bash
-$ go get -u -v gopkg.in/ahmdrz/goinsta.v2
+$ go get -u -v gopkg.in/Davincible/goinsta.v2
 ```
 
 Or 
@@ -77,12 +77,12 @@ Or
 If you have `GO111MODULE=on`
 
 ```
-$ go get -u github.com/ahmdrz/goinsta/v2
+$ go get -u github.com/Davincible/goinsta/v2
 ```
 
 ### Donate
 
-**Ahmdrz**
+**Davincible**
 
 ![btc](https://raw.githubusercontent.com/reek/anti-adblock-killer/gh-pages/images/bitcoin.png) Bitcoin: `1KjcfrBPJtM4MfBSGTqpC6RcoEW1KBh15X`
 

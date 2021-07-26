@@ -8,19 +8,21 @@ import (
 
 // ConfigFile is a structure to store the session information so that can be exported or imported.
 type ConfigFile struct {
-	ID        int64          `json:"id"`
-	User      string         `json:"username"`
-	DeviceID  string         `json:"device_id"`
-	UUID      string         `json:"uuid"`
-	RankToken string         `json:"rank_token"`
-	Token     string         `json:"token"`
-	PhoneID   string         `json:"phone_id"`
-	Cookies   []*http.Cookie `json:"cookies"`
+	ID            int64             `json:"id"`
+	User          string            `json:"username"`
+	DeviceID      string            `json:"device_id"`
+	FamilyID      string            `json:"family_id"`
+	UUID          string            `json:"uuid"`
+	RankToken     string            `json:"rank_token"`
+	Token         string            `json:"token"`
+	PhoneID       string            `json:"phone_id"`
+	XmidExpiry    int64             `json:"xmid_expiry"`
+	HeaderOptions map[string]string `json:"header_options"`
+	Cookies       []*http.Cookie    `json:"cookies"`
 }
 
 // School is void structure (yet).
-type School struct {
-}
+type School struct{}
 
 // PicURLInfo repre
 type PicURLInfo struct {
@@ -235,30 +237,46 @@ type trayResp struct {
 // Tray is a set of story media received from timeline calls.
 type Tray struct {
 	Stories []StoryMedia `json:"tray"`
-	Lives   struct {
+	// think this is depricated, and only broadcasts are used
+	Lives struct {
 		LiveItems []LiveItems `json:"post_live_items"`
 	} `json:"post_live"`
 	StoryRankingToken    string      `json:"story_ranking_token"`
 	Broadcasts           []Broadcast `json:"broadcasts"`
 	FaceFilterNuxVersion int         `json:"face_filter_nux_version"`
 	HasNewNuxStory       bool        `json:"has_new_nux_story"`
+	NuxElegible          bool        `json:"stories_viewer_gestures_nux_eligible"`
+	StickerVersion       float64     `json:"sticker_version"`
+	ReponseTS            float64     `json:"response_timestamp"`
 	Status               string      `json:"status"`
+	EmojiReactionsConfig struct {
+		UfiType                        float64 `json:"ufi_type"`
+		DeliveryType                   float64 `json:"delivery_type"`
+		OverlaySkinTonePickerEnabled   bool    `json:"overlay_skin_tone_picker_enabled"`
+		SwipeUpToShowReactions         bool    `json:"swipe_up_to_show_reactions"`
+		ComposerNuxType                float64 `json:"composer_nux_type"`
+		HideStoryViewCount             bool    `json:"hide_story_view_count"`
+		ReactionTrayInteractivePanning bool    `json:"reaction_tray_interactive_panning_enabled"`
+		PersistentSelfStoryBadge       bool    `json:"persistent_self_story_badge_enabled"`
+		SelfstoryBadging               bool    `json:"self_story_badging_enabled"`
+		ExitTestNux                    bool    `json:"exit_test_nux_enabled"`
+	} `json:"emoji_reactions_config"`
 }
 
-func (tray *Tray) set(inst *Instagram, url string) {
+func (tray *Tray) set(insta *Instagram, url string) {
 	for i := range tray.Stories {
-		tray.Stories[i].inst = inst
+		tray.Stories[i].insta = insta
 		tray.Stories[i].endpoint = url
 		tray.Stories[i].setValues()
 	}
 	for i := range tray.Lives.LiveItems {
-		tray.Lives.LiveItems[i].User.inst = inst
+		tray.Lives.LiveItems[i].User.insta = insta
 		for j := range tray.Lives.LiveItems[i].Broadcasts {
-			tray.Lives.LiveItems[i].Broadcasts[j].BroadcastOwner.inst = inst
+			tray.Lives.LiveItems[i].Broadcasts[j].BroadcastOwner.insta = insta
 		}
 	}
 	for i := range tray.Broadcasts {
-		tray.Broadcasts[i].BroadcastOwner.inst = inst
+		tray.Broadcasts[i].BroadcastOwner.insta = insta
 	}
 }
 
@@ -273,23 +291,6 @@ type LiveItems struct {
 	Muted               bool        `json:"muted"`
 	CanReply            bool        `json:"can_reply"`
 	CanReshare          bool        `json:"can_reshare"`
-}
-
-// Broadcast is live videos.
-type Broadcast struct {
-	ID                   int64  `json:"id"`
-	BroadcastStatus      string `json:"broadcast_status"`
-	DashManifest         string `json:"dash_manifest"`
-	ExpireAt             int64  `json:"expire_at"`
-	EncodingTag          string `json:"encoding_tag"`
-	InternalOnly         bool   `json:"internal_only"`
-	NumberOfQualities    int    `json:"number_of_qualities"`
-	CoverFrameURL        string `json:"cover_frame_url"`
-	BroadcastOwner       User   `json:"broadcast_owner"`
-	PublishedTime        int64  `json:"published_time"`
-	MediaID              string `json:"media_id"`
-	BroadcastMessage     string `json:"broadcast_message"`
-	OrganicTrackingToken string `json:"organic_tracking_token"`
 }
 
 // BlockedUser stores information about a used that has been blocked before.
@@ -334,7 +335,7 @@ type InboxItemMedia struct {
 	ViewMode        string        `json:"view_mode"`
 }
 
-//InboxItemLike is the heart sent during a conversation.
+// InboxItemLike is the heart sent during a conversation.
 type InboxItemLike struct {
 	ItemID    string `json:"item_id"`
 	ItemType  string `json:"item_type"`
@@ -359,4 +360,30 @@ type ErrChallengeProcess struct {
 
 func (ec ErrChallengeProcess) Error() string {
 	return ec.StepName
+}
+
+type Cooldowns struct {
+	Default int    `json:"default"`
+	Global  int    `json:"global"`
+	Status  string `json:"status"`
+	TTL     int    `json:"ttl"`
+	Slots   []struct {
+		Cooldown int    `json:"cooldown"`
+		Slot     string `json:"slot"`
+	} `json:"slots"`
+	Surfaces []struct {
+		Cooldown int    `json:"cooldown"`
+		Slot     string `json:"slot"`
+	} `json:"surfaces"`
+}
+
+type ScoresBootstrapUsers struct {
+	Status   string `json:"status"`
+	Surfaces []struct {
+		Name      string         `json:"name"`
+		RankToken string         `json:"rank_token"`
+		Scores    map[string]int `json:"scores"`
+		TTLSecs   int            `json:"ttl_secs"`
+	} `json:"surfaces"`
+	Users []User `json:"users"`
 }

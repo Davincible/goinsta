@@ -3,6 +3,7 @@ package goinsta
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 )
 
 type accountResp struct {
@@ -14,7 +15,7 @@ type accountResp struct {
 //
 // See examples: examples/account/*
 type Account struct {
-	inst *Instagram
+	insta *Instagram
 
 	ID                         int64        `json:"pk"`
 	Username                   string       `json:"username"`
@@ -72,22 +73,19 @@ type Account struct {
 
 // Sync updates account information
 func (account *Account) Sync() error {
-	insta := account.inst
-	data, err := insta.prepareData()
-	if err != nil {
-		return err
-	}
-	body, err := insta.sendRequest(&reqOptions{
+	insta := account.insta
+	body, _, err := insta.sendRequest(&reqOptions{
 		Endpoint: urlCurrentUser,
-		Query:    generateSignature(data),
-		IsPost:   true,
+		Query: map[string]string{
+			"edit": "true",
+		},
 	})
 	if err == nil {
 		resp := profResp{}
 		err = json.Unmarshal(body, &resp)
 		if err == nil {
 			*account = resp.Account
-			account.inst = insta
+			account.insta = insta
 		}
 	}
 	return err
@@ -100,7 +98,7 @@ func (account *Account) Sync() error {
 //
 // See example: examples/account/changePass.go
 func (account *Account) ChangePassword(old, new string) error {
-	insta := account.inst
+	insta := account.insta
 	data, err := insta.prepareData(
 		map[string]interface{}{
 			"old_password":  old,
@@ -109,7 +107,7 @@ func (account *Account) ChangePassword(old, new string) error {
 		},
 	)
 	if err == nil {
-		_, err = insta.sendRequest(
+		_, _, err = insta.sendRequest(
 			&reqOptions{
 				Endpoint: urlChangePass,
 				Query:    generateSignature(data),
@@ -131,13 +129,13 @@ type profResp struct {
 //
 // See example: examples/account/removeProfilePic.go
 func (account *Account) RemoveProfilePic() error {
-	insta := account.inst
+	insta := account.insta
 	data, err := insta.prepareData()
 	if err != nil {
 		return err
 	}
 
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlRemoveProfPic,
 			Query:    generateSignature(data),
@@ -149,7 +147,39 @@ func (account *Account) RemoveProfilePic() error {
 		err = json.Unmarshal(body, &resp)
 		if err == nil {
 			*account = resp.Account
-			account.inst = insta
+			account.insta = insta
+		}
+	}
+	return err
+}
+
+// ChangeProfilePic Update profile picture
+//
+// See example: examples/account/change-profile-pic/main.go
+func (account *Account) ChangeProfilePic(photo io.Reader) error {
+	insta := account.insta
+	config, err := insta.postPhoto(photo, "", 1, 1, false)
+	if err != nil {
+		return err
+	}
+	data, err := insta.prepareData(config)
+	if err != nil {
+		return err
+	}
+
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlChangeProfPic,
+			Query:    generateSignature(data),
+			IsPost:   true,
+		},
+	)
+	if err == nil {
+		resp := profResp{}
+		err = json.Unmarshal(body, &resp)
+		if err == nil {
+			*account = resp.Account
+			account.insta = insta
 		}
 	}
 	return err
@@ -161,13 +191,13 @@ func (account *Account) RemoveProfilePic() error {
 //
 // See example: examples/account/setPrivate.go
 func (account *Account) SetPrivate() error {
-	insta := account.inst
+	insta := account.insta
 	data, err := insta.prepareData()
 	if err != nil {
 		return err
 	}
 
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlSetPrivate,
 			Query:    generateSignature(data),
@@ -179,7 +209,7 @@ func (account *Account) SetPrivate() error {
 		err = json.Unmarshal(body, &resp)
 		if err == nil {
 			*account = resp.Account
-			account.inst = insta
+			account.insta = insta
 		}
 	}
 	return err
@@ -191,13 +221,13 @@ func (account *Account) SetPrivate() error {
 //
 // See example: examples/account/setPublic.go
 func (account *Account) SetPublic() error {
-	insta := account.inst
+	insta := account.insta
 	data, err := insta.prepareData()
 	if err != nil {
 		return err
 	}
 
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlSetPublic,
 			Query:    generateSignature(data),
@@ -209,7 +239,7 @@ func (account *Account) SetPublic() error {
 		err = json.Unmarshal(body, &resp)
 		if err == nil {
 			*account = resp.Account
-			account.inst = insta
+			account.insta = insta
 		}
 	}
 	return err
@@ -223,7 +253,7 @@ func (account *Account) SetPublic() error {
 func (account *Account) Followers() *Users {
 	endpoint := fmt.Sprintf(urlFollowers, account.ID)
 	users := &Users{}
-	users.inst = account.inst
+	users.insta = account.insta
 	users.endpoint = endpoint
 	return users
 }
@@ -236,7 +266,7 @@ func (account *Account) Followers() *Users {
 func (account *Account) Following() *Users {
 	endpoint := fmt.Sprintf(urlFollowing, account.ID)
 	users := &Users{}
-	users.inst = account.inst
+	users.insta = account.insta
 	users.endpoint = endpoint
 	return users
 }
@@ -250,10 +280,10 @@ func (account *Account) Following() *Users {
 //
 // For pagination use FeedMedia.Next()
 func (account *Account) Feed(params ...interface{}) *FeedMedia {
-	insta := account.inst
+	insta := account.insta
 
 	media := &FeedMedia{}
-	media.inst = insta
+	media.insta = insta
 	media.endpoint = urlUserFeed
 	media.uid = account.ID
 
@@ -275,7 +305,7 @@ func (account *Account) Feed(params ...interface{}) *FeedMedia {
 func (account *Account) Stories() *StoryMedia {
 	media := &StoryMedia{}
 	media.uid = account.ID
-	media.inst = account.inst
+	media.insta = account.insta
 	media.endpoint = urlUserStories
 	return media
 }
@@ -285,12 +315,12 @@ func (account *Account) Stories() *StoryMedia {
 // For pagination use FeedMedia.Next()
 func (account *Account) Tags(minTimestamp []byte) (*FeedMedia, error) {
 	timestamp := b2s(minTimestamp)
-	body, err := account.inst.sendRequest(
+	body, _, err := account.insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlUserTags, account.ID),
 			Query: map[string]string{
 				"max_id":         "",
-				"rank_token":     account.inst.rankToken,
+				"rank_token":     account.insta.rankToken,
 				"min_timestamp":  timestamp,
 				"ranked_content": "true",
 			},
@@ -302,7 +332,7 @@ func (account *Account) Tags(minTimestamp []byte) (*FeedMedia, error) {
 
 	media := &FeedMedia{}
 	err = json.Unmarshal(body, media)
-	media.inst = account.inst
+	media.insta = account.insta
 	media.endpoint = urlUserTags
 	media.uid = account.ID
 	return media, err
@@ -313,7 +343,7 @@ func (account *Account) Tags(minTimestamp []byte) (*FeedMedia, error) {
 // use the Next() method.
 func (account *Account) Saved() *SavedMedia {
 	return &SavedMedia{
-		inst:     account.inst,
+		insta:    account.insta,
 		endpoint: urlFeedSaved,
 		err:      nil,
 	}
@@ -325,9 +355,9 @@ type editResp struct {
 }
 
 func (account *Account) edit() {
-	insta := account.inst
+	insta := account.insta
 	acResp := editResp{}
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlCurrentUser,
 			Query: map[string]string{
@@ -338,10 +368,43 @@ func (account *Account) edit() {
 	if err == nil {
 		err = json.Unmarshal(body, &acResp)
 		if err == nil {
-			acResp.Account.inst = insta
+			acResp.Account.insta = insta
 			*account = acResp.Account
 		}
 	}
+}
+
+// UpdateProfile This function updates current Account information.
+func (account *Account) UpdateProfile(
+	editProfileForm map[string]interface{},
+) error {
+	insta := account.insta
+	data, err := insta.prepareData(editProfileForm)
+	if err != nil {
+		return err
+	}
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint:   urlEditProfile,
+			IsPost:     true,
+			Connection: "keep-alive",
+			Query:      generateSignature(data),
+		},
+	)
+	if err != nil {
+		return err
+	}
+	var respEdit struct {
+		Status string `json:"status"`
+	}
+	err = json.Unmarshal(body, &respEdit)
+	if err != nil {
+		return err
+	}
+	if respEdit.Status == "success" {
+		return fmt.Errorf("Can't update profile")
+	}
+	return nil
 }
 
 // SetBiography changes your Instagram's biography.
@@ -349,7 +412,7 @@ func (account *Account) edit() {
 // This function updates current Account information.
 func (account *Account) SetBiography(bio string) error {
 	account.edit() // preparing to edit
-	insta := account.inst
+	insta := account.insta
 	data, err := insta.prepareData(
 		map[string]interface{}{
 			"raw_text": bio,
@@ -359,7 +422,7 @@ func (account *Account) SetBiography(bio string) error {
 		return err
 	}
 
-	body, err := insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlSetBiography,
 			Query:    generateSignature(data),
@@ -384,18 +447,18 @@ func (account *Account) SetBiography(bio string) error {
 
 // Liked are liked publications
 func (account *Account) Liked() *FeedMedia {
-	insta := account.inst
+	insta := account.insta
 
 	media := &FeedMedia{}
-	media.inst = insta
+	media.insta = insta
 	media.endpoint = urlFeedLiked
 	return media
 }
 
 // PendingFollowRequests returns pending follow requests.
 func (account *Account) PendingFollowRequests() ([]User, error) {
-	insta := account.inst
-	resp, err := insta.sendRequest(
+	insta := account.insta
+	resp, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlFriendshipPending,
 		},
@@ -425,10 +488,10 @@ func (account *Account) PendingFollowRequests() ([]User, error) {
 //
 // For pagination use FeedMedia.Next()
 func (account *Account) Archived(params ...interface{}) *FeedMedia {
-	insta := account.inst
+	insta := account.insta
 
 	media := &FeedMedia{}
-	media.inst = insta
+	media.insta = insta
 	media.endpoint = urlUserArchived
 
 	for _, param := range params {
