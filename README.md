@@ -1,4 +1,4 @@
-### FORK
+### Fork
 
 This repository has been forked from [ahmdrz/goinsta](https://github.com/ahmdrz/goinsta). As the maintainer of this repositry has been absend the last few months, and the code in the repository was based on a 2 year old instagram app version, since which a lot has changed, I have taken the courtesy to bulid upon his great framework and update the code to be compatible with apk v195.0.0.31.123 (July 6, 2021). Currently, not all endpoints have been moved over to the new version yet, if you run into problems please open an issue. 
 
@@ -53,7 +53,7 @@ This code is in no way affiliated with, authorized, maintained, sponsored or end
 
 ### Versioning
 
-Goinsta used gopkg.in as versioning control. Stable new API is the version v2.0. You can get it using:
+Goinsta used gopkg.in as versioning control. Stable new API is the version v3.0. You can get it using:
 
 ```bash
 $ go get -u -v github.com/Davincible/goinsta/v3
