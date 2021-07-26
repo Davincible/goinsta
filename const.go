@@ -1,5 +1,6 @@
 package goinsta
 
+// test
 const (
 	goInstaAPIUrl        = "https://i.instagram.com/api/v1/"
 	goInstaAPIUrlv2      = "https://i.instagram.com/api/v2/"
@@ -12,14 +13,12 @@ const (
 	goInstaSigKeyVersion = "4"
 )
 
-var (
-	goInstaDeviceSettings = map[string]interface{}{
-		"manufacturer":    "OnePlus",
-		"model":           "A3010",
-		"android_version": 24,
-		"android_release": "7.0",
-	}
-)
+var goInstaDeviceSettings = map[string]interface{}{
+	"manufacturer":    "OnePlus",
+	"model":           "A3010",
+	"android_version": 24,
+	"android_release": "7.0",
+}
 
 type muteOption string
 
