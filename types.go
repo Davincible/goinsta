@@ -272,11 +272,11 @@ func (tray *Tray) set(insta *Instagram, url string) {
 	for i := range tray.Lives.LiveItems {
 		tray.Lives.LiveItems[i].User.insta = insta
 		for j := range tray.Lives.LiveItems[i].Broadcasts {
-			tray.Lives.LiveItems[i].Broadcasts[j].BroadcastOwner.insta = insta
+			tray.Lives.LiveItems[i].Broadcasts[j].User.insta = insta
 		}
 	}
 	for i := range tray.Broadcasts {
-		tray.Broadcasts[i].BroadcastOwner.insta = insta
+		tray.Broadcasts[i].User.insta = insta
 	}
 }
 
