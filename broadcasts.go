@@ -25,7 +25,8 @@ type Broadcast struct {
 	InternalOnly               bool    `json:"internal_only"`
 	NumberOfQualities          int     `json:"number_of_qualities"`
 	CoverFrameURL              string  `json:"cover_frame_url"`
-	BroadcastOwner             User    `json:"broadcast_owner"`
+	User                       User    `json:"broadcast_owner"`
+	Cobroadcasters             []User  `json:"cobroadcasters"`
 	PublishedTime              int64   `json:"published_time"`
 	BroadcastMessage           string  `json:"broadcast_message"`
 	OrganicTrackingToken       string  `json:"organic_tracking_token"`
@@ -43,43 +44,76 @@ type Broadcast struct {
 		Width  int `json:"width"`
 		Height int `json:"height"`
 	} `json:"dimensions"`
-	Experiments map[string]interface{} `json:"broadcast_experiments"`
+	Experiments     map[string]interface{} `json:"broadcast_experiments"`
+	PayViewerConfig struct {
+		PayConfig struct {
+			ConsumptionSheetConfig struct {
+				Description               string `json:"description"`
+				PrivacyDisclaimer         string `json:"privacy_disclaimer"`
+				PrivacyDisclaimerLink     string `json:"privacy_disclaimer_link"`
+				PrivacyDisclaimerLinkText string `json:"privacy_disclaimer_link_text"`
+			} `json:"consumption_sheet_config"`
+			DigitalNonConsumableProductID int64 `json:"digital_non_consumable_product_id"`
+			DigitalProductID              int64 `json:"digital_product_id"`
+			PayeeID                       int64 `json:"payee_id"`
+			PinnedRowConfig               struct {
+				ButtonTitle string `json:"button_title"`
+				Description string `json:"description"`
+			} `json:"pinned_row_config"`
+			TierInfos struct {
+				DigitalProductID int64  `json:"digital_product_id"`
+				Sku              string `json:"sku"`
+				SupportTier      string `json:"support_tier"`
+			} `json:"tier_infos"`
+		} `json:"pay_config"`
+	} `json:"user_pay_viewer_config"`
 }
 
 type BroadcastComments struct {
-	CommentLikes               bool       `json:"comment_likes_enabled"`
-	Comments                   []struct{} `json:"comments"`
-	CommentCount               int        `json:"comment_count"`
-	Caption                    Caption    `json:"caption"`
-	CaptionIsEdited            bool       `json:"caption_is_edited"`
-	HasMoreComments            bool       `json:"has_more_comments"`
-	HasMoreHeadloadComments    bool       `json:"has_more_headload_comments"`
-	MediaHeaderDisplay         string     `json:"media_header_display"`
-	CanViewMorePreviewComments bool       `json:"can_view_more_preview_comments"`
-	LiveSecondsPerComment      int        `json:"live_seconds_per_comment"`
-	IsFirstFetch               string     `json:"is_first_fetch"`
-	SystemComments             []Comment  `json:"system_comments"`
-	CommentMuted               int        `json:"comment_muted"`
-	IsViewerCommentAllowed     bool       `json:"is_viewer_comment_allowed"`
-	Status                     string     `json:"status"`
+	CommentLikes               bool      `json:"comment_likes_enabled"`
+	Comments                   []Comment `json:"comments"`
+	PinnedComment              Comment   `json:"pinned_comment"`
+	CommentCount               int       `json:"comment_count"`
+	Caption                    Caption   `json:"caption"`
+	CaptionIsEdited            bool      `json:"caption_is_edited"`
+	HasMoreComments            bool      `json:"has_more_comments"`
+	HasMoreHeadloadComments    bool      `json:"has_more_headload_comments"`
+	MediaHeaderDisplay         string    `json:"media_header_display"`
+	CanViewMorePreviewComments bool      `json:"can_view_more_preview_comments"`
+	LiveSecondsPerComment      int       `json:"live_seconds_per_comment"`
+	IsFirstFetch               string    `json:"is_first_fetch"`
+	SystemComments             []Comment `json:"system_comments"`
+	CommentMuted               int       `json:"comment_muted"`
+	IsViewerCommentAllowed     bool      `json:"is_viewer_comment_allowed"`
+	Status                     string    `json:"status"`
 }
 
 type BroadcastLikes struct {
-	Likes      int    `json:"likes"`
-	BurstLikes int    `json:"burst_likes"`
-	Likers     []User `json:"likers"`
-	LikeTs     int64  `json:"like_ts"`
-	Status     string `json:"status"`
+	Likes            int    `json:"likes"`
+	BurstLikes       int    `json:"burst_likes"`
+	Likers           []User `json:"likers"`
+	LikeTs           int64  `json:"like_ts"`
+	Status           string `json:"status"`
+	PaySupporterInfo struct {
+		LikeCountByTier []struct {
+			BurstLikes  int         `json:"burst_likes"`
+			Likers      interface{} `json:"likers"`
+			Likes       int         `json:"likes"`
+			SupportTier string      `json:"support_tier"`
+		} `json:"like_count_by_support_tier"`
+		BurskLikes int `json:"supporter_tier_burst_likes"`
+		Likes      int `json:"supporter_tier_likes"`
+	} `json:"user_pay_supporter_info"`
 }
 
 type BroadcastHeartbeat struct {
-	ViewerCount             float64 `json:"viewer_count"`
-	BroadcastStatus         string  `json:"broadcast_status"`
-	CobroadcasterIds        []int64 `json:"cobroadcaster_ids"`
-	OffsetVideoStart        float64 `json:"offset_to_video_start"`
-	RequestToJoinEnabled    int     `json:"request_to_join_enabled"`
-	UserPayMaxAmountReached bool    `json:"user_pay_max_amount_reached"`
-	Status                  string  `json:"status"`
+	ViewerCount             float64  `json:"viewer_count"`
+	BroadcastStatus         string   `json:"broadcast_status"`
+	CobroadcasterIds        []string `json:"cobroadcaster_ids"`
+	OffsetVideoStart        float64  `json:"offset_to_video_start"`
+	RequestToJoinEnabled    int      `json:"request_to_join_enabled"`
+	UserPayMaxAmountReached bool     `json:"user_pay_max_amount_reached"`
+	Status                  string   `json:"status"`
 }
 
 func (br *Broadcast) GetInfo() error {
@@ -104,7 +138,7 @@ func (br *Broadcast) GetComments() (*BroadcastComments, error) {
 		&reqOptions{
 			Endpoint: urlLiveComments,
 			Query: map[string]string{
-				"last_comment_ts":               "0",
+				"last_comment_ts":               strconv.Itoa(int(br.LastCommentTs)),
 				"join_request_last_seen_ts":     "0",
 				"join_request_last_fetch_ts":    "0",
 				"join_request_last_total_count": "0",
@@ -118,6 +152,10 @@ func (br *Broadcast) GetComments() (*BroadcastComments, error) {
 	err = json.Unmarshal(body, c)
 	if err != nil {
 		return nil, err
+	}
+
+	if c.CommentCount > 0 {
+		br.LastCommentTs = c.Comments[0].CreatedAt
 	}
 	return c, nil
 }
@@ -140,6 +178,7 @@ func (br *Broadcast) GetLikes() (*BroadcastLikes, error) {
 	if err != nil {
 		return nil, err
 	}
+	br.LastLikeTs = c.LikeTs
 	return c, nil
 }
 

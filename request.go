@@ -148,6 +148,7 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 
 	headers := map[string]string{
 		"Accept-Language":             locale,
+		"Accept-Encoding":             "gzip,deflate",
 		"Authorization":               insta.headerOptions["Authorization"],
 		"Connection":                  o.Connection,
 		"Content-Type":                "application/x-www-form-urlencoded; charset=UTF-8",

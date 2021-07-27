@@ -85,7 +85,6 @@ const (
 	urlFollowing = "friendships/%d/following/"
 
 	// users
-
 	urlUserArchived      = "feed/only_me_feed/"
 	urlUserByName        = "users/%s/usernameinfo/"
 	urlUserByID          = "users/%d/info/"
@@ -136,6 +135,9 @@ const (
 	urlLiveComments  = "live/%s/get_comment/"
 	urlLiveLikeCount = "live/%s/get_like_count/"
 	urlLiveHeartbeat = "live/%s/heartbeat_and_get_viewer_count/"
+
+	// IGTV
+	urlIGTVChannel = "/api/v1/igtv/channel/"
 
 	// comments
 	urlCommentAdd     = "media/%d/comment/"
