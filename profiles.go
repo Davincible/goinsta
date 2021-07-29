@@ -2,6 +2,7 @@ package goinsta
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -33,16 +34,22 @@ func (prof *Profiles) ByName(name string) (*User, error) {
 }
 
 // ByID returns a *User structure parsed by user id
-func (prof *Profiles) ByID(id int64) (*User, error) {
-	data, err := prof.insta.prepareData()
-	if err != nil {
-		return nil, err
+func (prof *Profiles) ByID(id_ interface{}) (*User, error) {
+	var id string
+	switch x := id_.(type) {
+	case int64:
+		id = fmt.Sprintf("%d", x)
+	case int:
+		id = fmt.Sprintf("%d", x)
+	case string:
+		id = x
+	default:
+		return nil, errors.New("Invalid id, please provide a string or int(64)")
 	}
 
 	body, _, err := prof.insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlUserByID, id),
-			Query:    generateSignature(data),
 		},
 	)
 	if err == nil {

@@ -322,6 +322,7 @@ func Import(path string) (*Instagram, error) {
 //
 // Password will be deleted after login
 func (insta *Instagram) Login() (err error) {
+	// pre-login sequence
 	err = insta.zrToken()
 	if err != nil {
 		return
@@ -349,55 +350,29 @@ func (insta *Instagram) Login() (err error) {
 		return errors.New("Sync returned empty public key and/or public key id")
 	}
 
-	timestamp := strconv.Itoa(int(time.Now().Unix()))
-	encrypted, err := EncryptPassword(insta.pass, pkey, pkeyID, timestamp)
-	if err != nil {
-		return
-	}
-
-	result, err := json.Marshal(
-		map[string]interface{}{
-			"jazoest":      Jazoest(insta.dID),
-			"country_code": "[{\"country_code\":\"44\",\"source\":[\"default\"]}]",
-			"phone_id":     insta.fID,
-			"enc_password": fmt.Sprintf(
-				"#PWD_INSTAGRAM:4:%s:%s",
-				timestamp,
-				encrypted,
-			),
-			"username":            insta.user,
-			"adid":                insta.adid,
-			"guid":                insta.uuid,
-			"device_id":           insta.dID,
-			"google_tokens":       "[]",
-			"login_attempt_count": 0,
-		},
-	)
-	if err != nil {
-		return
-	}
-	body, _, err := insta.sendRequest(
-		&reqOptions{
-			Endpoint: urlLogin,
-			Query:    map[string]string{"signed_body": "SIGNATURE." + string(result)},
-			IsPost:   true,
-		},
-	)
+	err = insta.login(pkey, pkeyID)
 	if err != nil {
 		return err
 	}
-	insta.pass = ""
 
-	res := accountResp{}
-	err = json.Unmarshal(body, &res)
+	// post-login sequence
+	err = insta.OpenApp()
 	if err != nil {
-		return
+		return err
 	}
 
-	insta.Account = &res.Account
-	insta.Account.insta = insta
-	insta.rankToken = strconv.FormatInt(insta.Account.ID, 10) + "_" + insta.uuid
+	return
+}
 
+// Logout closes current session
+func (insta *Instagram) Logout() error {
+	_, err := insta.sendSimpleRequest(urlLogout)
+	insta.c.Jar = nil
+	insta.c = nil
+	return err
+}
+
+func (insta *Instagram) OpenApp() (err error) {
 	err = insta.zrToken()
 	if err != nil {
 		return
@@ -481,15 +456,60 @@ func (insta *Instagram) Login() (err error) {
 		return
 	}
 
-	return
+	return nil
 }
 
-// Logout closes current session
-func (insta *Instagram) Logout() error {
-	_, err := insta.sendSimpleRequest(urlLogout)
-	insta.c.Jar = nil
-	insta.c = nil
-	return err
+func (insta *Instagram) login(pkey string, pkeyID int) error {
+	timestamp := strconv.Itoa(int(time.Now().Unix()))
+	encrypted, err := EncryptPassword(insta.pass, pkey, pkeyID, timestamp)
+	if err != nil {
+		return err
+	}
+
+	result, err := json.Marshal(
+		map[string]interface{}{
+			"jazoest":      Jazoest(insta.dID),
+			"country_code": "[{\"country_code\":\"44\",\"source\":[\"default\"]}]",
+			"phone_id":     insta.fID,
+			"enc_password": fmt.Sprintf(
+				"#PWD_INSTAGRAM:4:%s:%s",
+				timestamp,
+				encrypted,
+			),
+			"username":            insta.user,
+			"adid":                insta.adid,
+			"guid":                insta.uuid,
+			"device_id":           insta.dID,
+			"google_tokens":       "[]",
+			"login_attempt_count": 0,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlLogin,
+			Query:    map[string]string{"signed_body": "SIGNATURE." + string(result)},
+			IsPost:   true,
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	insta.pass = ""
+	res := accountResp{}
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		return err
+	}
+
+	insta.Account = &res.Account
+	insta.Account.insta = insta
+	insta.rankToken = strconv.FormatInt(insta.Account.ID, 10) + "_" + insta.uuid
+
+	return nil
 }
 
 func (insta *Instagram) getPrefill() error {

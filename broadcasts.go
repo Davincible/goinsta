@@ -70,7 +70,7 @@ type Broadcast struct {
 }
 
 type BroadcastComments struct {
-	CommentLikes               bool      `json:"comment_likes_enabled"`
+	CommentLikesEnabled        bool      `json:"comment_likes_enabled"`
 	Comments                   []Comment `json:"comments"`
 	PinnedComment              Comment   `json:"pinned_comment"`
 	CommentCount               int       `json:"comment_count"`
@@ -203,4 +203,8 @@ func (br *Broadcast) GetHeartbeat() (*BroadcastHeartbeat, error) {
 		return nil, err
 	}
 	return c, nil
+}
+
+func (br *Broadcast) SetInsta(insta *Instagram) {
+	br.insta = insta
 }
