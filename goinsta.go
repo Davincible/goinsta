@@ -82,6 +82,18 @@ type Instagram struct {
 	Locations *LocationInstance
 
 	c *http.Client
+
+	// Non fatal err handler, which don't get returned
+	// By default they will be printed out, you can e.g. pass them to a logger
+	ErrHandler func(...interface{})
+}
+
+func DefaultErrHandler(args ...interface{}) {
+	fmt.Println(args...)
+}
+
+func (insta *Instagram) SetErrorHandler(f func(...interface{})) {
+	insta.ErrHandler = f
 }
 
 // SetHTTPClient sets http client.  This further allows users to use this functionality
@@ -148,6 +160,7 @@ func New(username, password string) *Instagram {
 			},
 			Jar: jar,
 		},
+		ErrHandler: DefaultErrHandler,
 	}
 	insta.init()
 
@@ -292,6 +305,7 @@ func ImportConfig(config ConfigFile) (*Instagram, error) {
 				Proxy: http.ProxyFromEnvironment,
 			},
 		},
+		ErrHandler: DefaultErrHandler,
 	}
 	insta.c.Jar, err = cookiejar.New(nil)
 	if err != nil {
@@ -380,7 +394,7 @@ func (insta *Instagram) OpenApp() (err error) {
 
 	err = insta.getAccountFamily()
 	if err != nil {
-		return
+		insta.ErrHandler("Non fatal error while fetching account family:", err)
 	}
 	_, _, err = insta.syncb()
 	if err != nil {
@@ -389,7 +403,7 @@ func (insta *Instagram) OpenApp() (err error) {
 
 	err = insta.getNdxSteps()
 	if err != nil {
-		return
+		insta.ErrHandler("Non fatal error while fetching ndx steps:", err)
 	}
 
 	if !insta.Timeline.Next() {
@@ -399,36 +413,36 @@ func (insta *Instagram) OpenApp() (err error) {
 
 	err = insta.callNotifBadge()
 	if err != nil {
-		return
+		insta.ErrHandler("Non fatal error while fetching notify badge", err)
 	}
 
 	err = insta.banyan()
 	if err != nil {
-		return
+		insta.ErrHandler("Non fatal error while fetching banyan", err)
 	}
 
 	err = insta.callMediaBlocked()
 	if err != nil {
-		return
+		insta.ErrHandler("Non fatal error while fetching blocked media", err)
 	}
 
 	// no clue what theses values could be used for
 	_, err = insta.getCooldowns()
 	if err != nil {
-		return
+		insta.ErrHandler("Non fatal error while fetching cool downs", err)
 	}
 
 	// Missing call to /api/v1/discover/topical_explore
 
 	err = insta.getConfig()
 	if err != nil {
-		return
+		insta.ErrHandler("Non fatal error while fetching config", err)
 	}
 
 	// no clue what theses values could be used for
 	_, err = insta.getScoresBootstrapUsers()
 	if err != nil {
-		return
+		insta.ErrHandler("Non fatal error while fetching bootstrap user scores", err)
 	}
 
 	if !insta.Activity.Next() {
@@ -438,12 +452,12 @@ func (insta *Instagram) OpenApp() (err error) {
 
 	err = insta.sendAdID()
 	if err != nil {
-		return
+		insta.ErrHandler("Non fatal error while sending ad id", err)
 	}
 
 	err = insta.callStClPushPerm()
 	if err != nil {
-		return
+		insta.ErrHandler("Non fatal error while calling store client push permissions", err)
 	}
 
 	if !insta.Inbox.initialSnapshot() {
@@ -453,7 +467,7 @@ func (insta *Instagram) OpenApp() (err error) {
 
 	err = insta.callContPointSig()
 	if err != nil {
-		return
+		insta.ErrHandler("Non fatal error while calling contact point signal", err)
 	}
 
 	return nil

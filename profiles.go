@@ -11,6 +11,9 @@ type Profiles struct {
 	insta *Instagram
 }
 
+func (insta *Instagram) VisitProfile(handle string) {
+}
+
 func newProfiles(insta *Instagram) *Profiles {
 	profiles := &Profiles{
 		insta: insta,
@@ -31,6 +34,10 @@ func (prof *Profiles) ByName(name string) (*User, error) {
 		}
 	}
 	return nil, err
+}
+
+func (insta *Instagram) GetUserByID(id interface{}) (*User, error) {
+	return insta.Profiles.ByID(id)
 }
 
 // ByID returns a *User structure parsed by user id
