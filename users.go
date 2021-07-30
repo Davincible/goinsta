@@ -60,7 +60,7 @@ func (users *Users) Next() bool {
 			Endpoint: endpoint,
 			Query: map[string]string{
 				"max_id":             users.NextID,
-				"ig_sig_key_version": goInstaSigKeyVersion,
+				"ig_sig_key_version": instaSigKeyVersion,
 				"rank_token":         insta.rankToken,
 			},
 		},
@@ -336,23 +336,28 @@ func (user *User) Followers() *Users {
 // Block blocks user
 //
 // This function updates current User.Friendship structure.
+// Param: autoBlock - automatically block accounts registered on the same email/number
 //
 // See example: examples/user/block.go
-func (user *User) Block() error {
+func (user *User) Block(autoBlock bool) error {
 	insta := user.insta
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"user_id": user.ID,
-		},
-	)
+	data, err := json.Marshal(map[string]string{
+		"surface":              "profile",
+		"is_autoblock_enabled": strconv.FormatBool(autoBlock),
+		"user_id":              strconv.Itoa(int(user.ID)),
+		"_uid":                 strconv.Itoa(int(insta.Account.ID)),
+		"_uuid":                insta.uuid,
+	})
 	if err != nil {
 		return err
 	}
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlUserBlock, user.ID),
-			Query:    generateSignature(data),
 			IsPost:   true,
+			Query: map[string]string{
+				"signed_body": "SIGNATURE." + string(data),
+			},
 		},
 	)
 	if err != nil {
@@ -561,7 +566,7 @@ func (user *User) GetFeaturedAccounts() ([]User, error) {
 	body, _, err := user.insta.sendRequest(&reqOptions{
 		Endpoint: urlFeaturedAccounts,
 		Query: map[string]string{
-			"target_user_id": string(int(user.ID)),
+			"target_user_id": strconv.Itoa(int(user.ID)),
 		},
 	})
 	d := struct {

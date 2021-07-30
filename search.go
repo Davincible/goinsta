@@ -3,7 +3,6 @@ package goinsta
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strconv"
 	"time"
 )
@@ -29,6 +28,7 @@ type SearchResult struct {
 	SearchSurface string
 	context       string
 	queryParam    string
+	entityType    string
 
 	// Regular Search Results
 	Results []TopSearchItem `json:"list"`
@@ -73,6 +73,8 @@ type Place struct {
 }
 
 type TopSearchItem struct {
+	insta *Instagram
+
 	Position int     `json:"position"`
 	User     User    `json:"user"`
 	Hashtag  Hashtag `json:"hashtag"`
@@ -171,6 +173,29 @@ func (sb *Search) History() (*[]SearchHistory, error) {
 	return h, nil
 }
 
+func (sr *TopSearchItem) RegisterClick() error {
+	var entityType string
+	var id int64
+	if id = sr.User.ID; id != 0 {
+		entityType = "user"
+	} else if id = sr.Hashtag.ID; id != 0 {
+		entityType = "hashtag"
+	} else if id = sr.Place.Location.Pk; id != 0 {
+		entityType = "place"
+	}
+
+	_, _, err := sr.insta.sendRequest(&reqOptions{
+		Endpoint: urlSearchRegisterClick,
+		IsPost:   true,
+		Query: map[string]string{
+			"entity_id":   strconv.Itoa(int(id)),
+			"_uuid":       sr.insta.uuid,
+			"entity_type": entityType,
+		},
+	})
+	return err
+}
+
 func (sb *Search) search(query string, fn func(string) (*SearchResult, error)) (*SearchResult, error) {
 	sb.insta.Discover.Next()
 	h, err := sb.history()
@@ -230,9 +255,10 @@ func (sr *SearchResult) Error() error {
 }
 
 func (sr *SearchResult) setValues() {
-	for _, u := range sr.Results {
-		u.User.insta = sr.insta
-		u.Hashtag.insta = sr.insta
+	for _, r := range sr.Results {
+		r.insta = sr.insta
+		r.User.insta = sr.insta
+		r.Hashtag.insta = sr.insta
 	}
 	for _, u := range sr.Users {
 		u.insta = sr.insta

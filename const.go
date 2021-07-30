@@ -119,12 +119,13 @@ const (
 	urlReelMedia = "feed/reels_media/"
 
 	// search
-	urlSearchTop       = "fbsearch/topsearch_flat/"
-	urlSearchUser      = "users/search/"
-	urlSearchTag       = "tags/search/"
-	urlSearchLocation  = "fbsearch/places/"
-	urlSearchRecent    = "fbsearch/recent_searches/"
-	urlSearchNullState = "fbsearch/nullstate_dynamic_sections/"
+	urlSearchTop           = "fbsearch/topsearch_flat/"
+	urlSearchUser          = "users/search/"
+	urlSearchTag           = "tags/search/"
+	urlSearchLocation      = "fbsearch/places/"
+	urlSearchRecent        = "fbsearch/recent_searches/"
+	urlSearchNullState     = "fbsearch/nullstate_dynamic_sections/"
+	urlSearchRegisterClick = "fbsearch/register_recent_search_click/"
 
 	// feeds
 	urlFeedLocationID = "feed/location/%d/"
