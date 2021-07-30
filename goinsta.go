@@ -60,16 +60,16 @@ type Instagram struct {
 
 	// Instagram objects
 
-	// Challenge controls security side of account (Like sms verify / It was me)
-	Challenge *Challenge
+	// Timeline allows to receive timeline media.
+	Timeline *Timeline
+	// Discover provides access to the discover/explore page
+	Discover *Discover
 	// Profiles is the user interaction
 	Profiles *Profiles
 	// Account stores all personal data of the user and his/her options.
 	Account *Account
-	// Search performs searching of multiple things (users, locations...)
-	Search *Search
-	// Timeline allows to receive timeline media.
-	Timeline *Timeline
+	// Searchbar performs searching of multiple things (users, locations...)
+	Searchbar *Search
 	// Activity are instagram notifications.
 	Activity *Activity
 	// Inbox are instagram message/chat system.
@@ -80,6 +80,8 @@ type Instagram struct {
 	Contacts *Contacts
 	// Location instance
 	Locations *LocationInstance
+	// Challenge controls security side of account (Like sms verify / It was me)
+	Challenge *Challenge
 
 	c *http.Client
 
@@ -127,7 +129,7 @@ func (insta *Instagram) SetPhoneID(id string) {
 // SetCookieJar sets the Cookie Jar. This further allows to use a custom implementation
 // of a cookie jar which may be backed by a different data store such as redis.
 func (insta *Instagram) SetCookieJar(jar http.CookieJar) error {
-	url, err := neturl.Parse(goInstaAPIUrl)
+	url, err := neturl.Parse(instaAPIUrl)
 	if err != nil {
 		return err
 	}
@@ -172,11 +174,12 @@ func (insta *Instagram) init() {
 	insta.Profiles = newProfiles(insta)
 	insta.Activity = newActivity(insta)
 	insta.Timeline = newTimeline(insta)
-	insta.Search = newSearch(insta)
+	insta.Searchbar = newSearch(insta)
 	insta.Inbox = newInbox(insta)
 	insta.Feed = newFeed(insta)
 	insta.Contacts = newContacts(insta)
 	insta.Locations = newLocation(insta)
+	insta.Discover = newDiscover(insta)
 }
 
 // SetProxy sets proxy for connection.
@@ -210,7 +213,7 @@ func (insta *Instagram) Save() error {
 
 // Export exports *Instagram object options
 func (insta *Instagram) Export(path string) error {
-	url, err := neturl.Parse(goInstaAPIUrl)
+	url, err := neturl.Parse(instaAPIUrl)
 	if err != nil {
 		return err
 	}
@@ -238,7 +241,7 @@ func (insta *Instagram) Export(path string) error {
 
 // Export exports selected *Instagram object options to an io.Writer
 func Export(insta *Instagram, writer io.Writer) error {
-	url, err := neturl.Parse(goInstaAPIUrl)
+	url, err := neturl.Parse(instaAPIUrl)
 	if err != nil {
 		return err
 	}
@@ -285,7 +288,7 @@ func ImportReader(r io.Reader) (*Instagram, error) {
 //
 // This function does not set proxy automatically. Use SetProxy after this call.
 func ImportConfig(config ConfigFile) (*Instagram, error) {
-	url, err := neturl.Parse(goInstaBaseUrl)
+	url, err := neturl.Parse(baseUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -348,12 +351,12 @@ func (insta *Instagram) Login() (err error) {
 
 	err = insta.getPrefill()
 	if err != nil {
-		return
+		insta.ErrHandler("Non fatal error while fetching prefill:", err)
 	}
 
 	err = insta.contactPrefill()
 	if err != nil {
-		return
+		insta.ErrHandler("Non fatal error while fetching contact prefill:", err)
 	}
 
 	pkey, pkeyID, err := insta.sync()
@@ -432,7 +435,10 @@ func (insta *Instagram) OpenApp() (err error) {
 		insta.ErrHandler("Non fatal error while fetching cool downs", err)
 	}
 
-	// Missing call to /api/v1/discover/topical_explore
+	if !insta.Discover.Next() {
+		insta.ErrHandler("Non fatal error while fetching explore page",
+			insta.Discover.Error())
+	}
 
 	err = insta.getConfig()
 	if err != nil {
@@ -467,7 +473,7 @@ func (insta *Instagram) OpenApp() (err error) {
 
 	err = insta.callContPointSig()
 	if err != nil {
-		insta.ErrHandler("Non fatal error while calling contact point signal", err)
+		insta.ErrHandler("Non fatal error while calling contact point signal:", err)
 	}
 
 	return nil
@@ -630,27 +636,6 @@ func (insta *Instagram) callStClPushPerm() error {
 				"device_id": insta.uuid,
 				"_uuid":     insta.uuid,
 			},
-		},
-	)
-	return err
-}
-
-func (insta *Instagram) syncFeatures() error {
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"id":          insta.uuid,
-			"experiments": goInstaExperiments,
-		},
-	)
-	if err != nil {
-		return err
-	}
-
-	_, _, err = insta.sendRequest(
-		&reqOptions{
-			Endpoint: urlQeSync,
-			Query:    generateSignature(data),
-			IsPost:   true,
 		},
 	)
 	return err

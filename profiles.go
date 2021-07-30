@@ -11,7 +11,61 @@ type Profiles struct {
 	insta *Instagram
 }
 
-func (insta *Instagram) VisitProfile(handle string) {
+type Profile struct {
+	insta *Instagram
+
+	User       *User
+	Friendship *Friendship
+
+	Feed       *FeedMedia
+	Stories    *StoryMedia
+	Highlights *[]StoryMedia
+	IGTV       *IGTVChannel
+}
+
+func (insta *Instagram) VisitProfile(handle string) (*Profile, error) {
+	insta.Search(handle)
+}
+
+func (user *User) VisitProfile() (*Profile, error) {
+	p := Profile{User: user}
+	fr, err := user.FriendShip()
+	if err != nil {
+		return nil, err
+	}
+	p.Friendship = fr
+
+	h, err := user.Highlights()
+	if err != nil {
+		return nil, err
+	}
+	p.Highlights = &h
+
+	// always gets called 3 times on profile visit, if enough media available
+	f := user.Feed()
+	f.Next()
+	if f.MoreAvailable {
+		f.Next()
+		if f.MoreAvailable {
+			f.Next()
+		}
+	}
+	p.Feed = f
+	err = user.Info("entry_point", "profile", "from_module", "blended_search")
+	if err != nil {
+		return nil, err
+	}
+
+	user.GetFeaturedAccounts()
+
+	if user.HasIGTVSeries {
+		igtv, err := user.IGTV()
+		if err != nil {
+			return nil, err
+		}
+		p.IGTV = igtv
+	}
+	return &p, err
 }
 
 func newProfiles(insta *Instagram) *Profiles {

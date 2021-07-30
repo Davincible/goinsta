@@ -1,6 +1,7 @@
 package goinsta
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -158,6 +159,7 @@ type User struct {
 	ExternalURL                string        `json:"external_url"`
 	HasBiographyTranslation    bool          `json:"has_biography_translation"`
 	HasVideos                  bool          `json:"has_videos"`
+	HasIGTVSeries              bool          `json:"has_igtv_series"`
 	HasProfileVideoFeed        bool          `json:"has_profile_video_feed"`
 	HasSavedItems              bool          `json:"has_saved_items"`
 	ExternalLynxURL            string        `json:"external_lynx_url"`
@@ -277,32 +279,34 @@ func (insta *Instagram) NewUser() *User {
 	return &User{insta: insta}
 }
 
-// Sync updates user info
-//
-// 	params can be:
-// 		bool: must be true if you want to include FriendShip call. See goinsta.FriendShip
+// Info updates user info
+// extra query arguments can be passes one after another as func(key, value).
+// Only if an even number of string arguements will be passed, they will be
+//   used in the query.
 //
 // See example: examples/user/friendship.go
-func (user *User) Sync(params ...interface{}) error {
+func (user *User) Info(params ...interface{}) error {
 	insta := user.insta
-	body, err := insta.sendSimpleRequest(urlUserInfo, user.ID)
-	if err == nil {
-		resp := userResp{}
-		err = json.Unmarshal(body, &resp)
-		if err == nil {
-			*user = resp.User
-			user.insta = insta
-			for _, param := range params {
-				switch b := param.(type) {
-				case bool:
-					if b {
-						err = user.FriendShip()
-					}
-				}
-			}
+	query := map[string]string{}
+	if len(params)%2 == 0 {
+		for i := 0; i < len(params); i = i + 2 {
+			query[params[i].(string)] = params[i+1].(string)
 		}
 	}
+
+	body, _, err := insta.sendRequest(&reqOptions{
+		Endpoint: fmt.Sprintf(urlUserInfo, user.ID),
+		Query:    query,
+	})
+	if err == nil {
+		err = json.Unmarshal(body, user)
+	}
 	return err
+}
+
+// Sync wraps User.Info() 1:1
+func (user *User) Sync(params ...interface{}) error {
+	return user.Info(params...)
 }
 
 // Following returns a list of user following.
@@ -539,27 +543,33 @@ func (user *User) Unfollow() error {
 // FriendShip allows user to get friend relationship.
 //
 // The result is stored in user.Friendship
-func (user *User) FriendShip() error {
+func (user *User) FriendShip() (fr *Friendship, err error) {
 	insta := user.insta
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"user_id": user.ID,
-		},
-	)
-	if err != nil {
-		return err
-	}
-
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlFriendship, user.ID),
-			Query:    generateSignature(data),
 		},
 	)
 	if err == nil {
-		err = json.Unmarshal(body, &user.Friendship)
+		fr = &user.Friendship
+		err = json.Unmarshal(body, fr)
 	}
-	return err
+	return
+}
+
+func (user *User) GetFeaturedAccounts() ([]User, error) {
+	body, _, err := user.insta.sendRequest(&reqOptions{
+		Endpoint: urlFeaturedAccounts,
+		Query: map[string]string{
+			"target_user_id": string(int(user.ID)),
+		},
+	})
+	d := struct {
+		Accounts []User `json:"accounts"`
+		Status   string `json:"status"`
+	}{}
+	err = json.Unmarshal(body, &d)
+	return d.Accounts, err
 }
 
 // Feed returns user feeds (media)
@@ -606,19 +616,22 @@ func (user *User) Stories() *StoryMedia {
 // See example: examples/user/highlights.go
 func (user *User) Highlights() ([]StoryMedia, error) {
 	query := []trayRequest{
-		{"SUPPORTED_SDK_VERSIONS", "9.0,10.0,11.0,12.0,13.0,14.0,15.0,16.0,17.0,18.0,19.0,20.0,21.0,22.0,23.0,24.0"},
-		{"FACE_TRACKER_VERSION", "10"},
-		{"segmentation", "segmentation_enabled"},
-		{"COMPRESSION", "ETC2_COMPRESSION"},
+		{"SUPPORTED_SDK_VERSIONS", supportedSdkVersions},
+		{"FACE_TRACKER_VERSION", facetrackerVersion},
+		{"segmentation", segmentation},
+		{"COMPRESSION", compression},
+		{"world_tracker", worldTracker},
+		{"gyroscope", gyroscope},
 	}
 	data, err := json.Marshal(query)
 	if err != nil {
 		return nil, err
 	}
+
 	body, _, err := user.insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlUserHighlights, user.ID),
-			Query:    generateSignature(b2s(data)),
+			Query:    map[string]string{"supported_capabilities_new": string(data)},
 		},
 	)
 	if err == nil {
@@ -626,18 +639,36 @@ func (user *User) Highlights() ([]StoryMedia, error) {
 		err = json.Unmarshal(body, &tray)
 		if err == nil {
 			tray.set(user.insta, "")
-			for i := range tray.Stories {
-				if len(tray.Stories[i].Items) == 0 {
-					err = tray.Stories[i].Sync()
-					if err != nil {
-						return nil, err
-					}
-				}
-			}
 			return tray.Stories, nil
 		}
 	}
 	return nil, err
+}
+
+// IGTV returns the IGTV items of a user
+//
+// Use IGTVChannel.Next for pagination.
+//
+func (user *User) IGTV() (*IGTVChannel, error) {
+	id := fmt.Sprintf("user_%d", user.ID)
+	body, _, err := user.insta.sendRequest(&reqOptions{
+		Endpoint: urlIGTVChannel,
+		IsPost:   true,
+		Query: map[string]string{
+			"id":    id,
+			"_uuid": user.insta.uuid,
+			"count": "10",
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	igtv := IGTVChannel{insta: user.insta, id: id}
+	d := json.NewDecoder(bytes.NewReader(body))
+	d.UseNumber()
+	err = d.Decode(&igtv)
+
+	return &igtv, nil
 }
 
 // Tags returns media where user is tagged in

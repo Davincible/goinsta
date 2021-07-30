@@ -15,9 +15,6 @@ type Hashtag struct {
 	Sections []struct {
 		LayoutType    string `json:"layout_type"`
 		LayoutContent struct {
-			// F*ck you instagram.
-			// Why you do this f*cking horribly structure?!?
-			// Media []Media IS EASY. CHECK IT!
 			Medias []struct {
 				Item Item `json:"media"`
 			} `json:"medias"`

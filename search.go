@@ -2,6 +2,7 @@ package goinsta
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -12,12 +13,26 @@ type Search struct {
 	insta *Instagram
 }
 
+type SearchFunc interface{}
+
 // SearchResult handles the data for the results given by each type of Search.
 type SearchResult struct {
-	HasMore    bool   `json:"has_more"`
-	RankToken  string `json:"rank_token"`
-	Status     string `json:"status"`
-	NumResults int64  `json:"num_results"`
+	insta *Instagram
+	err   error
+
+	HasMore       bool   `json:"has_more"`
+	PageToken     string `json:"page_token"`
+	RankToken     string `json:"rank_token"`
+	Status        string `json:"status"`
+	NumResults    int64  `json:"num_results"`
+	Query         string
+	SearchSurface string
+	context       string
+	queryParam    string
+
+	// Regular Search Results
+	Results []TopSearchItem `json:"list"`
+	History []SearchHistory
 
 	// User search results
 	Users []User `json:"users"`
@@ -48,18 +63,25 @@ type SearchResult struct {
 		Name             string  `json:"name"`
 	} `json:"venues"`
 
-	// Facebook
-	// Facebook also uses `Users`
-	Places   []interface{} `json:"places"`
-	Hashtags []struct {
-		Position int `json:"position"`
-		Hashtag  struct {
-			Name       string `json:"name"`
-			ID         int64  `json:"id"`
-			MediaCount int    `json:"media_count"`
-		} `json:"hashtag"`
-	} `json:"hashtags"`
 	ClearClientCache bool `json:"clear_client_cache"`
+}
+
+type Place struct {
+	Title    string   `json:"title"`
+	Subtitle string   `json:"subtitle"`
+	Location Location `json:"location"`
+}
+
+type TopSearchItem struct {
+	Position int     `json:"position"`
+	User     User    `json:"user"`
+	Hashtag  Hashtag `json:"hashtag"`
+	Place    Place   `json:"place"`
+}
+
+type SearchHistory struct {
+	Time int64 `json:"client_time"`
+	User User  `json:"user"`
 }
 
 // newSearch creates new Search structure
@@ -70,22 +92,168 @@ func newSearch(insta *Instagram) *Search {
 	return search
 }
 
-// User search by username, you can use count optional parameter to get more than 50 items.
-func (search *Search) User(user string, countParam ...int) (*SearchResult, error) {
-	count := 50
-	if len(countParam) > 0 {
-		count = countParam[0]
+// Search is a wrapper for insta.Searchbar.Search()
+func (insta *Instagram) Search(query string) (*SearchResult, error) {
+	return insta.SearchBar.Search(query)
+}
+
+func (sb *Search) Search(query string) (*SearchResult, error) {
+	return sb.search(query, sb.topsearch)
+}
+
+func (sb *Search) SearchUser(query string) (*SearchResult, error) {
+	return sb.search(query, sb.user)
+}
+
+func (sb *Search) SearchHashtag(query string) (*SearchResult, error) {
+	return sb.search(query, sb.tags)
+}
+
+func (sb *Search) SearchLocation(query string) (*SearchResult, error) {
+	return sb.search(query, sb.places)
+}
+
+func (sr *SearchResult) Next() bool {
+	if !sr.HasMore || sr.RankToken == "" || sr.PageToken == "" {
+		sr.err = errors.New("No more results available, or rank or page token have not been set")
+		return false
 	}
+
+	insta := sr.insta
+	query := map[string]string{
+		"search_surface":  sr.SearchSurface,
+		"timezone_offset": timeOffset,
+		"count":           "30",
+		sr.queryParam:     sr.Query,
+		"rank_token":      sr.RankToken,
+		"page_token":      sr.PageToken,
+	}
+	if sr.context != "" {
+		query["context"] = sr.context
+	}
+	if sr.SearchSurface == "places_search_page" {
+		query["lon"] = ""
+		query["lng"] = ""
+	}
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlSearchTop,
+			Query:    query,
+		},
+	)
+	if err != nil {
+		sr.err = err
+		return false
+	}
+	res := &SearchResult{}
+	err = json.Unmarshal(body, res)
+	if err != nil {
+		sr.err = err
+		return false
+	}
+	res.setValues()
+	sr.Results = append(sr.Results, res.Results...)
+	sr.HasMore = res.HasMore
+	sr.RankToken = res.RankToken
+	sr.ClearClientCache = res.ClearClientCache
+	return true
+}
+
+func (sb *Search) History() (*[]SearchHistory, error) {
+	sb.insta.Discover.Next()
+	h, err := sb.history()
+	if err != nil {
+		return nil, err
+	}
+	if err := sb.NullState(); err != nil {
+		sb.insta.ErrHandler("Non fatal error while setting search null state", err)
+	}
+	return h, nil
+}
+
+func (sb *Search) search(query string, fn func(string) (*SearchResult, error)) (*SearchResult, error) {
+	sb.insta.Discover.Next()
+	h, err := sb.history()
+	if err != nil {
+		sb.insta.ErrHandler("Non fatal error while fetcihng recent search results",
+			err)
+	}
+	if err := sb.NullState(); err != nil {
+		sb.insta.ErrHandler("Non fatal error while setting search null state", err)
+	}
+
+	var result *SearchResult
+	var q string
+	for _, char := range query {
+		q += string(char)
+		result, err = fn(q)
+		if err != nil {
+			return nil, err
+		}
+		s := acquireRand(150, 500)
+		time.Sleep(time.Duration(s) * time.Millisecond)
+	}
+	result.History = *h
+	return result, nil
+}
+
+func (search *Search) topsearch(query string) (*SearchResult, error) {
 	insta := search.insta
+	res := &SearchResult{
+		Query:         query,
+		SearchSurface: "top_search_page",
+		context:       "blended",
+		queryParam:    "query",
+	}
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlSearchTop,
+			Query: map[string]string{
+				"search_surface":  res.SearchSurface,
+				"timezone_offset": timeOffset,
+				"count":           "30",
+				res.queryParam:    query,
+				"context":         res.context,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(body, res)
+	res.setValues()
+	return res, err
+}
+
+func (sr *SearchResult) Error() error {
+	return sr.err
+}
+
+func (sr *SearchResult) setValues() {
+	for _, u := range sr.Results {
+		u.User.insta = sr.insta
+		u.Hashtag.insta = sr.insta
+	}
+	for _, u := range sr.Users {
+		u.insta = sr.insta
+	}
+}
+
+func (search *Search) user(user string) (*SearchResult, error) {
+	insta := search.insta
+	res := &SearchResult{
+		SearchSurface: "user_search_page",
+		queryParam:    "q",
+		Query:         user,
+	}
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlSearchUser,
 			Query: map[string]string{
-				"ig_sig_key_version": goInstaSigKeyVersion,
-				"is_typeahead":       "true",
-				"q":                  user,
-				"count":              fmt.Sprintf("%d", count),
-				"rank_token":         insta.rankToken,
+				"search_surface":  res.SearchSurface,
+				"timezone_offset": timeOffset,
+				"count":           "30",
+				res.queryParam:    user,
 			},
 		},
 	)
@@ -93,24 +261,26 @@ func (search *Search) User(user string, countParam ...int) (*SearchResult, error
 		return nil, err
 	}
 
-	res := &SearchResult{}
 	err = json.Unmarshal(body, res)
-	for id := range res.Users {
-		res.Users[id].insta = insta
-	}
+	res.setValues()
 	return res, err
 }
 
-// Tags search by tag
-func (search *Search) Tags(tag string) (*SearchResult, error) {
+func (search *Search) tags(tag string) (*SearchResult, error) {
 	insta := search.insta
+	res := &SearchResult{
+		SearchSurface: "hashtag_search_page",
+		queryParam:    "q",
+		Query:         tag,
+	}
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlSearchTag,
 			Query: map[string]string{
-				"is_typeahead": "true",
-				"rank_token":   insta.rankToken,
-				"q":            tag,
+				"search_surface":  res.SearchSurface,
+				"timezone_offset": timeOffset,
+				"count":           "30",
+				res.queryParam:    tag,
 			},
 		},
 	)
@@ -118,60 +288,62 @@ func (search *Search) Tags(tag string) (*SearchResult, error) {
 		return nil, err
 	}
 
-	res := &SearchResult{}
 	err = json.Unmarshal(body, res)
 	return res, err
 }
 
-// Location search by location.
-// DEPRECATED - Instagram does not allow Location search method.
-// Lat and Lng (Latitude & Longitude) cannot be ""
-func (search *Search) Location(lat, lng, location string) (*SearchResult, error) {
+func (search *Search) places(location string) (*SearchResult, error) {
 	insta := search.insta
-	q := map[string]string{
-		"rank_token":     insta.rankToken,
-		"latitude":       lat,
-		"longitude":      lng,
-		"ranked_content": "true",
-	}
-
-	if location != "" {
-		q["search_query"] = location
-	} else {
-		q["timestamp"] = strconv.FormatInt(time.Now().Unix(), 10)
+	res := &SearchResult{
+		SearchSurface: "places_search_page",
+		queryParam:    "query",
+		Query:         location,
 	}
 
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlSearchLocation,
-			Query:    q,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	res := &SearchResult{}
-	err = json.Unmarshal(body, res)
-	return res, err
-}
-
-// Facebook search by facebook user.
-func (search *Search) Facebook(user string) (*SearchResult, error) {
-	insta := search.insta
-	body, _, err := insta.sendRequest(
-		&reqOptions{
-			Endpoint: urlSearchFacebook,
 			Query: map[string]string{
-				"query":      user,
-				"rank_token": insta.rankToken,
+				"search_surface":  res.SearchSurface,
+				"timezone_offset": timeOffset,
+				"count":           "30",
+				res.queryParam:    location,
+				"lat":             "",
+				"lng":             "",
 			},
 		},
 	)
 	if err != nil {
 		return nil, err
 	}
-	res := &SearchResult{}
+
 	err = json.Unmarshal(body, res)
 	return res, err
+}
+
+func (search *Search) NullState() error {
+	_, _, err := search.insta.sendRequest(&reqOptions{
+		Endpoint: urlSearchNullState,
+		Query:    map[string]string{"type": "blended"},
+	})
+	return err
+}
+
+func (search *Search) history() (*[]SearchHistory, error) {
+	body, err := search.insta.sendSimpleRequest(urlSearchRecent)
+	if err != nil {
+		return nil, err
+	}
+	s := struct {
+		Recent []SearchHistory `json:"recent"`
+		Status string          `json:"status"`
+	}{}
+	err = json.Unmarshal(body, &s)
+	if err != nil {
+		return nil, err
+	}
+	for _, i := range s.Recent {
+		i.User.insta = search.insta
+	}
+	return &s.Recent, nil
 }

@@ -141,14 +141,17 @@ type SuggestedUsers struct {
 
 // Friendship stores the details of the relationship between two users.
 type Friendship struct {
-	IncomingRequest bool `json:"incoming_request"`
-	FollowedBy      bool `json:"followed_by"`
-	OutgoingRequest bool `json:"outgoing_request"`
 	Following       bool `json:"following"`
-	Blocking        bool `json:"blocking"`
-	IsPrivate       bool `json:"is_private"`
+	FollowedBy      bool `json:"followed_by"`
+	IncomingRequest bool `json:"incoming_request"`
+	OutgoingRequest bool `json:"outgoing_request"`
 	Muting          bool `json:"muting"`
+	Blocking        bool `json:"blocking"`
+	IsBestie        bool `json:"is_bestie"`
+	IsBlockingReel  bool `json:"is_blocking_reel"`
 	IsMutingReel    bool `json:"is_muting_reel"`
+	IsPrivate       bool `json:"is_private"`
+	IsRestricted    bool `jsoN:"is_restricted"`
 }
 
 // Images are different quality images

@@ -1,5 +1,11 @@
 package goinsta
 
+import (
+	"bytes"
+	"encoding/json"
+	"strconv"
+)
+
 // Do i need to extract the rank token?
 
 // Methods to create:
@@ -48,6 +54,10 @@ type IGTVItem struct {
 // It's called a channel, however the Items can, but don't have to,
 //   belong to the same account, depending on the request. It's a bit dubious
 type IGTVChannel struct {
+	insta *Instagram
+	id    string // user id parameter
+	err   error
+
 	ApproxTotalVideos        interface{} `json:"approx_total_videos"`
 	ApproxVideosFormatted    interface{} `json:"approx_videos_formatted"`
 	CoverPhotoUrl            string      `json:"cover_photo_url"`
@@ -59,7 +69,77 @@ type IGTVChannel struct {
 	Type                     string      `json:"user"`
 	User                     User        `json:"user_dict"`
 	DestinationClientConfigs interface{} `json:"destination_client_configs"`
-	MaxID                    string      `json:"max_id"`
+	NextID                   interface{} `json:"max_id"`
 	MoreAvailable            bool        `json:"more_available"`
 	SeenState                interface{} `json:"seen_state"`
+}
+
+// GetNexID returns the max id used for pagination.
+func (igtv *IGTVChannel) GetNextID() string {
+	switch s := igtv.NextID.(type) {
+	case string:
+		return s
+	case int64:
+		return strconv.FormatInt(s, 10)
+	case json.Number:
+		return string(s)
+	}
+	return ""
+}
+
+// Next allows pagination after calling:
+// User.Feed
+// extra query arguments can be passes one after another as func(key, value).
+// Only if an even number of string arguements will be passed, they will be
+//   used in the query.
+// returns false when list reach the end.
+// if FeedMedia.Error() is ErrNoMore no problems have occurred.
+func (igtv *IGTVChannel) Next(params ...interface{}) bool {
+	if igtv.err != nil {
+		return false
+	}
+
+	insta := igtv.insta
+
+	query := map[string]string{
+		"exclude_comment":                 "true",
+		"only_fetch_first_carousel_media": "false",
+	}
+	if len(params)%2 == 0 {
+		for i := 0; i < len(params); i = i + 2 {
+			query[params[i].(string)] = params[i+1].(string)
+		}
+	}
+
+	if next := igtv.GetNextID(); next != "" {
+		query["max_id"] = next
+	}
+
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlIGTVChannel,
+			IsPost:   true,
+			Query: map[string]string{
+				"id":    igtv.id,
+				"_uuid": igtv.insta.uuid,
+				"count": "10",
+			},
+		})
+	if err == nil {
+		m := IGTVChannel{insta: igtv.insta, id: igtv.id}
+		d := json.NewDecoder(bytes.NewReader(body))
+		d.UseNumber()
+		err = d.Decode(&igtv)
+		if err == nil {
+			igtv.NextID = m.NextID
+			igtv.MoreAvailable = m.MoreAvailable
+			if m.NextID == 0 || !m.MoreAvailable {
+				igtv.err = ErrNoMore
+			}
+			m.setValues()
+			igtv.Items = append(igtv.Items, m.Items...)
+			return true
+		}
+	}
+	return false
 }

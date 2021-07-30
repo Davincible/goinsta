@@ -54,6 +54,7 @@ type StoryCTA struct {
 // All Item has Images or Videos objects which contains the url(s).
 // You can use Download function to get the best quality Image or Video from Item.
 type Item struct {
+	insta    *Instagram
 	media    Media
 	Comments *Comments `json:"-"`
 
@@ -798,14 +799,16 @@ type trayRequest struct {
 //
 // This function does NOT update Stories items.
 //
-// This function updates StoryMedia.Items
+// This function updates (fetches) StoryMedia.Items
 func (media *StoryMedia) Sync() error {
 	insta := media.insta
 	query := []trayRequest{
-		{"SUPPORTED_SDK_VERSIONS", "9.0,10.0,11.0,12.0,13.0,14.0,15.0,16.0,17.0,18.0,19.0,20.0,21.0,22.0,23.0,24.0"},
-		{"FACE_TRACKER_VERSION", "10"},
-		{"segmentation", "segmentation_enabled"},
-		{"COMPRESSION", "ETC2_COMPRESSION"},
+		{"SUPPORTED_SDK_VERSIONS", supportedSdkVersions},
+		{"FACE_TRACKER_VERSION", facetrackerVersion},
+		{"segmentation", segmentation},
+		{"COMPRESSION", compression},
+		{"world_tracker", worldTracker},
+		{"gyroscope", gyroscope},
 	}
 	qjson, err := json.Marshal(query)
 	if err != nil {
@@ -815,8 +818,12 @@ func (media *StoryMedia) Sync() error {
 	id := media.Pk.(string)
 	data, err := insta.prepareData(
 		map[string]interface{}{
+			"exclude_media_ids":          "[]",
+			"supported_capabilities_new": string(qjson),
+			"source":                     "feed_timeline",
+			"_uid":                       insta.Account.ID,
+			"_uuid":                      insta.uuid,
 			"user_ids":                   []string{id},
-			"supported_capabilities_new": b2s(qjson),
 		},
 	)
 	if err != nil {
@@ -986,9 +993,11 @@ func (media *FeedMedia) ID() string {
 
 // Next allows pagination after calling:
 // User.Feed
-// Params: ranked_content is set to "true" by default, you can set it to false by either passing "false" or false as parameter.
+// extra query arguments can be passes one after another as func(key, value).
+// Only if an even number of string arguements will be passed, they will be
+//   used in the query.
 // returns false when list reach the end.
-// if FeedMedia.Error() is ErrNoMore no problem have been occurred.
+// if FeedMedia.Error() is ErrNoMore no problems have occurred.
 func (media *FeedMedia) Next(params ...interface{}) bool {
 	if media.err != nil {
 		return false
@@ -996,34 +1005,28 @@ func (media *FeedMedia) Next(params ...interface{}) bool {
 
 	insta := media.insta
 	endpoint := media.endpoint
-	next := media.ID()
-	ranked := "true"
-
 	if media.uid != 0 {
 		endpoint = fmt.Sprintf(endpoint, media.uid)
 	}
 
-	for _, param := range params {
-		switch s := param.(type) {
-		case string:
-			if _, err := strconv.ParseBool(s); err == nil {
-				ranked = s
-			}
-		case bool:
-			if !s {
-				ranked = "false"
-			}
+	query := map[string]string{
+		"exclude_comment":                 "true",
+		"only_fetch_first_carousel_media": "false",
+	}
+	if len(params)%2 == 0 {
+		for i := 0; i < len(params); i = i + 2 {
+			query[params[i].(string)] = params[i+1].(string)
 		}
 	}
+
+	if next := media.ID(); next != "" {
+		query["max_id"] = next
+	}
+
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: endpoint,
-			Query: map[string]string{
-				"max_id":         next,
-				"rank_token":     insta.rankToken,
-				"min_timestamp":  media.timestamp,
-				"ranked_content": ranked,
-			},
+			Query:    query,
 		},
 	)
 	if err == nil {
@@ -1032,17 +1035,27 @@ func (media *FeedMedia) Next(params ...interface{}) bool {
 		d.UseNumber()
 		err = d.Decode(&m)
 		if err == nil {
-			*media = m
-			media.insta = insta
-			media.endpoint = endpoint
+			media.NextID = m.NextID
+			media.MoreAvailable = m.MoreAvailable
+			media.NumResults = m.NumResults
+			media.AutoLoadMoreEnabled = m.AutoLoadMoreEnabled
+			media.Status = m.Status
 			if m.NextID == 0 || !m.MoreAvailable {
 				media.err = ErrNoMore
 			}
-			media.setValues()
+			m.setValues()
+			media.Items = append(media.Items, m.Items...)
 			return true
 		}
 	}
 	return false
+}
+
+// Latest returns a slice of the latest fetched items of the list of all items.
+// The Next method keeps adding to the list, with Latest you can retrieve only
+// the newest items.
+func (media *FeedMedia) Latest() []Item {
+	return media.Items[len(media.Items)-media.NumResults:]
 }
 
 // MediaItem defines a item media for the
@@ -1233,7 +1246,7 @@ func (insta *Instagram) postThumbnail(uploadID int64, name string, thumbnail io.
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest("POST", goInstaBaseUrl+"rupload_igphoto/"+name, buf)
+	req, err := http.NewRequest("POST", baseUrl+"rupload_igphoto/"+name, buf)
 	if err != nil {
 		return err
 	}
@@ -1243,7 +1256,7 @@ func (insta *Instagram) postThumbnail(uploadID int64, name string, thumbnail io.
 	req.Header.Set("Accept-Language", "en-US")
 	req.Header.Set("Content-type", "image/jpeg")
 	req.Header.Set("Connection", "close")
-	req.Header.Set("User-Agent", goInstaUserAgent)
+	req.Header.Set("User-Agent", instaUserAgent)
 	req.Header.Set("X-Entity-Name", name)
 	req.Header.Set("X-Entity-Length", strconv.FormatInt(req.ContentLength, 10))
 	req.Header.Set("Offset", "0")
@@ -1301,7 +1314,7 @@ func (insta *Instagram) postVideo(
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("POST", goInstaBaseUrl+"rupload_igvideo/"+name, buf)
+	req, err := http.NewRequest("POST", baseUrl+"rupload_igvideo/"+name, buf)
 	if err != nil {
 		return nil, err
 	}
@@ -1311,7 +1324,7 @@ func (insta *Instagram) postVideo(
 	req.Header.Set("Accept-Language", "en-US")
 	req.Header.Set("Content-type", "video/mp4")
 	req.Header.Set("Connection", "close")
-	req.Header.Set("User-Agent", goInstaUserAgent)
+	req.Header.Set("User-Agent", instaUserAgent)
 	req.Header.Set("X-Entity-Name", name)
 	req.Header.Set("X-Entity-Length", strconv.FormatInt(req.ContentLength, 10))
 	req.Header.Set("Offset", "0")
@@ -1384,7 +1397,7 @@ func (insta *Instagram) postPhoto(
 		return nil, err
 	}
 	bs := buf.Bytes()
-	req, err := http.NewRequest("POST", goInstaBaseUrl+"rupload_igphoto/"+name, buf)
+	req, err := http.NewRequest("POST", baseUrl+"rupload_igphoto/"+name, buf)
 	if err != nil {
 		return nil, err
 	}
@@ -1394,7 +1407,7 @@ func (insta *Instagram) postPhoto(
 	req.Header.Set("Accept-Language", "en-US")
 	req.Header.Set("Content-type", "application/octet-stream")
 	req.Header.Set("Connection", "close")
-	req.Header.Set("User-Agent", goInstaUserAgent)
+	req.Header.Set("User-Agent", instaUserAgent)
 	req.Header.Set("X-Entity-Name", name)
 	ruploadParams := map[string]string{
 		"retry_context":     `{"num_step_auto_retry": 0, "num_reupload": 0, "num_step_manual_retry": 0}`,
