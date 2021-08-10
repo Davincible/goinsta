@@ -3,50 +3,27 @@ package goinsta
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"math/rand"
-	"net/http"
 	neturl "net/url"
 	"os"
 	"path"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
 
-// StoryReelMention represent story reel mention
-type StoryReelMention struct {
-	X           float64 `json:"x"`
-	Y           float64 `json:"y"`
-	Z           int     `json:"z"`
-	Width       float64 `json:"width"`
-	Height      float64 `json:"height"`
-	Rotation    float64 `json:"rotation"`
-	IsPinned    int     `json:"is_pinned"`
-	IsHidden    int     `json:"is_hidden"`
-	IsSticker   int     `json:"is_sticker"`
-	IsFBSticker int     `json:"is_fb_sticker"`
-	User        User
-	DisplayType string `json:"display_type"`
-}
-
-// StoryCTA represent story cta
-type StoryCTA struct {
-	Links []struct {
-		LinkType                                int         `json:"linkType"`
-		WebURI                                  string      `json:"webUri"`
-		AndroidClass                            string      `json:"androidClass"`
-		Package                                 string      `json:"package"`
-		DeeplinkURI                             string      `json:"deeplinkUri"`
-		CallToActionTitle                       string      `json:"callToActionTitle"`
-		RedirectURI                             interface{} `json:"redirectUri"`
-		LeadGenFormID                           string      `json:"leadGenFormId"`
-		IgUserID                                string      `json:"igUserId"`
-		AppInstallObjectiveInvalidationBehavior interface{} `json:"appInstallObjectiveInvalidationBehavior"`
-	} `json:"links"`
+// Media interface defines methods for both StoryMedia and FeedMedia.
+type Media interface {
+	// Next allows pagination
+	Next(...interface{}) bool
+	// Error returns error (in case it have been occurred)
+	Error() error
+	// ID returns media id
+	GetNextID() string
+	// Delete removes media
+	Delete() error
 }
 
 // Item represents media items
@@ -56,13 +33,15 @@ type StoryCTA struct {
 type Item struct {
 	insta    *Instagram
 	media    Media
+	module   string
 	Comments *Comments `json:"-"`
 
 	TakenAt           int64  `json:"taken_at"`
 	Pk                int64  `json:"pk"`
 	ID                string `json:"id"`
-	CommentsDisabled  bool   `json:"comments_disabled"`
-	DeviceTimestamp   int64  `json:"device_timestamp"`
+	Index             int
+	CommentsDisabled  bool  `json:"comments_disabled"`
+	DeviceTimestamp   int64 `json:"device_timestamp"`
 	FacepileTopLikers []struct {
 		FollowFrictionType float64 `json:"follow_friction_type"`
 		FullNeme           string  `json:"ful_name"`
@@ -84,19 +63,18 @@ type Item struct {
 	Caption               Caption `json:"caption"`
 	CaptionIsEdited       bool    `json:"caption_is_edited"`
 	LikeViewCountDisabled bool    `json:"like_and_view_counts_disabled"`
-	IsCommercial          bool    `json:"is_commercial"`
-	CommercialityStatus   string  `json:"commerciality_status"`
 	FundraiserTag         struct {
 		HasStandaloneFundraiser bool `json:"has_standalone_fundraiser"`
 	} `json:"fundraiser_tag"`
-	IsPaidPartnership bool   `json:"is_paid_partnership"`
-	ProductType       string `json:"product_type"`
-	Likes             int    `json:"like_count"`
-	HasLiked          bool   `json:"has_liked"`
+	IsSeen          bool   `json:"is_seen"`
+	InventorySource string `json:"inventory_source"`
+	ProductType     string `json:"product_type"`
+	Likes           int    `json:"like_count"`
+	HasLiked        bool   `json:"has_liked"`
 	// Toplikers can be `string` or `[]string`.
 	// Use TopLikers function instead of getting it directly.
 	Toplikers                    interface{} `json:"top_likers"`
-	Likers                       []User      `json:"likers"`
+	Likers                       []*User     `json:"likers"`
 	CommentLikesEnabled          bool        `json:"comment_likes_enabled"`
 	CommentThreadingEnabled      bool        `json:"comment_threading_enabled"`
 	HasMoreComments              bool        `json:"has_more_comments"`
@@ -133,6 +111,32 @@ type Item struct {
 	IsUnifiedVideo    bool    `json:"is_unified_video"`
 	VideoDashManifest string  `json:"video_dash_manifest,omitempty"`
 	NumberOfQualities int     `json:"number_of_qualities,omitempty"`
+
+	// Ads
+	IsCommercial        bool   `json:"is_commercial"`
+	IsPaidPartnership   bool   `json:"is_paid_partnership"`
+	CommercialityStatus string `json:"commerciality_status"`
+	AdLink              string `json:"link"`
+	AdLinkText          string `json:"link_text"`
+	AdLinkHint          string `json:"link_hint_text"`
+	AdTitle             string `json:"overlay_title"`
+	AdSubtitle          string `json:"overlay_subtitle"`
+	AdText              string `json:"overlay_text"`
+	AdAction            string `json:"ad_action"`
+	AdHeaderStyle       int    `json:"ad_header_style"`
+	AdLinkType          int    `json:"ad_link_type"`
+	AdMetadata          []struct {
+		Type  int    `json:"type"`
+		Value string `json:"value"`
+	} `json:"ad_metadata"`
+	AndroidLinks []struct {
+		AndroidClass      string `json:"androidClass"`
+		CallToActionTitle string `json:"callToActionTitle"`
+		DeeplinkUri       string `json:"deeplinkUri"`
+		LinkType          int    `json:"linkType"`
+		Package           string `json:"package"`
+		WebUri            string `json:"webUri"`
+	} `json:"android_links"`
 
 	// Only for stories
 	StoryEvents              []interface{}      `json:"story_events"`
@@ -203,72 +207,163 @@ type Item struct {
 // If parent media is a Story this function will send a private message
 // replying the Instagram story.
 func (item *Item) Comment(text string) error {
-	var opt *reqOptions
-	var err error
-	insta := item.media.instagram()
-
-	switch item.media.(type) {
-	case *StoryMedia:
-		to, err := prepareRecipients(item)
-		if err != nil {
-			return err
-		}
-
-		query := insta.prepareDataQuery(
-			map[string]interface{}{
-				"recipient_users": to,
-				"action":          "send_item",
-				"media_id":        item.ID,
-				"client_context":  generateUUID(),
-				"text":            text,
-				"entry":           "reel",
-				"reel_id":         item.User.ID,
-			},
-		)
-		opt = &reqOptions{
-			Connection: "keep-alive",
-			Endpoint:   fmt.Sprintf("%s?media_type=%s", urlReplyStory, item.MediaToString()),
-			Query:      query,
-			IsPost:     true,
-		}
-	case *FeedMedia: // normal media
-		var data string
-		data, err = insta.prepareData(
-			map[string]interface{}{
-				"comment_text": text,
-			},
-		)
-		opt = &reqOptions{
-			Endpoint: fmt.Sprintf(urlCommentAdd, item.Pk),
-			Query:    generateSignature(data),
-			IsPost:   true,
-		}
+	// if comment is called on a story media, use reply
+	if _, ok := item.media.(*StoryMedia); ok {
+		return item.Reply(text)
 	}
+
+	o, err := item.CommentCheckOffensive(text)
+	if err != nil {
+		return err
+	}
+	if !o.IsOffensive {
+		return item.comment(text)
+	}
+	return errors.New("Failed to post comment, flagged as offensive")
+}
+
+func (item *Item) comment(text string) error {
+	insta := item.insta
+	query := map[string]string{
+		// "feed_position":           "",
+		"container_module":        "feed_timeline",
+		"user_breadcrumb":         generateUserBreadcrumb(text),
+		"nav_chain":               "",
+		"_uid":                    toString(insta.Account.ID),
+		"_uuid":                   insta.uuid,
+		"idempotence_token":       generateUUID(),
+		"radio_type":              "wifi-none",
+		"is_carousel_bumped_post": "false", // not sure when this would be true
+		"comment_text":            text,
+	}
+	if item.module != "" {
+		query["container_module"] = item.module
+	}
+	if item.IsCommercial {
+		query["delivery_class"] = "ad"
+	} else {
+		query["delivery_class"] = "organic"
+	}
+	if item.InventorySource != "" {
+		query["inventory_source"] = item.InventorySource
+	}
+	if len(item.CarouselMedia) > 0 || item.CarouselParentID != "" {
+		query["carousel_index"] = "0"
+	}
+	b, err := json.Marshal(query)
 	if err != nil {
 		return err
 	}
 
 	// ignoring response
-	_, _, err = insta.sendRequest(opt)
+	_, _, err = insta.sendRequest(
+		&reqOptions{
+			Endpoint: fmt.Sprintf(urlCommentAdd, item.Pk),
+			Query:    map[string]string{"signed_body": "SIGNATURE." + string(b)},
+			IsPost:   true,
+		},
+	)
 	return err
+}
+
+func (item *Item) CommentCheckOffensive(comment string) (*CommentOffensive, error) {
+	insta := item.insta
+	data, err := json.Marshal(map[string]string{
+		"media_id":           item.ID,
+		"_uid":               toString(insta.Account.ID),
+		"comment_session_id": generateUUID(),
+		"_uuid":              insta.uuid,
+		"comment_text":       comment,
+	})
+	if err != nil {
+		return nil, err
+	}
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlCommentOffensive,
+			IsPost:   true,
+			Query:    generateSignature(data),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	r := &CommentOffensive{}
+	err = json.Unmarshal(body, r)
+	return r, err
+}
+
+func (item *Item) Reply(text string) error {
+	if _, ok := item.media.(*StoryMedia); !ok {
+		return item.Comment(text)
+	}
+
+	insta := item.insta
+
+	to, err := prepareRecipients(item)
+	if err != nil {
+		return err
+	}
+
+	token := "68" + toString(time.Now().UnixNano)[:17]
+	_, _, err = insta.sendRequest(
+		&reqOptions{
+			Connection: "keep-alive",
+			Endpoint:   fmt.Sprintf("%s?media_type=%s", urlReplyStory, item.MediaToString()),
+			IsPost:     true,
+			Query: map[string]string{
+				"recipient_users":      to,
+				"action":               "send_item",
+				"is_shh_mode":          "0", // not sure when this would be 1/true
+				"send_attribution":     "reel",
+				"client_context":       token,
+				"media_id":             item.ID,
+				"text":                 text,
+				"device_id":            insta.dID,
+				"mutation_token":       token,
+				"_uuid":                insta.uuid,
+				"entry":                "reel",
+				"reel_id":              toString(item.User.ID),
+				"offline_threading_id": token,
+			},
+		},
+	)
+	return nil
 }
 
 // MediaToString returns Item.MediaType as string.
 func (item *Item) MediaToString() string {
-	switch item.MediaType {
+	return MediaToString(item.MediaType)
+}
+
+func MediaToString(t int) string {
+	switch t {
 	case 1:
 		return "photo"
 	case 2:
 		return "video"
+	case 6:
+		return "ad_map"
+	case 7:
+		return "live"
 	case 8:
 		return "carousel"
+	case 9:
+		return "live_replay"
+	case 10:
+		return "collection"
+	case 11:
+		return "audio"
+	case 12:
+		return "showreel_native"
+	case 13:
+		return "guide_facade"
 	}
 	return ""
 }
 
 func setToItem(item *Item, media Media) {
 	item.media = media
-	item.User.insta = media.instagram()
 	item.Comments = newComments(item)
 	for i := range item.CarouselMedia {
 		item.CarouselMedia[i].User = item.User
@@ -280,8 +375,6 @@ func setToItem(item *Item, media Media) {
 // mimics the setToItem but for the SavedMedia items
 func setToMediaItem(item *MediaItem, media Media) {
 	item.Media.media = media
-	item.Media.User.insta = media.instagram()
-
 	item.Media.Comments = newComments(&item.Media)
 
 	for i := range item.Media.CarouselMedia {
@@ -392,19 +485,35 @@ func (item *Item) Hashtags() []Hashtag {
 //
 // See example: examples/media/mediaDelete.go
 func (item *Item) Delete() error {
-	insta := item.media.instagram()
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"media_id": item.ID,
-		},
-	)
+	return item.insta.delete(toString(item.ID), item.MediaToString(), item)
+}
+
+func (insta *Instagram) delete(id, media string, mediaType interface{}) error {
+	query := map[string]string{
+		"media_id": id,
+		"_uid":     toString(insta.Account.ID),
+		"_uuid":    insta.uuid,
+	}
+
+	switch mediaType.(type) {
+	case *StoryMedia:
+		query["deep_delete_waterfall"] = generateUUID()
+	case *FeedMedia:
+		query["igtv_feed_preview"] = "false"
+	case *Timeline:
+		query["igtv_feed_preview"] = "false"
+	}
+
+	data, err := json.Marshal(query)
 	if err != nil {
 		return err
 	}
 
+	mediaParam := "?media_type=" + strings.ToUpper(media)
+
 	_, _, err = insta.sendRequest(
 		&reqOptions{
-			Endpoint: fmt.Sprintf(urlMediaDelete, item.ID),
+			Endpoint: fmt.Sprintf(urlMediaDelete, id) + mediaParam,
 			Query:    generateSignature(data),
 			IsPost:   true,
 		},
@@ -417,7 +526,7 @@ func (item *Item) Delete() error {
 // This function updates Item.Likers value
 func (item *Item) SyncLikers() error {
 	resp := respLikers{}
-	insta := item.media.instagram()
+	insta := item.insta
 	body, err := insta.sendSimpleRequest(urlMediaLikers, item.ID)
 	if err != nil {
 		return err
@@ -426,30 +535,10 @@ func (item *Item) SyncLikers() error {
 	if err == nil {
 		item.Likers = resp.Users
 	}
-	return err
-}
 
-// Unlike mark media item as unliked.
-//
-// See example: examples/media/unlike.go
-func (item *Item) Unlike() error {
-	insta := item.media.instagram()
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"media_id": item.ID,
-		},
-	)
-	if err != nil {
-		return err
+	for _, u := range item.Likers {
+		u.insta = insta
 	}
-
-	_, _, err = insta.sendRequest(
-		&reqOptions{
-			Endpoint: fmt.Sprintf(urlMediaUnlike, item.ID),
-			Query:    generateSignature(data),
-			IsPost:   true,
-		},
-	)
 	return err
 }
 
@@ -457,67 +546,61 @@ func (item *Item) Unlike() error {
 //
 // See example: examples/media/like.go
 func (item *Item) Like() error {
-	insta := item.media.instagram()
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"media_id": item.ID,
-		},
-	)
-	if err != nil {
-		return err
+	if !item.HasLiked {
+		return item.changeLike(urlMediaLike)
 	}
-
-	_, _, err = insta.sendRequest(
-		&reqOptions{
-			Endpoint: fmt.Sprintf(urlMediaLike, item.ID),
-			Query:    generateSignature(data),
-			IsPost:   true,
-		},
-	)
-	return err
+	return nil
 }
 
-// Save saves media item.
+// Unlike mark media item as unliked.
 //
-// You can get saved media using Account.Saved()
-func (item *Item) Save() error {
-	insta := item.media.instagram()
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"media_id": item.ID,
-		},
-	)
-	if err != nil {
-		return err
+// See example: examples/media/unlike.go
+func (item *Item) Unlike() error {
+	if item.HasLiked {
+		return item.changeLike(urlMediaUnlike)
 	}
-
-	_, _, err = insta.sendRequest(
-		&reqOptions{
-			Endpoint: fmt.Sprintf(urlMediaSave, item.ID),
-			Query:    generateSignature(data),
-			IsPost:   true,
-		},
-	)
-	return err
+	return nil
 }
 
-// Unsave unsaves media item.
-func (item *Item) Unsave() error {
-	insta := item.media.instagram()
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"media_id": item.ID,
-		},
-	)
+func (item *Item) changeLike(endpoint string) error {
+	insta := item.insta
+	query := map[string]string{
+		// "feed_position":           "",
+		"container_module":        "feed_timelin",
+		"nav_chain":               "",
+		"_uid":                    toString(insta.Account.ID),
+		"_uuid":                   insta.uuid,
+		"radio_type":              "wifi-none",
+		"is_carousel_bumped_post": "false", // not sure when this would be true
+	}
+	if item.module != "" {
+		query["container_module"] = item.module
+	}
+	if item.IsCommercial {
+		query["delivery_class"] = "ad"
+	} else {
+		query["delivery_class"] = "organic"
+	}
+	if item.InventorySource != "" {
+		query["inventory_source"] = item.InventorySource
+	}
+	if len(item.CarouselMedia) > 0 || item.CarouselParentID != "" {
+		query["carousel_index"] = "0"
+	}
+
+	data, err := json.Marshal(query)
 	if err != nil {
 		return err
 	}
 
 	_, _, err = insta.sendRequest(
 		&reqOptions{
-			Endpoint: fmt.Sprintf(urlMediaUnsave, item.ID),
-			Query:    generateSignature(data),
-			IsPost:   true,
+			Endpoint: fmt.Sprintf(endpoint, item.ID),
+			Query: map[string]string{
+				"signed_body": "SIGNATURE." + string(data),
+				"d":           "0",
+			},
+			IsPost: true,
 		},
 	)
 	return err
@@ -542,7 +625,7 @@ func (item *Item) Download(folder, name string) (imgs, vds string, err error) {
 	var nname string
 	imgFolder := path.Join(folder, "images")
 	vidFolder := path.Join(folder, "videos")
-	insta := item.media.instagram()
+	insta := item.insta
 
 	os.MkdirAll(folder, 0o777)
 	os.MkdirAll(imgFolder, 0o777)
@@ -652,243 +735,8 @@ func (item *Item) StoryIsCloseFriends() bool {
 	return item.Audience == "besties"
 }
 
-// Media interface defines methods for both StoryMedia and FeedMedia.
-type Media interface {
-	// Next allows pagination
-	Next(...interface{}) bool
-	// Error returns error (in case it have been occurred)
-	Error() error
-	// ID returns media id
-	ID() string
-	// Delete removes media
-	Delete() error
-
-	instagram() *Instagram
-}
-
-// StoryMedia is the struct that handles the information from the methods to get info about Stories.
-type StoryMedia struct {
-	insta    *Instagram
-	endpoint string
-	uid      int64
-
-	err error
-
-	Pk                     interface{} `json:"id"`
-	MediaCount             int64       `json:"media_count"`
-	MediaIDs               []int64     `json:"media_ids"`
-	Muted                  bool        `json:"muted"`
-	LatestReelMedia        int64       `json:"latest_reel_media"`
-	LatestBestiesReelMedia float64     `json:"latest_besties_reel_media"`
-	ExpiringAt             float64     `json:"expiring_at"`
-	Seen                   float64     `json:"seen"`
-	SeenRankedPosition     int         `json:"seen_ranked_position"`
-	CanReply               bool        `json:"can_reply"`
-	CanGifQuickReply       bool        `json:"can_gif_quick_reply"`
-	ClientPrefetchScore    float64     `json:"client_prefetch_score"`
-	Title                  string      `json:"title"`
-	CanReshare             bool        `json:"can_reshare"`
-	ReelType               string      `json:"reel_type"`
-	User                   User        `json:"user"`
-	Items                  []Item      `json:"items"`
-	ReelMentions           []string    `json:"reel_mentions"`
-	PrefetchCount          int         `json:"prefetch_count"`
-	// this field can be int or bool
-	HasBestiesMedia       interface{} `json:"has_besties_media"`
-	HasPrideMedia         bool        `json:"has_pride_media"`
-	HasVideo              bool        `json:"has_video"`
-	IsCacheable           bool        `json:"is_cacheable"`
-	IsSensitiveVerticalAd bool        `json:"is_sensitive_vertical_ad"`
-	RankedPosition        int         `json:"ranked_position"`
-	RankerScores          struct {
-		Fp   float64 `json:"fp"`
-		Ptap float64 `json:"ptap"`
-		Vm   float64 `json:"vm"`
-	} `json:"ranker_scores"`
-	StoryRankingToken    string      `json:"story_ranking_token"`
-	Broadcasts           []Broadcast `json:"broadcasts"`
-	FaceFilterNuxVersion int         `json:"face_filter_nux_version"`
-	HasNewNuxStory       bool        `json:"has_new_nux_story"`
-	Status               string      `json:"status"`
-}
-
-// Delete removes instragram story.
-//
-// See example: examples/media/deleteStories.go
-func (media *StoryMedia) Delete() error {
-	insta := media.insta
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"media_id": media.ID(),
-		},
-	)
-	if err == nil {
-		_, _, err = insta.sendRequest(
-			&reqOptions{
-				Endpoint: fmt.Sprintf(urlMediaDelete, media.ID()),
-				Query:    generateSignature(data),
-				IsPost:   true,
-			},
-		)
-	}
-	return err
-}
-
-// ID returns Story id
-func (media *StoryMedia) ID() string {
-	switch id := media.Pk.(type) {
-	case int64:
-		return strconv.FormatInt(id, 10)
-	case string:
-		return id
-	}
-	return ""
-}
-
-func (media *StoryMedia) instagram() *Instagram {
-	return media.insta
-}
-
-func (media *StoryMedia) setValues() {
-	for i := range media.Items {
-		setToItem(&media.Items[i], media)
-	}
-}
-
-// Error returns error happened any error
-func (media StoryMedia) Error() error {
-	return media.err
-}
-
-// Seen marks story as seen.
-/*
-func (media *StoryMedia) Seen() error {
-	insta := media.inst
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"container_module":   "feed_timeline",
-			"live_vods_skipped":  "",
-			"nuxes_skipped":      "",
-			"nuxes":              "",
-			"reels":              "", // TODO xd
-			"live_vods":          "",
-			"reel_media_skipped": "",
-		},
-	)
-	if err == nil {
-		_, _, err = insta.sendRequest(
-			&reqOptions{
-				Endpoint: urlMediaSeen, // reel=1&live_vod=0
-				Query:    generateSignature(data),
-				IsPost:   true,
-				UseV2:    true,
-			},
-		)
-	}
-	return err
-}
-*/
-
-type trayRequest struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-}
-
-// Sync function is used when Highlight must be sync.
-// Highlight must be sync when User.Highlights does not return any object inside StoryMedia slice.
-//
-// This function does NOT update Stories items.
-//
-// This function updates (fetches) StoryMedia.Items
-func (media *StoryMedia) Sync() error {
-	insta := media.insta
-	query := []trayRequest{
-		{"SUPPORTED_SDK_VERSIONS", supportedSdkVersions},
-		{"FACE_TRACKER_VERSION", facetrackerVersion},
-		{"segmentation", segmentation},
-		{"COMPRESSION", compression},
-		{"world_tracker", worldTracker},
-		{"gyroscope", gyroscope},
-	}
-	qjson, err := json.Marshal(query)
-	if err != nil {
-		return err
-	}
-
-	id := media.Pk.(string)
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"exclude_media_ids":          "[]",
-			"supported_capabilities_new": string(qjson),
-			"source":                     "feed_timeline",
-			"_uid":                       insta.Account.ID,
-			"_uuid":                      insta.uuid,
-			"user_ids":                   []string{id},
-		},
-	)
-	if err != nil {
-		return err
-	}
-
-	body, _, err := insta.sendRequest(
-		&reqOptions{
-			Endpoint: urlReelMedia,
-			Query:    generateSignature(data),
-			IsPost:   true,
-		},
-	)
-	if err == nil {
-		resp := trayResp{}
-		err = json.Unmarshal(body, &resp)
-		if err == nil {
-			m, ok := resp.Reels[id]
-			if ok {
-				media.Items = m.Items
-				media.setValues()
-				return nil
-			}
-			err = fmt.Errorf("cannot find %s structure in response", id)
-		}
-	}
-	return err
-}
-
-// Next allows pagination after calling:
-// User.Stories
-//
-//
-// returns false when list reach the end
-// if StoryMedia.Error() is ErrNoMore no problem have been occurred.
-func (media *StoryMedia) Next(params ...interface{}) bool {
-	if media.err != nil {
-		return false
-	}
-
-	insta := media.insta
-	endpoint := media.endpoint
-	if media.uid != 0 {
-		endpoint = fmt.Sprintf(endpoint, media.uid)
-	}
-
-	body, err := insta.sendSimpleRequest(endpoint)
-	if err == nil {
-		m := StoryMedia{}
-		err = json.Unmarshal(body, &m)
-		if err == nil {
-			// TODO check NextID media
-			*media = m
-			media.insta = insta
-			media.endpoint = endpoint
-			media.err = ErrNoMore // TODO: See if stories has pagination
-			media.setValues()
-			return true
-		}
-	}
-	media.err = err
-	return false
-}
-
 // FeedMedia represent a set of media items
+// Mainly used for user profile feeds. To get your main timeline use insta.Timeline
 type FeedMedia struct {
 	insta *Instagram
 
@@ -908,7 +756,8 @@ type FeedMedia struct {
 	NextID interface{} `json:"next_max_id"`
 }
 
-// Delete deletes all items in media. Take care...
+// Delete deletes ALL items in media.
+// If you want to delete one item, pick one from media.Items and call Item.Delete()
 //
 // See example: examples/media/mediaDelete.go
 func (media *FeedMedia) Delete() error {
@@ -918,16 +767,12 @@ func (media *FeedMedia) Delete() error {
 	return nil
 }
 
-func (media *FeedMedia) instagram() *Instagram {
-	return media.insta
-}
-
 // SetInstagram set instagram
 func (media *FeedMedia) SetInstagram(insta *Instagram) {
 	media.insta = insta
 }
 
-// SetID sets media ID
+// SetID sets media.GetNextID
 // this value can be int64 or string
 func (media *FeedMedia) SetID(id interface{}) {
 	media.NextID = id
@@ -935,12 +780,15 @@ func (media *FeedMedia) SetID(id interface{}) {
 
 // Sync updates media values.
 func (media *FeedMedia) Sync() error {
-	id := media.ID()
+	// haven't actually seen this being called, so not sure if its correct
+	id := media.GetNextID()
 	insta := media.insta
 
-	data, err := insta.prepareData(
-		map[string]interface{}{
+	data, err := json.Marshal(
+		map[string]string{
 			"media_id": id,
+			"_uid":     toString(insta.Account.ID),
+			"_uuid":    insta.uuid,
 		},
 	)
 	if err != nil {
@@ -950,8 +798,8 @@ func (media *FeedMedia) Sync() error {
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlMediaInfo, id),
-			Query:    generateSignature(data),
 			IsPost:   false,
+			Query:    generateSignature(data),
 		},
 	)
 	if err != nil {
@@ -968,8 +816,16 @@ func (media *FeedMedia) Sync() error {
 	return err
 }
 
+func (media *FeedMedia) setIndex() {
+	for i, v := range media.Items {
+		v.Index = i
+	}
+}
+
 func (media *FeedMedia) setValues() {
 	for i := range media.Items {
+		media.Items[i].insta = media.insta
+		media.Items[i].User.insta = media.insta
 		setToItem(&media.Items[i], media)
 	}
 }
@@ -979,16 +835,8 @@ func (media FeedMedia) Error() error {
 }
 
 // ID returns media id.
-func (media *FeedMedia) ID() string {
-	switch s := media.NextID.(type) {
-	case string:
-		return s
-	case int64:
-		return strconv.FormatInt(s, 10)
-	case json.Number:
-		return string(s)
-	}
-	return ""
+func (media *FeedMedia) GetNextID() string {
+	return formatID(media.NextID)
 }
 
 // Next allows pagination after calling:
@@ -1019,7 +867,7 @@ func (media *FeedMedia) Next(params ...interface{}) bool {
 		}
 	}
 
-	if next := media.ID(); next != "" {
+	if next := media.GetNextID(); next != "" {
 		query["max_id"] = next
 	}
 
@@ -1045,6 +893,7 @@ func (media *FeedMedia) Next(params ...interface{}) bool {
 			}
 			m.setValues()
 			media.Items = append(media.Items, m.Items...)
+			media.setIndex()
 			return true
 		}
 	}
@@ -1056,485 +905,4 @@ func (media *FeedMedia) Next(params ...interface{}) bool {
 // the newest items.
 func (media *FeedMedia) Latest() []Item {
 	return media.Items[len(media.Items)-media.NumResults:]
-}
-
-// MediaItem defines a item media for the
-// SavedMedia struct
-type MediaItem struct {
-	Media Item `json:"media"`
-}
-
-// SavedMedia stores the information about media being saved before in my account.
-type SavedMedia struct {
-	insta    *Instagram
-	endpoint string
-
-	err error
-
-	Items []MediaItem `json:"items"`
-
-	NumResults          int    `json:"num_results"`
-	MoreAvailable       bool   `json:"more_available"`
-	AutoLoadMoreEnabled bool   `json:"auto_load_more_enabled"`
-	Status              string `json:"status"`
-
-	NextID interface{} `json:"next_max_id"`
-}
-
-// Next allows pagination
-func (media *SavedMedia) Next(params ...interface{}) bool {
-	// Inital error check
-	// if last pagination had errors
-	if media.err != nil {
-		return false
-	}
-
-	insta := media.insta
-	endpoint := media.endpoint
-	next := media.ID()
-
-	opts := &reqOptions{
-		Endpoint: endpoint,
-		Query: map[string]string{
-			"max_id": next,
-		},
-	}
-
-	body, _, err := insta.sendRequest(opts)
-	if err != nil {
-		media.err = err
-		return false
-	}
-
-	m := SavedMedia{}
-
-	if err := json.Unmarshal(body, &m); err != nil {
-		media.err = err
-		return false
-	}
-
-	*media = m
-
-	media.insta = insta
-	media.endpoint = endpoint
-	media.err = nil
-
-	if m.NextID == 0 || !m.MoreAvailable {
-		media.err = ErrNoMore
-	}
-
-	media.setValues()
-
-	return true
-}
-
-// Error returns the SavedMedia error
-func (media *SavedMedia) Error() error {
-	return media.err
-}
-
-// ID returns the SavedMedia next id
-func (media *SavedMedia) ID() string {
-	switch id := media.NextID.(type) {
-	case int64:
-		return strconv.FormatInt(id, 10)
-	case string:
-		return id
-	}
-	return ""
-}
-
-// Delete method TODO
-//
-// I think this method should use the
-// Unsave method, instead of the Delete.
-func (media *SavedMedia) Delete() error {
-	return nil
-}
-
-// instagram returns the media instagram
-func (media *SavedMedia) instagram() *Instagram {
-	return media.insta
-}
-
-// setValues set the SavedMedia items values
-func (media *SavedMedia) setValues() {
-	for i := range media.Items {
-		setToMediaItem(&media.Items[i], media)
-	}
-}
-
-// UploadPhoto post image from io.Reader to instagram.
-func (insta *Instagram) UploadPhoto(photo io.Reader, photoCaption string, quality int, filterType int) (Item, error) {
-	out := Item{}
-
-	config, err := insta.postPhoto(photo, photoCaption, quality, filterType, false)
-	if err != nil {
-		return out, err
-	}
-	data, err := insta.prepareData(config)
-	if err != nil {
-		return out, err
-	}
-
-	body, _, err := insta.sendRequest(&reqOptions{
-		Endpoint: "media/configure/?",
-		Query:    generateSignature(data),
-		IsPost:   true,
-	})
-	if err != nil {
-		return out, err
-	}
-	var uploadResult struct {
-		Media    Item   `json:"media"`
-		UploadID string `json:"upload_id"`
-		Status   string `json:"status"`
-	}
-	err = json.Unmarshal(body, &uploadResult)
-	if err != nil {
-		return out, err
-	}
-
-	if uploadResult.Status != "ok" {
-		return out, fmt.Errorf("invalid status, result: %s", uploadResult.Status)
-	}
-
-	return uploadResult.Media, nil
-}
-
-// UploadVideo post video and thumbnail from io.Reader to instagram.
-func (insta *Instagram) UploadVideo(video io.Reader, title string, caption string, thumbnail io.Reader) (Item, error) {
-	out := Item{}
-	config, err := insta.postVideo(video, title, caption, thumbnail)
-	if err != nil {
-		return out, err
-	}
-
-	data, err := insta.prepareData(config)
-	if err != nil {
-		return out, err
-	}
-
-	body, _, err := insta.sendRequest(&reqOptions{
-		Endpoint: "media/configure/?",
-		Query:    generateSignature(data),
-		IsPost:   true,
-	})
-	if err != nil {
-		return out, err
-	}
-
-	var result struct {
-		Media    Item   `json:"media"`
-		UploadID string `json:"upload_id"`
-		Status   string `json:"status"`
-	}
-	err = json.Unmarshal(body, &result)
-	if err != nil {
-		return out, err
-	}
-	if result.Status != "ok" {
-		return out, fmt.Errorf("unknown error, status: %s", result.Status)
-	}
-
-	return result.Media, nil
-}
-
-func (insta *Instagram) postThumbnail(uploadID int64, name string, thumbnail io.Reader) error {
-	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(thumbnail)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequest("POST", baseUrl+"rupload_igphoto/"+name, buf)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("X-IG-Capabilities", "3Q4=")
-	req.Header.Set("X-IG-Connection-Type", "WIFI")
-	req.Header.Set("Cookie2", "$Version=1")
-	req.Header.Set("Accept-Language", "en-US")
-	req.Header.Set("Content-type", "image/jpeg")
-	req.Header.Set("Connection", "close")
-	req.Header.Set("User-Agent", instaUserAgent)
-	req.Header.Set("X-Entity-Name", name)
-	req.Header.Set("X-Entity-Length", strconv.FormatInt(req.ContentLength, 10))
-	req.Header.Set("Offset", "0")
-	ruploadParams := map[string]string{
-		"media_type":          "2",
-		"upload_id":           strconv.FormatInt(uploadID, 10),
-		"upload_media_height": "240",
-		"upload_media_width":  "320",
-	}
-	params, err := json.Marshal(ruploadParams)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("X-Instagram-Rupload-Params", string(params))
-
-	resp, err := insta.c.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("postThumbnail invalid status code, result: %s with body %s", resp.Status, string(body))
-	}
-	var result struct {
-		UploadID       string      `json:"upload_id"`
-		XsharingNonces interface{} `json:"xsharing_nonces"`
-		Status         string      `json:"status"`
-	}
-	err = json.Unmarshal(body, &result)
-	if err != nil {
-		return err
-	}
-	if result.Status != "ok" {
-		return fmt.Errorf("unknown error, status: %s", result.Status)
-	}
-
-	return nil
-}
-
-func (insta *Instagram) postVideo(
-	video io.Reader,
-	title string,
-	caption string,
-	thumbnail io.Reader,
-) (map[string]interface{}, error) {
-	uploadID := time.Now().Unix()
-	rndNumber := rand.Intn(9999999999-1000000000) + 1000000000
-	name := "igtv_" + strconv.Itoa(rndNumber)
-	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(video)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequest("POST", baseUrl+"rupload_igvideo/"+name, buf)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("X-IG-Capabilities", "3Q4=")
-	req.Header.Set("X-IG-Connection-Type", "WIFI")
-	req.Header.Set("Cookie2", "$Version=1")
-	req.Header.Set("Accept-Language", "en-US")
-	req.Header.Set("Content-type", "video/mp4")
-	req.Header.Set("Connection", "close")
-	req.Header.Set("User-Agent", instaUserAgent)
-	req.Header.Set("X-Entity-Name", name)
-	req.Header.Set("X-Entity-Length", strconv.FormatInt(req.ContentLength, 10))
-	req.Header.Set("Offset", "0")
-	ruploadParams := map[string]string{
-		"media_type":   "2",
-		"video_format": "video/mp4",
-		"upload_id":    strconv.FormatInt(uploadID, 10),
-	}
-	params, err := json.Marshal(ruploadParams)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("X-Instagram-Rupload-Params", string(params))
-
-	resp, err := insta.c.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("postVideo invalid status code, result: %s with body %s", resp.Status, string(body))
-	}
-	var result struct {
-		UploadID       string      `json:"upload_id"`
-		XsharingNonces interface{} `json:"xsharing_nonces"`
-		Status         string      `json:"status"`
-	}
-	err = json.Unmarshal(body, &result)
-	if err != nil {
-		return nil, err
-	}
-	if result.Status != "ok" {
-		return nil, fmt.Errorf("unknown error, status: %s", result.Status)
-	}
-
-	err = insta.postThumbnail(uploadID, name, thumbnail)
-	if err != nil {
-		return nil, err
-	}
-	now := time.Now()
-
-	config := map[string]interface{}{
-		"caption":            caption,
-		"upload_id":          strconv.FormatInt(uploadID, 10),
-		"device_id":          insta.dID,
-		"source_type":        4,
-		"date_time_original": now.Format("2020:51:21 22:51:37"),
-	}
-
-	return config, nil
-}
-
-func (insta *Instagram) postPhoto(
-	photo io.Reader,
-	photoCaption string,
-	quality int,
-	filterType int,
-	isSidecar bool,
-) (map[string]interface{}, error) {
-	uploadID := time.Now().Unix()
-	rndNumber := rand.Intn(9999999999-1000000000) + 1000000000
-	name := strconv.FormatInt(uploadID, 10) + "_0_" + strconv.Itoa(rndNumber)
-	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(photo)
-	if err != nil {
-		return nil, err
-	}
-	bs := buf.Bytes()
-	req, err := http.NewRequest("POST", baseUrl+"rupload_igphoto/"+name, buf)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("X-IG-Capabilities", "3Q4=")
-	req.Header.Set("X-IG-Connection-Type", "WIFI")
-	req.Header.Set("Cookie2", "$Version=1")
-	req.Header.Set("Accept-Language", "en-US")
-	req.Header.Set("Content-type", "application/octet-stream")
-	req.Header.Set("Connection", "close")
-	req.Header.Set("User-Agent", instaUserAgent)
-	req.Header.Set("X-Entity-Name", name)
-	ruploadParams := map[string]string{
-		"retry_context":     `{"num_step_auto_retry": 0, "num_reupload": 0, "num_step_manual_retry": 0}`,
-		"media_type":        "1",
-		"upload_id":         strconv.FormatInt(uploadID, 10),
-		"xsharing_user_ids": "[]",
-		"image_compression": `{"lib_name": "moz", "lib_version": "3.1.m", "quality": "80"}`,
-	}
-	params, err := json.Marshal(ruploadParams)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("X-Instagram-Rupload-Params", string(params))
-	req.Header.Set("Offset", "0")
-	req.Header.Set("X-Entity-Length", strconv.FormatInt(req.ContentLength, 10))
-
-	resp, err := insta.c.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("invalid status code, result: %s with body %s", resp.Status, string(body))
-	}
-	var result struct {
-		UploadID       string      `json:"upload_id"`
-		XsharingNonces interface{} `json:"xsharing_nonces"`
-		Status         string      `json:"status"`
-	}
-	err = json.Unmarshal(body, &result)
-	if err != nil {
-		return nil, err
-	}
-	if result.Status != "ok" {
-		return nil, fmt.Errorf("unknown error, status: %s", result.Status)
-	}
-	width, height, err := getImageDimensionFromReader(bytes.NewReader(bs))
-	if err != nil {
-		return nil, err
-	}
-	now := time.Now()
-
-	config := map[string]interface{}{
-		"media_folder": "Instagram",
-		"source_type":  4,
-		"caption":      photoCaption,
-		"upload_id":    strconv.FormatInt(uploadID, 10),
-		"device_id":    insta.dID,
-		"device":       goInstaDeviceSettings,
-		"edits": map[string]interface{}{
-			"crop_original_size": []int{width * 1.0, height * 1.0},
-			"crop_center":        []float32{0.0, 0.0},
-			"crop_zoom":          1.0,
-			"filter_type":        filterType,
-		},
-		"extra": map[string]interface{}{
-			"source_width":  width,
-			"source_height": height,
-		},
-		"height":                height,
-		"width":                 width,
-		"camera_model":          goInstaDeviceSettings["model"],
-		"scene_capture_type":    "standard",
-		"timezone_offset":       "3600",
-		"date_time_original":    now.Format("2020:51:21 22:51:37"),
-		"date_time_digitalized": now.Format("2020:51:21 22:51:37"),
-		"software":              "1",
-	}
-	return config, nil
-}
-
-// UploadAlbum post image from io.Reader to instagram.
-func (insta *Instagram) UploadAlbum(
-	photos []io.Reader,
-	photoCaption string,
-	quality int,
-	filterType int,
-) (Item, error) {
-	out := Item{}
-
-	var childrenMetadata []map[string]interface{}
-	for _, photo := range photos {
-		config, err := insta.postPhoto(photo, photoCaption, quality, filterType, true)
-		if err != nil {
-			return out, err
-		}
-
-		childrenMetadata = append(childrenMetadata, config)
-	}
-	albumUploadID := time.Now().Unix()
-
-	config := map[string]interface{}{
-		"caption":           photoCaption,
-		"client_sidecar_id": albumUploadID,
-		"children_metadata": childrenMetadata,
-	}
-	data, err := insta.prepareData(config)
-	if err != nil {
-		return out, err
-	}
-
-	body, _, err := insta.sendRequest(&reqOptions{
-		Endpoint: "media/configure_sidecar/?",
-		Query:    generateSignature(data),
-		IsPost:   true,
-	})
-	if err != nil {
-		return out, err
-	}
-
-	var uploadResult struct {
-		Media           Item   `json:"media"`
-		ClientSideCarID int64  `json:"client_sidecar_id"`
-		Status          string `json:"status"`
-	}
-	err = json.Unmarshal(body, &uploadResult)
-	if err != nil {
-		return out, err
-	}
-
-	if uploadResult.Status != "ok" {
-		return out, fmt.Errorf("invalid status, result: %s", uploadResult.Status)
-	}
-
-	return uploadResult.Media, nil
 }

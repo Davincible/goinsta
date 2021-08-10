@@ -31,4 +31,5 @@ _testmain.go
 .vscode/
 .vim/
 .tests/
+.env
 examples/configs/

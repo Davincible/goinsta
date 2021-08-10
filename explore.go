@@ -17,14 +17,14 @@ type Discover struct {
 		Description string      `json:"description"`
 		ID          string      `json:"id"`
 		IsMuted     bool        `json:"is_muted"`
-		Labels      interface{} `json:"is_muted"`
+		Labels      interface{} `json:"labels"`
 		Name        string      `json:"name"`
 		Title       string      `json:"title"`
 		Type        string      `json:"type"`
 	} `json:"clusters"`
 	MaxID              string                  `json:"max_id"`
 	MoreAvailable      bool                    `json:"more_available"`
-	NextMaxID          string                  `json:"next_max_id"`
+	NextID             string                  `json:"next_max_id"`
 	RankToken          string                  `json:"rank_token"`
 	SectionalItems     []DiscoverSectionalItem `json:"sectional_items"`
 	SessionPagingToken string                  `json:"session_paging_token"`
@@ -94,8 +94,8 @@ func (disc *Discover) Next() bool {
 		"include_fixed_destinations": "true",
 	}
 
-	if disc.NextMaxID != "" {
-		query["max_id"] = disc.NextMaxID
+	if disc.NextID != "" {
+		query["max_id"] = disc.NextID
 		query["is_prefetch"] = "false"
 	} else {
 		query["is_prefetch"] = "true"
@@ -129,7 +129,7 @@ func (disc *Discover) Error() error {
 // Refresh will remove the session token, and frefresh the results, like a pull down
 func (disc *Discover) Refresh() bool {
 	disc.sessionId = generateUUID()
-	disc.NextMaxID = ""
+	disc.NextID = ""
 	return disc.Next()
 }
 

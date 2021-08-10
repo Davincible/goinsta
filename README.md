@@ -21,7 +21,7 @@ This repository has been forked from [ahmdrz/goinsta](https://github.com/ahmdrz/
 
 ### Package installation 
 
-`go get -u -v github.com/Davincible/goinsta/v3@latest`
+`go get -u -v github.com/Davincible/goinsta@latest`
 
 ### Example
 
@@ -31,7 +31,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/Davincible/goinsta/v3"
+	"github.com/Davincible/goinsta"
 )
 
 func main() {  
@@ -56,7 +56,7 @@ This code is in no way affiliated with, authorized, maintained, sponsored or end
 Goinsta used gopkg.in as versioning control. Stable new API is the version v3.0. You can get it using:
 
 ```bash
-$ go get -u -v github.com/Davincible/goinsta/v3
+$ go get -u -v github.com/Davincible/goinsta
 ```
 
 Or 
@@ -64,6 +64,6 @@ Or
 If you have `GO111MODULE=on`
 
 ```
-$ go get -u github.com/Davincible/goinsta/v3
+$ go get -u github.com/Davincible/goinsta
 ```
 

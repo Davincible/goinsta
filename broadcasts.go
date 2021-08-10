@@ -26,7 +26,7 @@ type Broadcast struct {
 	NumberOfQualities          int     `json:"number_of_qualities"`
 	CoverFrameURL              string  `json:"cover_frame_url"`
 	User                       User    `json:"broadcast_owner"`
-	Cobroadcasters             []User  `json:"cobroadcasters"`
+	Cobroadcasters             []*User `json:"cobroadcasters"`
 	PublishedTime              int64   `json:"published_time"`
 	BroadcastMessage           string  `json:"broadcast_message"`
 	OrganicTrackingToken       string  `json:"organic_tracking_token"`
@@ -89,11 +89,11 @@ type BroadcastComments struct {
 }
 
 type BroadcastLikes struct {
-	Likes            int    `json:"likes"`
-	BurstLikes       int    `json:"burst_likes"`
-	Likers           []User `json:"likers"`
-	LikeTs           int64  `json:"like_ts"`
-	Status           string `json:"status"`
+	Likes            int     `json:"likes"`
+	BurstLikes       int     `json:"burst_likes"`
+	Likers           []*User `json:"likers"`
+	LikeTs           int64   `json:"like_ts"`
+	Status           string  `json:"status"`
 	PaySupporterInfo struct {
 		LikeCountByTier []struct {
 			BurstLikes  int         `json:"burst_likes"`

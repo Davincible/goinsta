@@ -14,17 +14,24 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
+
+	"github.com/Davincible/goinsta/utilities"
 )
 
 // Instagram represent the main API handler
 //
-// Profiles: Represents instragram's user profile.
-// Account:  Represents instagram's personal account.
-// Search:   Represents instagram's search.
-// Timeline: Represents instagram's timeline.
-// Activity: Represents instagram's user activity.
-// Inbox:    Represents instagram's messages.
-// Location: Represents instagram's locations.
+// Timeline:     Represents instagram's main timeline.
+// Profiles:     Represents instagram's user profile.
+// Account:      Represents instagram's personal account.
+// Collections:  Represents instagram's saved post collections.
+// Searchbar:    Represents instagram's search.
+// Activity:     Represents instagram's user activity and notifications.
+// Feed:         Represents instagram's feed for e.g. user pages and hashtags.
+// Contacts:     Represents instagram's sync with contact book.
+// Inbox:        Represents instagram's messages.
+// Locations:    Represents instagram's locations.
+// Challenges:   Represents instagram's url challenges
+// TwoFactorInfo Represents Instagram's 2FA login
 //
 // See Scheme section in README.md for more information.
 //
@@ -32,9 +39,11 @@ import (
 //
 // Also you can use SetProxy and UnsetProxy to set and unset proxy.
 // Golang also provides the option to set a proxy using HTTP_PROXY env var.
+//
 type Instagram struct {
 	user string
 	pass string
+
 	// device id: android-1923fjnma8123
 	dID string
 	// family device id: 71cd1aec-e146-4380-8d60-d216127c7b4e
@@ -57,6 +66,10 @@ type Instagram struct {
 	headerOptions map[string]string
 	// expiry of X-Mid cookie
 	xmidExpiry int64
+	// Public Key
+	pubKey string
+	// Public Key ID
+	pubKeyID int
 
 	// Instagram objects
 
@@ -68,6 +81,8 @@ type Instagram struct {
 	Profiles *Profiles
 	// Account stores all personal data of the user and his/her options.
 	Account *Account
+	// Collections represents your collections with saved posts
+	Collections *Collections
 	// Searchbar performs searching of multiple things (users, locations...)
 	Searchbar *Search
 	// Activity are instagram notifications.
@@ -80,8 +95,10 @@ type Instagram struct {
 	Contacts *Contacts
 	// Location instance
 	Locations *LocationInstance
-	// Challenge controls security side of account (Like sms verify / It was me)
+	// Challenge stores the challenge info if provided
 	Challenge *Challenge
+	// TwoFactorInfo enabled 2FA
+	TwoFactorInfo *TwoFactorInfo
 
 	c *http.Client
 
@@ -180,6 +197,7 @@ func (insta *Instagram) init() {
 	insta.Contacts = newContacts(insta)
 	insta.Locations = newLocation(insta)
 	insta.Discover = newDiscover(insta)
+	insta.Collections = newCollections(insta)
 }
 
 // SetProxy sets proxy for connection.
@@ -344,7 +362,7 @@ func (insta *Instagram) Login() (err error) {
 	if err != nil {
 		return
 	}
-	_, _, err = insta.sync()
+	err = insta.sync()
 	if err != nil {
 		return
 	}
@@ -359,15 +377,15 @@ func (insta *Instagram) Login() (err error) {
 		insta.ErrHandler("Non fatal error while fetching contact prefill:", err)
 	}
 
-	pkey, pkeyID, err := insta.sync()
+	err = insta.sync()
 	if err != nil {
 		return
 	}
-	if pkey == "" || pkeyID == 0 {
+	if insta.pubKey == "" || insta.pubKeyID == 0 {
 		return errors.New("Sync returned empty public key and/or public key id")
 	}
 
-	err = insta.login(pkey, pkeyID)
+	err = insta.login()
 	if err != nil {
 		return err
 	}
@@ -399,7 +417,8 @@ func (insta *Instagram) OpenApp() (err error) {
 	if err != nil {
 		insta.ErrHandler("Non fatal error while fetching account family:", err)
 	}
-	_, _, err = insta.syncb()
+
+	err = insta.sync()
 	if err != nil {
 		return
 	}
@@ -479,23 +498,24 @@ func (insta *Instagram) OpenApp() (err error) {
 	return nil
 }
 
-func (insta *Instagram) login(pkey string, pkeyID int) error {
+func (insta *Instagram) login() error {
 	timestamp := strconv.Itoa(int(time.Now().Unix()))
-	encrypted, err := EncryptPassword(insta.pass, pkey, pkeyID, timestamp)
+	if insta.pubKey == "" || insta.pubKeyID == 0 {
+		return errors.New(
+			"No public key or public key ID set. Please call Instagram.Sync() and verify that it works correctly",
+		)
+	}
+	encrypted, err := utilities.EncryptPassword(insta.pass, insta.pubKey, insta.pubKeyID, timestamp)
 	if err != nil {
 		return err
 	}
 
 	result, err := json.Marshal(
 		map[string]interface{}{
-			"jazoest":      Jazoest(insta.dID),
-			"country_code": "[{\"country_code\":\"44\",\"source\":[\"default\"]}]",
-			"phone_id":     insta.fID,
-			"enc_password": fmt.Sprintf(
-				"#PWD_INSTAGRAM:4:%s:%s",
-				timestamp,
-				encrypted,
-			),
+			"jazoest":             jazoest(insta.dID),
+			"country_code":        "[{\"country_code\":\"44\",\"source\":[\"default\"]}]",
+			"phone_id":            insta.fID,
+			"enc_password":        encrypted,
 			"username":            insta.user,
 			"adid":                insta.adid,
 			"guid":                insta.uuid,
@@ -507,21 +527,49 @@ func (insta *Instagram) login(pkey string, pkeyID int) error {
 	if err != nil {
 		return err
 	}
-	body, _, err := insta.sendRequest(
+	body, h, reqErr := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlLogin,
 			Query:    map[string]string{"signed_body": "SIGNATURE." + string(result)},
 			IsPost:   true,
 		},
 	)
+	h.Clone()
+
+	insta.pass = ""
+	err = insta.verifyLogin(body)
+	if err == nil && reqErr != nil {
+		return reqErr
+	}
+	return err
+}
+
+func (insta *Instagram) verifyLogin(body []byte) error {
+	res := accountResp{}
+	err := json.Unmarshal(body, &res)
 	if err != nil {
 		return err
 	}
 
-	insta.pass = ""
-	res := accountResp{}
-	err = json.Unmarshal(body, &res)
-	if err != nil {
+	if res.Status != "ok" {
+		err := errors.New(
+			fmt.Sprintf(
+				"Failed to login: %s, %s",
+				res.ErrorType, res.Message,
+			),
+		)
+		insta.ErrHandler(err)
+
+		switch res.ErrorType {
+		case "bad_password":
+			return ErrBadPassword
+		case "two_factor_required":
+			insta.TwoFactorInfo = res.TwoFactorInfo
+			insta.TwoFactorInfo.insta = insta
+		case "checkpoint_challenge_required":
+			insta.Challenge = res.Challenge
+			insta.Challenge.insta = insta
+		}
 		return err
 	}
 
@@ -550,7 +598,7 @@ func (insta *Instagram) getPrefill() error {
 		&reqOptions{
 			Endpoint: urlGetPrefill,
 			IsPost:   true,
-			Query:    map[string]string{"signed_body": "SIGNATURE." + string(data)},
+			Query:    generateSignature(data),
 		},
 	)
 	return nil
@@ -572,7 +620,7 @@ func (insta *Instagram) contactPrefill() error {
 		&reqOptions{
 			Endpoint: urlContactPrefill,
 			IsPost:   true,
-			Query:    map[string]string{"signed_body": "SIGNATURE." + string(data)},
+			Query:    generateSignature(data),
 		},
 	)
 	return nil
@@ -599,6 +647,9 @@ func (insta *Instagram) zrToken() error {
 			},
 		},
 	)
+	if err != nil {
+		return nil
+	}
 
 	var res map[string]interface{}
 	err = json.Unmarshal(body, &res)
@@ -641,21 +692,31 @@ func (insta *Instagram) callStClPushPerm() error {
 	return err
 }
 
-func (insta *Instagram) sync() (string, int, error) {
-	data, err := json.Marshal(
-		map[string]interface{}{
+func (insta *Instagram) sync(params ...map[string]string) error {
+	var query map[string]string
+	if insta.Account == nil {
+		query = map[string]string{
 			"id":                      insta.uuid,
-			"server_config_retrieval": 1,
-		},
-	)
+			"server_config_retrieval": "1",
+		}
+	} else {
+		// if logged in
+		query = map[string]string{
+			"id":                      toString(insta.Account.ID),
+			"_id":                     toString(insta.Account.ID),
+			"_uuid":                   insta.uuid,
+			"server_config_retrieval": "1",
+		}
+	}
+	data, err := json.Marshal(query)
 	if err != nil {
-		return "", -1, err
+		return err
 	}
 
 	_, h, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlSync,
-			Query:    map[string]string{"signed_body": "SIGNATURE." + string(data)},
+			Query:    generateSignature(data),
 			IsPost:   true,
 			IgnoreHeaders: []string{
 				"Authorization",
@@ -674,54 +735,12 @@ func (insta *Instagram) sync() (string, int, error) {
 
 	id, err := strconv.Atoi(keyID)
 	if err != nil {
-		return "", -1, err
+		return err
 	}
+	insta.pubKey = key
+	insta.pubKeyID = id
 
-	return key, id, err
-}
-
-// syncb calls b.i.instagram.com, with auth data after login
-func (insta *Instagram) syncb() (string, int, error) {
-	data, err := json.Marshal(
-		map[string]interface{}{
-			"id":                      insta.Account.ID,
-			"_id":                     insta.Account.ID,
-			"_uuid":                   insta.uuid,
-			"server_config_retrieval": 1,
-		},
-	)
-	if err != nil {
-		return "", -1, err
-	}
-
-	_, h, err := insta.sendRequest(
-		&reqOptions{
-			Endpoint: urlSync,
-			Query:    map[string]string{"signed_body": "SIGNATURE." + string(data)},
-			IsPost:   true,
-			Useb:     true,
-			IgnoreHeaders: []string{
-				"X-Pigeon-Session-Id",
-				"X-Pigeon-Rawclienttime",
-			},
-		},
-	)
-
-	hkey := h["Ig-Set-Password-Encryption-Pub-Key"]
-	hkeyID := h["Ig-Set-Password-Encryption-Key-Id"]
-	var key string
-	var keyID string
-	if len(hkey) > 0 && len(hkeyID) > 0 && hkey[0] != "" && hkeyID[0] != "" {
-		key = hkey[0]
-		keyID = hkeyID[0]
-	}
-
-	id, err := strconv.Atoi(keyID)
-	if err != nil {
-		return "", -1, err
-	}
-
-	return key, id, err
+	return err
 }
 
 func (insta *Instagram) getAccountFamily() error {
@@ -858,28 +877,6 @@ func (insta *Instagram) getConfig() error {
 			Endpoint: urlFetchConfig,
 		},
 	)
-	return err
-}
-
-func (insta *Instagram) expose() error {
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"id":         insta.Account.ID,
-			"experiment": "ig_android_profile_contextual_feed",
-		},
-	)
-	if err != nil {
-		return err
-	}
-
-	_, _, err = insta.sendRequest(
-		&reqOptions{
-			Endpoint: urlExpose,
-			Query:    generateSignature(data),
-			IsPost:   true,
-		},
-	)
-
 	return err
 }
 

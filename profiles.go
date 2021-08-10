@@ -24,7 +24,20 @@ type Profile struct {
 }
 
 func (insta *Instagram) VisitProfile(handle string) (*Profile, error) {
-	insta.Search(handle)
+	sr, err := insta.Search(handle)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range sr.Results {
+		if r.User.Username == handle {
+			err = r.RegisterClick()
+			if err != nil {
+				return nil, err
+			}
+			return r.User.VisitProfile()
+		}
+	}
+	return nil, errors.New("Profile not found")
 }
 
 func (user *User) VisitProfile() (*Profile, error) {

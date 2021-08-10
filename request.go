@@ -40,6 +40,10 @@ type reqOptions struct {
 	// This parameters are independents of the request method (POST|GET)
 	Query map[string]string
 
+	// DataBytes can be used to pass raw data to a request, instead of a
+	//   form using the Query param. This is used for e.g. photo and vieo uploads.
+	DataBytes *bytes.Buffer
+
 	// List of headers to ignore
 	IgnoreHeaders []string
 
@@ -60,7 +64,7 @@ func (insta *Instagram) sendSimpleRequest(uri string, a ...interface{}) (body []
 }
 
 func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, err error) {
-	checkCookieExpiry(insta)
+	insta.checkXmidExpiry()
 
 	method := "GET"
 	if o.IsPost {
@@ -76,14 +80,14 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 
 	var nu string
 	if o.Useb {
-		nu = goInstaAPIUrlb
+		nu = instaAPIUrlb
 	} else {
-		nu = goInstaAPIUrl
+		nu = instaAPIUrl
 	}
 	if o.UseV2 && !o.Useb {
-		nu = goInstaAPIUrlv2
+		nu = instaAPIUrlv2
 	} else if o.UseV2 && o.Useb {
-		nu = goInstaAPIUrlv2b
+		nu = instaAPIUrlv2b
 	}
 
 	u, err := url.Parse(nu + o.Endpoint)
@@ -93,15 +97,25 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 
 	vs := url.Values{}
 	bf := bytes.NewBuffer([]byte{})
+	reqData := bytes.NewBuffer([]byte{})
 
 	for k, v := range o.Query {
 		vs.Add(k, v)
 	}
 
+	// If DataBytes has been passed, use that as data, else use Query
+	if o.DataBytes != nil {
+		reqData = o.DataBytes
+	} else {
+		reqData.WriteString(vs.Encode())
+	}
+
 	var contentEncoding string
 	if o.IsPost && o.Gzip {
+		// If gzip encoding needs to be applied
 		zw := gzip.NewWriter(bf)
-		if _, err := zw.Write([]byte(vs.Encode())); err != nil {
+		defer zw.Close()
+		if _, err := zw.Write(reqData.Bytes()); err != nil {
 			return nil, nil, err
 		}
 		if err := zw.Close(); err != nil {
@@ -109,8 +123,10 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 		}
 		contentEncoding = "gzip"
 	} else if o.IsPost {
-		bf.WriteString(vs.Encode())
+		// use post form if POST request
+		bf = reqData
 	} else {
+		// append query to url if GET request
 		for k, v := range u.Query() {
 			vs.Add(k, strings.Join(v, " "))
 		}
@@ -133,31 +149,19 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 		return false
 	}
 
-	setHeaders := func(r *http.Request, h map[string]string) {
+	setHeaders := func(h map[string]string) {
 		for k, v := range h {
 			if v != "" && !ignoreHeader(k) {
-				r.Header.Set(k, v)
+				req.Header.Set(k, v)
 			}
 		}
-	}
-
-	accID := "0"
-	if insta.Account != nil {
-		accID = strconv.Itoa(int(insta.Account.ID))
 	}
 
 	headers := map[string]string{
 		"Accept-Language":             locale,
 		"Accept-Encoding":             "gzip,deflate",
-		"Authorization":               insta.headerOptions["Authorization"],
 		"Connection":                  o.Connection,
 		"Content-Type":                "application/x-www-form-urlencoded; charset=UTF-8",
-		"Ig-Intended-User-Id":         accID,
-		"Ig-U-Shbid":                  insta.headerOptions["Ig-U-Shbid"],
-		"Ig-U-Shbts":                  insta.headerOptions["Ig-U-Shbts"],
-		"Ig-U-Ds-User-Id":             insta.headerOptions["Ig-U-Ds-User-Id"],
-		"Ig-U-Rur":                    insta.headerOptions["Ig-U-Rur"],
-		"Ig-U-Ig-Direct-Region-Hint":  insta.headerOptions["Ig-U-Ig-Direct-Region-Hint"],
 		"User-Agent":                  userAgent,
 		"X-Ig-App-Locale":             locale,
 		"X-Ig-Device-Locale":          locale,
@@ -170,26 +174,30 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 		"X-Ig-Capabilities":           igCapabilities,
 		"X-Ig-Connection-Type":        connType,
 		"X-Pigeon-Session-Id":         insta.psID,
-		"X-Pigeon-Rawclienttime":      fmt.Sprintf("%s.%d", o.Timestamp, acquireRand(100, 900)),
-		"X-Ig-Bandwidth-Speed-KBPS":   fmt.Sprintf("%d.000", acquireRand(1000, 9000)),
-		"X-Ig-Bandwidth-TotalBytes-B": strconv.Itoa(acquireRand(1000000, 5000000)),
-		"X-Ig-Bandwidth-Totaltime-Ms": strconv.Itoa(acquireRand(200, 800)),
+		"X-Pigeon-Rawclienttime":      fmt.Sprintf("%s.%d", o.Timestamp, random(100, 900)),
+		"X-Ig-Bandwidth-Speed-KBPS":   fmt.Sprintf("%d.000", random(1000, 9000)),
+		"X-Ig-Bandwidth-TotalBytes-B": strconv.Itoa(random(1000000, 5000000)),
+		"X-Ig-Bandwidth-Totaltime-Ms": strconv.Itoa(random(200, 800)),
 		"X-Ig-App-Startup-Country":    "unkown",
-		"X-Ig-Www-Claim":              insta.headerOptions["X-Ig-Www-Claim"],
-		"X-Bloks-Version-Id":          goInstaBloksVerID,
+		"X-Bloks-Version-Id":          bloksVerID,
 		"X-Bloks-Is-Layout-Rtl":       "false",
 		"X-Bloks-Is-Panorama-Enabled": "true",
-		"X-Mid":                       insta.headerOptions["X-Mid"],
 		"X-Fb-Http-Engine":            "Liger",
 		"X-Fb-Client-Ip":              "True",
 		"X-Fb-Server-Cluster":         "True",
+	}
+	if insta.Account != nil {
+		req.Header.Set("Ig-Intended-User-Id", strconv.Itoa(int(insta.Account.ID)))
+	} else {
+		req.Header.Set("Ig-Intended-User-Id", "0")
 	}
 	if contentEncoding != "" {
 		headers["Content-Encoding"] = contentEncoding
 	}
 
-	setHeaders(req, headers)
-	setHeaders(req, o.ExtraHeaders)
+	setHeaders(headers)
+	setHeaders(o.ExtraHeaders)
+	setHeaders(insta.headerOptions)
 
 	resp, err := insta.c.Do(req)
 	if err != nil {
@@ -201,22 +209,46 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 	if err == nil {
 		err = isError(resp.StatusCode, body)
 	}
-	extractHeaders(insta, resp.Header)
+	insta.extractHeaders(resp.Header)
 
+	// Decode gzip encoded responses
+	encoding := resp.Header.Get("Content-Encoding")
+	if encoding != "" && encoding == "gzip" {
+		buf := bytes.NewBuffer(body)
+		zr, err := gzip.NewReader(buf)
+		if err != nil {
+			return nil, nil, err
+		}
+		body, err = ioutil.ReadAll(zr)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := zr.Close(); err != nil {
+			return nil, nil, err
+		}
+	}
 	return body, resp.Header.Clone(), err
 }
 
-func checkCookieExpiry(insta *Instagram) {
+func (insta *Instagram) checkXmidExpiry() {
 	if insta.xmidExpiry != -1 && time.Now().Unix() > insta.xmidExpiry-10 {
 		insta.xmidExpiry = -1
 		insta.zrToken()
 	}
 }
 
-func extractHeaders(insta *Instagram, h http.Header) {
+func (insta *Instagram) extractHeaders(h http.Header) {
 	extract := func(in string, out string) {
 		x := h[in]
 		if len(x) > 0 && x[0] != "" {
+			// prevent from auth being set without token post login
+			if in == "Ig-Set-Authorization" && len(insta.headerOptions[out]) != 0 {
+				current := strings.Split(insta.headerOptions[out], ":")
+				newHeader := strings.Split(x[0], ":")
+				if len(current[2]) > len(newHeader[2]) {
+					return
+				}
+			}
 			insta.headerOptions[out] = x[0]
 		}
 	}
@@ -265,8 +297,7 @@ func isError(code int, body []byte) (err error) {
 
 func (insta *Instagram) prepareData(other ...map[string]interface{}) (string, error) {
 	data := map[string]interface{}{
-		"_uuid":      insta.uuid,
-		"_csrftoken": insta.token,
+		"_uuid": insta.uuid,
 	}
 	if insta.Account != nil && insta.Account.ID != 0 {
 		data["_uid"] = strconv.FormatInt(insta.Account.ID, 10)
@@ -279,7 +310,7 @@ func (insta *Instagram) prepareData(other ...map[string]interface{}) (string, er
 	}
 	b, err := json.Marshal(data)
 	if err == nil {
-		return b2s(b), err
+		return string(b), err
 	}
 	return "", err
 }
@@ -297,7 +328,7 @@ func (insta *Instagram) prepareDataQuery(other ...map[string]interface{}) map[st
 	return data
 }
 
-func acquireRand(min, max int) int {
+func random(min, max int) int {
 	rand.Seed(time.Now().Unix())
 	return rand.Intn(max-min) + min
 }

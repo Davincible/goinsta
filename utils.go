@@ -1,8 +1,13 @@
 package goinsta
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"image"
+	"math"
+
 	// Required for getImageDimensionFromReader in jpg and png format
 	"fmt"
 	_ "image/jpeg"
@@ -10,11 +15,18 @@ import (
 	"io"
 	"strconv"
 	"time"
-	"unsafe"
 )
 
-func b2s(b []byte) string {
-	return *(*string)(unsafe.Pointer(&b))
+func formatID(id interface{}) string {
+	switch s := id.(type) {
+	case string:
+		return s
+	case int64:
+		return strconv.FormatInt(s, 10)
+	case json.Number:
+		return string(s)
+	}
+	return ""
 }
 
 func toString(i interface{}) string {
@@ -48,7 +60,7 @@ func toString(i interface{}) string {
 	case uint8:
 		return strconv.FormatInt(int64(s), 10)
 	case []byte:
-		return b2s(s)
+		return string(s)
 	case error:
 		return s.Error()
 	}
@@ -69,17 +81,50 @@ func prepareRecipients(cc interface{}) (bb string, err error) {
 		ids = append(ids, []int64{c})
 	}
 	b, err = json.Marshal(ids)
-	bb = b2s(b)
+	bb = string(b)
 	return
 }
 
-// getImageDimensionFromReader return image dimension , types is .jpg and .png
-func getImageDimensionFromReader(rdr io.Reader) (int, int, error) {
-	image, _, err := image.DecodeConfig(rdr)
+// getImageSize return image dimension , types is .jpg and .png
+func getImageSize(r io.Reader) (int, int, error) {
+	image, _, err := image.DecodeConfig(r)
 	if err != nil {
 		return 0, 0, err
 	}
 	return image.Width, image.Height, nil
+}
+
+func getVideoInfo(b []byte) (height, width, duration int, err error) {
+	keys := []string{"moov", "trak", "stbl", "avc1"}
+	height, err = read16(b, keys, 24)
+	if err != nil {
+		return
+	}
+	width, err = read16(b, keys, 24)
+	if err != nil {
+		return
+	}
+
+	duration, err = getMP4Duration(b)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func getMP4Duration(b []byte) (int, error) {
+	keys := []string{"moov", "mvhd"}
+	timescale, err := read32(b, keys, 12)
+	if err != nil {
+		return -1, err
+	}
+	length, err := read32(b, keys, 12+4)
+	if err != nil {
+		return -1, err
+	}
+
+	return int(math.Floor(float64(length) / float64(timescale) * 1000)), nil
 }
 
 func getTimeOffset() string {
@@ -87,7 +132,7 @@ func getTimeOffset() string {
 	return strconv.Itoa(offset)
 }
 
-func Jazoest(str string) string {
+func jazoest(str string) string {
 	b := []byte(str)
 	var s int
 	for v := range b {
@@ -102,15 +147,119 @@ func createUserAgent() string {
 	// Instagram 195.0.0.31.123 Android (30/11; 560dpi; 1440x2898; samsung; SM-G975F; beyond2; exynos9820; en_US; 302733750)
 	return fmt.Sprintf("Instagram %s Android (%d/%s; %s; %s; %s; %s; %s; %s; %s; %s)",
 		appVersion,
-		goInstaDeviceSettings["android_version"],
-		goInstaDeviceSettings["android_release"],
-		goInstaDeviceSettings["screen_dpi"],
-		goInstaDeviceSettings["screen_resolution"],
-		goInstaDeviceSettings["manufacturer"],
-		goInstaDeviceSettings["model"],
-		goInstaDeviceSettings["code_name"],
-		goInstaDeviceSettings["chipset"],
+		deviceSettings["android_version"],
+		deviceSettings["android_release"],
+		deviceSettings["screen_dpi"],
+		deviceSettings["screen_resolution"],
+		deviceSettings["manufacturer"],
+		deviceSettings["model"],
+		deviceSettings["code_name"],
+		deviceSettings["chipset"],
 		locale,
 		appVersionCode,
 	)
+}
+
+// ExportAsBytes exports selected *Instagram object as []byte
+func (insta *Instagram) ExportAsBytes() ([]byte, error) {
+	buffer := &bytes.Buffer{}
+	err := Export(insta, buffer)
+	if err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
+// ExportAsBase64String exports selected *Instagram object as base64 encoded string
+func (insta *Instagram) ExportAsBase64String() (string, error) {
+	bytes, err := insta.ExportAsBytes()
+	if err != nil {
+		return "", err
+	}
+
+	sEnc := base64.StdEncoding.EncodeToString(bytes)
+	return sEnc, nil
+}
+
+// ImportFromBytes imports instagram configuration from an array of bytes.
+//
+// This function does not set proxy automatically. Use SetProxy after this call.
+func ImportFromBytes(inputBytes []byte) (*Instagram, error) {
+	return ImportReader(bytes.NewReader(inputBytes))
+}
+
+// ImportFromBase64String imports instagram configuration from a base64 encoded string.
+//
+// This function does not set proxy automatically. Use SetProxy after this call.
+func ImportFromBase64String(base64String string) (*Instagram, error) {
+	sDec, err := base64.StdEncoding.DecodeString(base64String)
+	if err != nil {
+		return nil, err
+	}
+
+	return ImportFromBytes(sDec)
+}
+
+func MergeMapI(one map[string]interface{}, extra ...map[string]interface{}) map[string]interface{} {
+	for _, e := range extra {
+		for k, v := range e {
+			one[k] = v
+		}
+	}
+	return one
+}
+
+func MergeMapS(one map[string]string, extra ...map[string]string) map[string]string {
+	for _, e := range extra {
+		for k, v := range e {
+			one[k] = v
+		}
+	}
+	return one
+}
+
+func read16(b []byte, keys []string, offset int) (int, error) {
+	start, err := getStartByte(b, keys, offset)
+	if err != nil {
+		return -1, nil
+	}
+	r := binary.BigEndian.Uint16(b[start+offset:])
+	return int(r), nil
+}
+
+func read32(b []byte, keys []string, offset int) (int, error) {
+	start, err := getStartByte(b, keys, offset)
+	if err != nil {
+		return -1, nil
+	}
+	r := binary.BigEndian.Uint32(b[start+offset:])
+	return int(r), nil
+}
+
+func getStartByte(b []byte, keys []string, offset int) (int, error) {
+	start := 0
+	for _, key := range keys {
+		n := bytes.Index(b[start:], []byte(key))
+		if n == -1 {
+			return -1, ErrByteIndexNotFound
+		}
+		start += n + len(key)
+	}
+	return start, nil
+}
+
+func getSupCap() (string, error) {
+	query := []trayRequest{
+		{"SUPPORTED_SDK_VERSIONS", supportedSdkVersions},
+		{"FACE_TRACKER_VERSION", facetrackerVersion},
+		{"segmentation", segmentation},
+		{"COMPRESSION", compression},
+		{"world_tracker", worldTracker},
+		{"gyroscope", gyroscope},
+	}
+	data, err := json.Marshal(query)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }

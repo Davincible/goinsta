@@ -2,8 +2,10 @@ package goinsta
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
+	"time"
 )
 
 // Comments allows user to interact with media (item) comments.
@@ -24,7 +26,7 @@ type Comments struct {
 	InitiateAtTop                  bool            `json:"initiate_at_top"`
 	InsertNewCommentToTop          bool            `json:"insert_new_comment_to_top"`
 	PreviewComments                []Comment       `json:"preview_comments"`
-	NextMaxID                      json.RawMessage `json:"next_max_id,omitempty"`
+	NextID                         json.RawMessage `json:"next_max_id,omitempty"`
 	NextMinID                      json.RawMessage `json:"next_min_id,omitempty"`
 	CommentLikesEnabled            bool            `json:"comment_likes_enabled"`
 	DisplayRealtimeTypingIndicator bool            `json:"display_realtime_typing_indicator"`
@@ -34,7 +36,8 @@ type Comments struct {
 
 func (comments *Comments) setValues() {
 	for i := range comments.Items {
-		comments.Items[i].setValues(comments.item.media.instagram())
+		comments.Items[i].item = comments.item
+		comments.Items[i].setValues(comments.item.insta)
 	}
 }
 
@@ -53,56 +56,27 @@ func (comments Comments) Error() error {
 //
 // See example: examples/media/commentDisable.go
 func (comments *Comments) Disable() error {
-	switch comments.item.media.(type) {
-	case *StoryMedia:
-		return fmt.Errorf("Incompatible type. Cannot use Disable() with StoryMedia type")
-	default:
-	}
-
-	insta := comments.item.media.instagram()
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"media_id": comments.item.ID,
-		},
-	)
-	if err != nil {
-		return err
-	}
-
-	_, _, err = insta.sendRequest(
-		&reqOptions{
-			Endpoint: fmt.Sprintf(urlCommentDisable, comments.item.ID),
-			Query:    generateSignature(data),
-			IsPost:   true,
-		},
-	)
-	return err
+	return comments.toggleComments(urlCommentDisable)
 }
 
 // Enable enables comments in FeedMedia
 //
 // See example: examples/media/commentEnable.go
 func (comments *Comments) Enable() error {
+	return comments.toggleComments(urlCommentEnable)
+}
+
+func (comments *Comments) toggleComments(endpoint string) error {
 	switch comments.item.media.(type) {
 	case *StoryMedia:
 		return fmt.Errorf("Incompatible type. Cannot use Enable() with StoryMedia type")
-	default:
 	}
+	insta := comments.item.insta
 
-	insta := comments.item.media.instagram()
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"media_id": comments.item.ID,
-		},
-	)
-	if err != nil {
-		return err
-	}
-
-	_, _, err = insta.sendRequest(
+	_, _, err := insta.sendRequest(
 		&reqOptions{
-			Endpoint: fmt.Sprintf(urlCommentEnable, comments.item.ID),
-			Query:    generateSignature(data),
+			Endpoint: fmt.Sprintf(endpoint, comments.item.ID),
+			Query:    map[string]string{"_uuid": insta.uuid},
 			IsPost:   true,
 		},
 	)
@@ -120,13 +94,13 @@ func (comments *Comments) Next() bool {
 	}
 
 	item := comments.item
-	insta := item.media.instagram()
+	insta := item.insta
 	endpoint := comments.endpoint
 	query := map[string]string{
 		// "can_support_threading": "true",
 	}
-	if comments.NextMaxID != nil {
-		next, _ := strconv.Unquote(string(comments.NextMaxID))
+	if comments.NextID != nil {
+		next, _ := strconv.Unquote(string(comments.NextID))
 		query["max_id"] = next
 	} else if comments.NextMinID != nil {
 		next, _ := strconv.Unquote(string(comments.NextMinID))
@@ -147,7 +121,7 @@ func (comments *Comments) Next() bool {
 			*comments = c
 			comments.endpoint = endpoint
 			comments.item = item
-			if (!comments.HasMoreComments || comments.NextMaxID == nil) &&
+			if (!comments.HasMoreComments || comments.NextID == nil) &&
 				(!comments.HasMoreHeadloadComments || comments.NextMinID == nil) {
 				comments.err = ErrNoMore
 			}
@@ -171,74 +145,50 @@ func (comments *Comments) Sync() {
 
 // Add push a comment in media.
 //
-// If parent media is a Story this function will send a private message
-// replying the Instagram story.
-//
 // See example: examples/media/commentsAdd.go
 func (comments *Comments) Add(text string) (err error) {
-	var opt *reqOptions
-	item := comments.item
-	insta := item.media.instagram()
-
-	switch item.media.(type) {
-	case *StoryMedia:
-		to, err := prepareRecipients(item)
-		if err != nil {
-			return err
-		}
-
-		query := insta.prepareDataQuery(
-			map[string]interface{}{
-				"recipient_users": to,
-				"action":          "send_item",
-				"media_id":        item.ID,
-				"client_context":  generateUUID(),
-				"text":            text,
-				"entry":           "reel",
-				"reel_id":         item.User.ID,
-			},
-		)
-		opt = &reqOptions{
-			Connection: "keep-alive",
-			Endpoint:   fmt.Sprintf("%s?media_type=%s", urlReplyStory, item.MediaToString()),
-			Query:      query,
-			IsPost:     true,
-		}
-	case *FeedMedia: // normal media
-		var data string
-		data, err = insta.prepareData(
-			map[string]interface{}{
-				"comment_text": text,
-			},
-		)
-		opt = &reqOptions{
-			Endpoint: fmt.Sprintf(urlCommentAdd, item.Pk),
-			Query:    generateSignature(data),
-			IsPost:   true,
-		}
-	}
-	if err != nil {
-		return err
-	}
-
-	// ignoring response
-	_, _, err = insta.sendRequest(opt)
-	return err
+	return comments.item.Comment(text)
 }
 
-// Del deletes comment.
-func (comments *Comments) Del(comment *Comment) error {
-	insta := comments.item.media.instagram()
+// Delete deletes a single comment.
+func (c *Comment) Delete() error {
+	return c.item.insta.bulkDelComments([]*Comment{c})
+}
 
-	data, err := insta.prepareData()
+// BulkDelete allows you to select and delete multiple comments on a single post.
+func (comments *Comments) BulkDelete(c []*Comment) error {
+	return comments.item.insta.bulkDelComments(c)
+}
+
+func (insta *Instagram) bulkDelComments(c []*Comment) error {
+	if len(c) == 0 {
+		return nil
+	}
+	cIDs := toString(c[0].ID)
+	pID := c[0].item.ID
+	if len(c) > 1 {
+		for _, i := range c[1:] {
+			if i.item.ID != pID {
+				return errors.New("All comments have to belong to the same post")
+			}
+			cIDs += "," + toString(i.ID)
+		}
+	}
+
+	data, err := json.Marshal(
+		map[string]string{
+			"comment_ids_to_delete": cIDs,
+			"_uid":                  toString(insta.Account.ID),
+			"_uuid":                 insta.uuid,
+			"container_module":      "feed_timeline",
+		},
+	)
 	if err != nil {
 		return err
 	}
-	id := comment.getid()
-
 	_, _, err = insta.sendRequest(
 		&reqOptions{
-			Endpoint: fmt.Sprintf(urlCommentDelete, comments.item.ID, id),
+			Endpoint: fmt.Sprintf(urlCommentBulkDelete, pID),
 			Query:    generateSignature(data),
 			IsPost:   true,
 		},
@@ -246,48 +196,43 @@ func (comments *Comments) Del(comment *Comment) error {
 	return err
 }
 
-// DelByID removes comment using id.
+// DeleteMine removes all of your comments limited by parsed parameter.
 //
-// See example: examples/media/commentsDelByID.go
-func (comments *Comments) DelByID(id string) error {
-	return comments.Del(&Comment{idstr: id})
-}
-
-// DelMine removes all of your comments limited by parsed parameter.
-//
-// If limit is <= 0 DelMine will delete all your comments.
+// If limit is <= 0 DeleteMine will delete all your comments.
+// Be careful with using this on posts with a large number of comments,
+//  as a large number of requests will be made to index all comments.This
+//  can result in a ratelimiter being tripped.
 //
 // See example: examples/media/commentsDelMine.go
-func (comments *Comments) DelMine(limit int) error {
-	i := 0
-	if limit <= 0 {
-		i = limit - 1
-	}
+func (comments *Comments) DeleteMine(limit int) error {
 	comments.Sync()
+	cList := make([]*Comment, 1)
 
-	insta := comments.item.media.instagram()
+	insta := comments.item.insta
 floop:
-	for comments.Next() {
+	for i := 0; comments.Next(); i++ {
 		for _, c := range comments.Items {
 			if c.UserID == insta.Account.ID || c.User.ID == insta.Account.ID {
-				if i >= limit {
+				if limit > 0 && i >= limit {
 					break floop
 				}
-				comments.Del(&c)
-				i++
+				cList = append(cList, &c)
 			}
 		}
+		time.Sleep(100 * time.Millisecond)
 	}
 	if err := comments.Error(); err != nil && err != ErrNoMore {
 		return err
 	}
-	return nil
+	err := comments.BulkDelete(cList)
+	return err
 }
 
 // Comment is a type of Media retrieved by the Comments methods
 type Comment struct {
 	insta *Instagram
 	idstr string
+	item  *Item
 
 	ID                             int64     `json:"pk"`
 	Text                           string    `json:"text"`
@@ -304,7 +249,7 @@ type Comment struct {
 	DidReportAsSpam                bool      `json:"did_report_as_spam"`
 	HasLikedComment                bool      `json:"has_liked_comment"`
 	InlineComposerDisplayCondition string    `json:"inline_composer_display_condition"`
-	OtherPreviewUsers              []User    `json:"other_preview_users"`
+	OtherPreviewUsers              []*User    `json:"other_preview_users"`
 	PreviewChildComments           []Comment `json:"preview_child_comments"`
 	NextMaxChildCursor             string    `json:"next_max_child_cursor,omitempty"`
 	HasMoreTailChildComments       bool      `json:"has_more_tail_child_comments,omitempty"`
@@ -337,33 +282,47 @@ func (c Comment) getid() string {
 
 // Like likes comment.
 func (c *Comment) Like() error {
-	data, err := c.insta.prepareData()
-	if err != nil {
-		return err
-	}
-
-	_, _, err = c.insta.sendRequest(
-		&reqOptions{
-			Endpoint: fmt.Sprintf(urlCommentLike, c.getid()),
-			Query:    generateSignature(data),
-			IsPost:   true,
-		},
-	)
-	return err
+	return c.changeLike(urlCommentLike)
 }
 
 // Unlike unlikes comment.
 func (c *Comment) Unlike() error {
-	data, err := c.insta.prepareData()
+	return c.changeLike(urlCommentUnlike)
+}
+
+func (c *Comment) changeLike(endpoint string) error {
+	insta := c.insta
+	item := c.item
+	query := map[string]string{
+		"feed_position":           "0",
+		"container_module":        "feed_timeline",
+		"nav_chain":               "",
+		"_uid":                    toString(insta.Account.ID),
+		"_uuid":                   insta.uuid,
+		"radio_type":              "wifi-none",
+		"is_carousel_bumped_post": "false", // not sure when this would be true
+	}
+	if item.IsCommercial {
+		query["delivery_class"] = "ad"
+	} else {
+		query["delivery_class"] = "organic"
+	}
+	if item.InventorySource != "" {
+		query["inventory_source"] = item.InventorySource
+	}
+	if len(item.CarouselMedia) > 0 || item.CarouselParentID != "" {
+		query["carousel_index"] = "0"
+	}
+	data, err := json.Marshal(query)
 	if err != nil {
 		return err
 	}
 
 	_, _, err = c.insta.sendRequest(
 		&reqOptions{
-			Endpoint: fmt.Sprintf(urlCommentUnlike, c.getid()),
-			Query:    generateSignature(data),
+			Endpoint: fmt.Sprintf(endpoint, c.getid()),
 			IsPost:   true,
+			Query:    generateSignature(data),
 		},
 	)
 	return err

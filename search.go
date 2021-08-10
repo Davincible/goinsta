@@ -35,7 +35,10 @@ type SearchResult struct {
 	History []SearchHistory
 
 	// User search results
-	Users []User `json:"users"`
+	Users []*User `json:"users"`
+
+	// Loaction search results
+	Places []Place `json:"items"`
 
 	// Tag search results
 	Tags []struct {
@@ -96,7 +99,7 @@ func newSearch(insta *Instagram) *Search {
 
 // Search is a wrapper for insta.Searchbar.Search()
 func (insta *Instagram) Search(query string) (*SearchResult, error) {
-	return insta.SearchBar.Search(query)
+	return insta.Searchbar.Search(query)
 }
 
 func (sb *Search) Search(query string) (*SearchResult, error) {
@@ -215,7 +218,7 @@ func (sb *Search) search(query string, fn func(string) (*SearchResult, error)) (
 		if err != nil {
 			return nil, err
 		}
-		s := acquireRand(150, 500)
+		s := random(150, 500)
 		time.Sleep(time.Duration(s) * time.Millisecond)
 	}
 	result.History = *h
@@ -268,6 +271,7 @@ func (sr *SearchResult) setValues() {
 func (search *Search) user(user string) (*SearchResult, error) {
 	insta := search.insta
 	res := &SearchResult{
+		insta:         insta,
 		SearchSurface: "user_search_page",
 		queryParam:    "q",
 		Query:         user,

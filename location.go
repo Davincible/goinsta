@@ -34,7 +34,7 @@ type Section struct {
 	MoreAvailable bool            `json:"more_available"`
 	NextPage      int             `json:"next_page"`
 	NextMediaIds  []int64         `json:"next_media_ids"`
-	NextMaxID     string          `json:"next_max_id"`
+	NextID        string          `json:"next_max_id"`
 	Status        string          `json:"status"`
 }
 

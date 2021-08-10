@@ -3,7 +3,6 @@ package goinsta
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/rand"
 	"time"
@@ -24,13 +23,13 @@ type Timeline struct {
 	Items    []Item
 	Tray     Tray
 
-	More_available            bool
-	NextID                    string
-	Num_results               float64
-	Preload_distance          float64
-	Pull_to_refresh_window_ms float64
-	Request_id                string
-	Session_id                string
+	MoreAvailable         bool
+	NextID                string
+	NumResults            float64
+	PreloadDistance       float64
+	PullToRefreshWindowMs float64
+	RequestID             string
+	SessionID             string
 }
 
 type FeedCache struct {
@@ -43,28 +42,28 @@ type FeedCache struct {
 		} `json:"end_of_feed_demarcator"`
 	} `json:"feed_items"`
 
-	More_available                 bool    `json:"more_available"`
-	NextID                         string  `json:"next_max_id"`
-	Num_results                    float64 `json:"num_results"`
-	Pull_to_refresh_window_ms      float64 `json:"pull_to_refresh_window_ms"`
-	Request_id                     string  `json:"request_id"`
-	Session_id                     string  `json:"session_id"`
-	View_state_version             string  `json:"view_state_version"`
-	Auto_load_more_enabled         bool    `json:"auto_load_more_enabled"`
-	Is_direct_v2_enabled           bool    `json:"is_direct_v2_enabled"`
-	Client_feed_changelist_applied bool    `json:"client_feed_changelist_applied"`
-	Preload_distance               float64 `json:"preload_distance"`
-	Status                         string  `json:"status"`
-	Feed_pill_text                 string  `json:"feed_pill_text"`
-	Startup_prefetch_configs       struct {
+	MoreAvailable               bool    `json:"more_available"`
+	NextID                      string  `json:"next_max_id"`
+	NumResults                  float64 `json:"num_results"`
+	PullToRefreshWindowMs       float64 `json:"pull_to_refresh_window_ms"`
+	RequestID                   string  `json:"request_id"`
+	SessionID                   string  `json:"session_id"`
+	ViewStateVersion            string  `json:"view_state_version"`
+	AutoLoadMore                bool    `json:"auto_load_more_enabled"`
+	IsDirectV2Enabled           bool    `json:"is_direct_v2_enabled"`
+	ClientFeedChangelistApplied bool    `json:"client_feed_changelist_applied"`
+	PreloadDistance             float64 `json:"preload_distance"`
+	Status                      string  `json:"status"`
+	FeedPillText                string  `json:"feed_pill_text"`
+	StartupPrefetchConfigs      struct {
 		Explore struct {
-			Containermodule            string `json:"containermodule"`
-			Should_prefetch            bool   `json:"should_prefetch"`
-			Should_prefetch_thumbnails bool   `json:"should_prefetch_thumbnails"`
+			ContainerModule          string `json:"containermodule"`
+			ShouldPrefetch           bool   `json:"should_prefetch"`
+			ShouldPrefetchThumbnails bool   `json:"should_prefetch_thumbnails"`
 		} `json:"explore"`
 	} `json:"startup_prefetch_configs"`
-	Use_aggressive_first_tail_load bool    `json:"use_aggressive_first_tail_load"`
-	Hide_like_and_view_counts      float64 `json:"hide_like_and_view_counts"`
+	UseAggressiveFirstTailLoad bool    `json:"use_aggressive_first_tail_load"`
+	HideLikeAndViewCounts      float64 `json:"hide_like_and_view_counts"`
 }
 
 func newTimeline(insta *Instagram) *Timeline {
@@ -78,11 +77,10 @@ func newTimeline(insta *Instagram) *Timeline {
 
 // Next allows pagination after calling:
 // User.Feed
-// Params: ranked_content is set to "true" by default, you can set it to false by either passing "false" or false as parameter.
 // returns false when list reach the end.
-// if FeedMedia.Error() is ErrNoMore no problem have been occurred.
+// if Timeline.Error() is ErrNoMore no problem have been occurred.
 // starts first request will be a cold start
-func (tl *Timeline) Next() bool {
+func (tl *Timeline) Next(p ...interface{}) bool {
 	if tl.err != nil {
 		return false
 	}
@@ -114,7 +112,7 @@ func (tl *Timeline) Next() bool {
 		"device_id":           insta.uuid,
 		"request_id":          generateUUID(),
 		"_uuid":               insta.uuid,
-		"bloks_versioning_id": goInstaBloksVerID,
+		"bloks_versioning_id": bloksVerID,
 	}
 
 	catchErr := func() {
@@ -127,7 +125,7 @@ func (tl *Timeline) Next() bool {
 	}
 
 	var tWarm int64 = 10
-	if tl.pullRefresh || (!tl.More_available && t-tl.lastRequest < tWarm*60) {
+	if tl.pullRefresh || (!tl.MoreAvailable && t-tl.lastRequest < tWarm*60) {
 		reason = "pull_to_refresh"
 		isPullToRefresh = "1"
 		tl.sessionID = generateUUID()
@@ -143,7 +141,7 @@ func (tl *Timeline) Next() bool {
 		tl.sessionID = generateUUID()
 		go tl.fetchTray("warm_start_with_feed")
 		defer catchErr()
-	} else if tl.fetchExtra || tl.More_available && tl.NextID != "" {
+	} else if tl.fetchExtra || tl.MoreAvailable && tl.NextID != "" {
 		reason = "pagination"
 		query["max_id"] = tl.NextID
 	}
@@ -179,34 +177,38 @@ func (tl *Timeline) Next() bool {
 		if err == nil {
 			// copy constants over
 			tl.NextID = tmp.NextID
-			tl.More_available = tmp.More_available
+			tl.MoreAvailable = tmp.MoreAvailable
 			if tl.fetchExtra {
-				tl.Num_results += tmp.Num_results
+				tl.NumResults += tmp.NumResults
 			} else {
-				tl.Num_results = tmp.Num_results
+				tl.NumResults = tmp.NumResults
 			}
-			tl.Preload_distance = tmp.Preload_distance
-			tl.Pull_to_refresh_window_ms = tmp.Pull_to_refresh_window_ms
+			tl.PreloadDistance = tmp.PreloadDistance
+			tl.PullToRefreshWindowMs = tmp.PullToRefreshWindowMs
 			tl.fetchExtra = false
 
 			// copy post items over
 			for i := range tmp.Items {
-				if tmp.Items[i].EndOfFeed.Title != "" {
-					tl.err = errors.New(
-						tmp.Items[i].EndOfFeed.Title + " | " +
-							tmp.Items[i].EndOfFeed.Subtitle)
-				}
 				populateItem(&tmp.Items[i].Media_or_ad, insta)
 				tl.Items = append(tl.Items, tmp.Items[i].Media_or_ad)
 			}
 
+			// Set index value
+			for i, v := range tl.Items {
+				v.Index = i
+			}
+
+			if !tl.MoreAvailable {
+				err = ErrNoMore
+			}
+
 			// fetch more posts if not enough posts were returned, mimick apk behvaior
-			if tmp.Num_results < tmp.Preload_distance && tmp.More_available {
+			if tmp.NumResults < tmp.PreloadDistance && tmp.MoreAvailable {
 				tl.fetchExtra = true
 				tl.Next()
 			}
 
-			return true
+			return tl.MoreAvailable
 		} else {
 			tl.err = err
 		}
@@ -230,6 +232,7 @@ func (tl *Timeline) ClearPosts() {
 }
 
 func populateItem(item *Item, insta *Instagram) {
+	item.insta = insta
 	item.User.insta = insta
 	item.Comments = newComments(item)
 	for i := range item.CarouselMedia {
@@ -284,4 +287,16 @@ func (tl *Timeline) Stories() []StoryMedia {
 // helper function to get the Broadcasts
 func (tl *Timeline) Broadcasts() []Broadcast {
 	return tl.Tray.Broadcasts
+}
+
+func (tl *Timeline) GetNextID() string {
+	return tl.NextID
+}
+
+func (tl *Timeline) Delete() error {
+	return nil
+}
+
+func (tl *Timeline) Error() error {
+	return tl.err
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 )
 
 // Users is a struct that stores many user's returned by many different methods.
@@ -21,7 +22,7 @@ type Users struct {
 
 	Status    string          `json:"status"`
 	BigList   bool            `json:"big_list"`
-	Users     []User          `json:"users"`
+	Users     []*User         `json:"users"`
 	PageSize  int             `json:"page_size"`
 	RawNextID json.RawMessage `json:"next_max_id"`
 	NextID    string          `json:"-"`
@@ -114,7 +115,8 @@ type userResp struct {
 
 // User is the representation of instagram's user profile
 type User struct {
-	insta *Instagram
+	insta       *Instagram
+	Collections *Collections
 
 	ID                         int64         `json:"pk"`
 	Username                   string        `json:"username"`
@@ -380,9 +382,12 @@ func (user *User) Block(autoBlock bool) error {
 // See example: examples/user/unblock.go
 func (user *User) Unblock() error {
 	insta := user.insta
-	data, err := insta.prepareData(
+	data, err := json.Marshal(
 		map[string]interface{}{
-			"user_id": user.ID,
+			"user_id":          user.ID,
+			"_uid":             insta.Account.ID,
+			"_uuid":            insta.uuid,
+			"container_module": "blended_search",
 		},
 	)
 	if err != nil {
@@ -414,7 +419,15 @@ func (user *User) Unblock() error {
 // goinsta.MuteAll, goinsta.MuteStory, goinsta.MuteFeed
 // This function updates current User.Friendship structure.
 func (user *User) Mute(opt muteOption) error {
-	return muteOrUnmute(user, opt, urlUserMute)
+	if opt == MuteAll {
+		err := user.muteOrUnmute(MuteStory, urlUserMute)
+		if err != nil {
+			return err
+		}
+		time.Sleep(100 * time.Millisecond)
+		return user.muteOrUnmute(MutePosts, urlUserMute)
+	}
+	return user.muteOrUnmute(opt, urlUserMute)
 }
 
 // Unmute unmutes user so it appears in the feed or story reel again
@@ -423,14 +436,20 @@ func (user *User) Mute(opt muteOption) error {
 // goinsta.MuteAll, goinsta.MuteStory, goinsta.MuteFeed
 // This function updates current User.Friendship structure.
 func (user *User) Unmute(opt muteOption) error {
-	return muteOrUnmute(user, opt, urlUserUnmute)
+	if opt == MuteAll {
+		err := user.muteOrUnmute(MuteStory, urlUserUnmute)
+		if err != nil {
+			return err
+		}
+		time.Sleep(100 * time.Millisecond)
+		return user.muteOrUnmute(MutePosts, urlUserUnmute)
+	}
+	return user.muteOrUnmute(opt, urlUserUnmute)
 }
 
-func muteOrUnmute(user *User, opt muteOption, endpoint string) error {
+func (user *User) muteOrUnmute(opt muteOption, endpoint string) error {
 	insta := user.insta
-	data, err := insta.prepareData(
-		generateMuteData(user, opt),
-	)
+	data, err := json.Marshal(generateMuteData(user, opt))
 	if err != nil {
 		return err
 	}
@@ -454,19 +473,19 @@ func muteOrUnmute(user *User, opt muteOption, endpoint string) error {
 	return nil
 }
 
-func generateMuteData(user *User, opt muteOption) map[string]interface{} {
-	data := map[string]interface{}{
-		"user_id": user.ID,
+func generateMuteData(user *User, opt muteOption) map[string]string {
+	insta := user.insta
+	data := map[string]string{
+		"_uid":             toString(insta.Account.ID),
+		"_uuid":            insta.uuid,
+		"container_module": "media_mute_sheet",
 	}
 
 	switch opt {
-	case MuteAll:
-		data["target_reel_author_id"] = user.ID
-		data["target_posts_author_id"] = user.ID
 	case MuteStory:
-		data["target_reel_author_id"] = user.ID
-	case MuteFeed:
-		data["target_posts_author_id"] = user.ID
+		data["target_reel_author_id"] = toString(user.ID)
+	case MutePosts:
+		data["target_posts_author_id"] = toString(user.ID)
 	}
 
 	return data
@@ -482,9 +501,13 @@ func generateMuteData(user *User, opt muteOption) map[string]interface{} {
 // See example: examples/user/follow.go
 func (user *User) Follow() error {
 	insta := user.insta
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"user_id": user.ID,
+	data, err := json.Marshal(
+		map[string]string{
+			"user_id":    toString(user.ID),
+			"radio_type": "wifi-none",
+			"_uid":       toString(insta.Account.ID),
+			"device_id":  insta.dID,
+			"_uuid":      insta.uuid,
 		},
 	)
 	if err != nil {
@@ -517,9 +540,14 @@ func (user *User) Follow() error {
 // See example: examples/user/unfollow.go
 func (user *User) Unfollow() error {
 	insta := user.insta
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"user_id": user.ID,
+	data, err := json.Marshal(
+		map[string]string{
+			"user_id":          toString(user.ID),
+			"radio_type":       "wifi-none",
+			"_uid":             toString(insta.Account.ID),
+			"device_id":        insta.dID,
+			"_uuid":            insta.uuid,
+			"container_module": "following_sheet",
 		},
 	)
 	if err != nil {
@@ -562,7 +590,7 @@ func (user *User) FriendShip() (fr *Friendship, err error) {
 	return
 }
 
-func (user *User) GetFeaturedAccounts() ([]User, error) {
+func (user *User) GetFeaturedAccounts() ([]*User, error) {
 	body, _, err := user.insta.sendRequest(&reqOptions{
 		Endpoint: urlFeaturedAccounts,
 		Query: map[string]string{
@@ -570,8 +598,8 @@ func (user *User) GetFeaturedAccounts() ([]User, error) {
 		},
 	})
 	d := struct {
-		Accounts []User `json:"accounts"`
-		Status   string `json:"status"`
+		Accounts []*User `json:"accounts"`
+		Status   string  `json:"status"`
 	}{}
 	err = json.Unmarshal(body, &d)
 	return d.Accounts, err
@@ -588,10 +616,11 @@ func (user *User) GetFeaturedAccounts() ([]User, error) {
 func (user *User) Feed(params ...interface{}) *FeedMedia {
 	insta := user.insta
 
-	media := &FeedMedia{}
-	media.insta = insta
-	media.endpoint = urlUserFeed
-	media.uid = user.ID
+	media := &FeedMedia{
+		insta:    insta,
+		endpoint: urlUserFeed,
+		uid:      user.ID,
+	}
 
 	for _, param := range params {
 		switch s := param.(type) {
@@ -620,15 +649,7 @@ func (user *User) Stories() *StoryMedia {
 //
 // See example: examples/user/highlights.go
 func (user *User) Highlights() ([]StoryMedia, error) {
-	query := []trayRequest{
-		{"SUPPORTED_SDK_VERSIONS", supportedSdkVersions},
-		{"FACE_TRACKER_VERSION", facetrackerVersion},
-		{"segmentation", segmentation},
-		{"COMPRESSION", compression},
-		{"world_tracker", worldTracker},
-		{"gyroscope", gyroscope},
-	}
-	data, err := json.Marshal(query)
+	data, err := getSupCap()
 	if err != nil {
 		return nil, err
 	}
@@ -636,7 +657,7 @@ func (user *User) Highlights() ([]StoryMedia, error) {
 	body, _, err := user.insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlUserHighlights, user.ID),
-			Query:    map[string]string{"supported_capabilities_new": string(data)},
+			Query:    map[string]string{"supported_capabilities_new": data},
 		},
 	)
 	if err == nil {
@@ -682,7 +703,7 @@ func (user *User) IGTV() (*IGTVChannel, error) {
 //
 // See example: examples/user/tags.go
 func (user *User) Tags(minTimestamp []byte) (*FeedMedia, error) {
-	timestamp := b2s(minTimestamp)
+	timestamp := string(minTimestamp)
 	body, _, err := user.insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlUserTags, user.ID),

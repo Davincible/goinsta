@@ -174,9 +174,10 @@ func (img Images) GetBest() string {
 
 // Candidate is something that I really have no idea what it is.
 type Candidate struct {
-	Width  int    `json:"width"`
-	Height int    `json:"height"`
-	URL    string `json:"url"`
+	Width        int    `json:"width"`
+	Height       int    `json:"height"`
+	URL          string `json:"url"`
+	ScansProfile string `json:"scans_profile"`
 }
 
 // Tag is the information of an user being tagged on any media.
@@ -347,9 +348,9 @@ type InboxItemLike struct {
 }
 
 type respLikers struct {
-	Users     []User `json:"users"`
-	UserCount int64  `json:"user_count"`
-	Status    string `json:"status"`
+	Users     []*User `json:"users"`
+	UserCount int64   `json:"user_count"`
+	Status    string  `json:"status"`
 }
 
 type threadResp struct {
@@ -388,5 +389,12 @@ type ScoresBootstrapUsers struct {
 		Scores    map[string]int `json:"scores"`
 		TTLSecs   int            `json:"ttl_secs"`
 	} `json:"surfaces"`
-	Users []User `json:"users"`
+	Users []*User `json:"users"`
+}
+
+type CommentOffensive struct {
+	BullyClassifier int    `json:"bully_classifier"`
+	IsOffensive     bool   `json:"is_offensive"`
+	Status          string `json:"IsOffensive"`
+	TextLanguage    string `json:"text_language"`
 }

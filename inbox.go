@@ -246,8 +246,8 @@ type Conversation struct {
 	// Items can be of many types.
 	Items                     []InboxItem `json:"items"`
 	Title                     string      `json:"thread_title"`
-	Users                     []User      `json:"users"`
-	LeftUsers                 []User      `json:"left_users"`
+	Users                     []*User     `json:"users"`
+	LeftUsers                 []*User     `json:"left_users"`
 	Pending                   bool        `json:"pending"`
 	PendingScore              int64       `json:"pending_score"`
 	ReshareReceiveCount       int         `json:"reshare_receive_count"`
@@ -305,7 +305,7 @@ func (c *Conversation) Like() error {
 		map[string]interface{}{
 			"recipient_users": to,
 			"client_context":  generateUUID(),
-			"thread_ids":      b2s(thread),
+			"thread_ids":      string(thread),
 			"action":          "send_item",
 		},
 	)
@@ -341,7 +341,7 @@ func (c *Conversation) Send(text string) error {
 		map[string]interface{}{
 			"recipient_users": to,
 			"client_context":  generateUUID(),
-			"thread_ids":      b2s(thread),
+			"thread_ids":      string(thread),
 			"action":          "send_item",
 			"text":            text,
 		},
@@ -360,7 +360,7 @@ func (c *Conversation) Send(text string) error {
 // Write is like Send but being compatible with io.Writer.
 func (c *Conversation) Write(b []byte) (int, error) {
 	n := len(b)
-	return n, c.Send(b2s(b))
+	return n, c.Send(string(b))
 }
 
 // Next loads next set of private messages.

@@ -35,13 +35,23 @@ func (feed *Feed) LocationID(locationID int64) (*FeedLocation, error) {
 
 	res := &FeedLocation{}
 	err = json.Unmarshal(body, res)
-	return res, err
+	if err != nil {
+		return nil, err
+	}
+
+	for _, i := range res.RankedItems {
+		i.insta = insta
+	}
+	for _, i := range res.Items {
+		i.insta = insta
+	}
+	return res, nil
 }
 
 // FeedLocation is the struct that fits the structure returned by instagram on LocationID search.
 type FeedLocation struct {
-	RankedItems         []Item   `json:"ranked_items"`
-	Items               []Item   `json:"items"`
+	RankedItems         []*Item  `json:"ranked_items"`
+	Items               []*Item  `json:"items"`
 	NumResults          int      `json:"num_results"`
 	NextID              string   `json:"next_max_id"`
 	MoreAvailable       bool     `json:"more_available"`
@@ -52,6 +62,10 @@ type FeedLocation struct {
 }
 
 // Tags search by Tag in user Feed
+//
+// This method does not perform a search for a tag, but directly queries the
+//   feed items for the specified Tag. The preffered way would be to search
+//   for the tag, call TopSearchItem.RegisterClick(), and then fetch the feed.
 //
 // (sorry for returning FeedTag. See #FeedTag)
 func (feed *Feed) Tags(tag string) (*FeedTag, error) {
@@ -68,7 +82,9 @@ func (feed *Feed) Tags(tag string) (*FeedTag, error) {
 	if err != nil {
 		return nil, err
 	}
-	res := &FeedTag{}
+	res := &FeedTag{
+		insta: insta,
+	}
 	err = json.Unmarshal(body, res)
 	if err != nil {
 		return nil, err
@@ -87,8 +103,8 @@ type FeedTag struct {
 
 	name string
 
-	RankedItems         []Item     `json:"ranked_items"`
-	Images              []Item     `json:"items"`
+	RankedItems         []*Item    `json:"ranked_items"`
+	Images              []*Item    `json:"items"`
 	NumResults          int        `json:"num_results"`
 	NextID              string     `json:"next_max_id"`
 	MoreAvailable       bool       `json:"more_available"`
@@ -98,7 +114,9 @@ type FeedTag struct {
 }
 
 func (ft *FeedTag) setValues() {
+	ft.Story.insta = ft.insta
 	for i := range ft.RankedItems {
+		ft.RankedItems[i].insta = ft.insta
 		ft.RankedItems[i].media = &FeedMedia{
 			insta:  ft.insta,
 			NextID: ft.RankedItems[i].ID,
@@ -106,6 +124,7 @@ func (ft *FeedTag) setValues() {
 	}
 
 	for i := range ft.Images {
+		ft.Images[i].insta = ft.insta
 		ft.Images[i].media = &FeedMedia{
 			insta:  ft.insta,
 			NextID: ft.Images[i].ID,
@@ -131,7 +150,9 @@ func (ft *FeedTag) Next() bool {
 		},
 	)
 	if err == nil {
-		newFT := &FeedTag{}
+		newFT := &FeedTag{
+			insta: insta,
+		}
 		err = json.Unmarshal(body, newFT)
 		if err == nil {
 			*ft = *newFT

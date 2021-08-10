@@ -3,7 +3,6 @@ package goinsta
 import (
 	"bytes"
 	"encoding/json"
-	"strconv"
 )
 
 // Do i need to extract the rank token?
@@ -76,15 +75,7 @@ type IGTVChannel struct {
 
 // GetNexID returns the max id used for pagination.
 func (igtv *IGTVChannel) GetNextID() string {
-	switch s := igtv.NextID.(type) {
-	case string:
-		return s
-	case int64:
-		return strconv.FormatInt(s, 10)
-	case json.Number:
-		return string(s)
-	}
-	return ""
+	return formatID(igtv.NextID)
 }
 
 // Next allows pagination after calling:
@@ -142,4 +133,23 @@ func (igtv *IGTVChannel) Next(params ...interface{}) bool {
 		}
 	}
 	return false
+}
+
+func (igtv *IGTVChannel) Delete() error {
+	return nil
+}
+
+func (igtv *IGTVChannel) Error() error {
+	return igtv.err
+}
+
+func (igtv *IGTVChannel) setValues() {
+	insta := igtv.insta
+
+	igtv.User.insta = insta
+	for _, i := range igtv.Items {
+		i.insta = insta
+		i.User.insta = insta
+		i.media = igtv
+	}
 }

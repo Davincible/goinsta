@@ -5,13 +5,12 @@ import (
 )
 
 func TestSearchUser(t *testing.T) {
-	count := 20
 	insta, err := getRandomAccount()
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
-	result, err := insta.Search.User("a", count)
+	result, err := insta.Searchbar.SearchUser("a")
 	if err != nil {
 		t.Fatal(err)
 		return

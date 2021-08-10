@@ -4,11 +4,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
+	"time"
+
+	"github.com/Davincible/goinsta/utilities"
 )
 
 type accountResp struct {
 	Status  string  `json:"status"`
 	Account Account `json:"logged_in_user"`
+
+	ErrorType         string         `json:"error_type"`
+	Message           string         `json:"message"`
+	TwoFactorRequired bool           `json:"two_factor_required"`
+	TwoFactorInfo     *TwoFactorInfo `json:"two_factor_info"`
+
+	PhoneVerificationSettings phoneVerificationSettings `json:"phone_verification_settings"`
+	Challenge                 *Challenge                `json:"challenge"`
 }
 
 // Account is personal account object
@@ -97,13 +109,26 @@ func (account *Account) Sync() error {
 // If you want to change your password you must parse old and new password.
 //
 // See example: examples/account/changePass.go
-func (account *Account) ChangePassword(old, new string) error {
+func (account *Account) ChangePassword(old, new_ string) error {
 	insta := account.insta
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"old_password":  old,
-			"new_password1": new,
-			"new_password2": new,
+
+	timestamp := strconv.Itoa(int(time.Now().Unix()))
+	old, err := utilities.EncryptPassword(old, insta.pubKey, insta.pubKeyID, timestamp)
+	if err != nil {
+		return err
+	}
+	new_, err = utilities.EncryptPassword(new_, insta.pubKey, insta.pubKeyID, timestamp)
+	if err != nil {
+		return err
+	}
+
+	data, err := json.Marshal(
+		map[string]string{
+			"_uid":              toString(insta.Account.ID),
+			"_uuid":             insta.uuid,
+			"enc_old_password":  old,
+			"enc_new_password1": new_,
+			"enc_new_password2": new_,
 		},
 	)
 	if err == nil {
@@ -130,7 +155,12 @@ type profResp struct {
 // See example: examples/account/removeProfilePic.go
 func (account *Account) RemoveProfilePic() error {
 	insta := account.insta
-	data, err := insta.prepareData()
+	data, err := json.Marshal(
+		map[string]string{
+			"_uid":  toString(insta.Account.ID),
+			"_uuid": insta.uuid,
+		},
+	)
 	if err != nil {
 		return err
 	}
@@ -138,8 +168,8 @@ func (account *Account) RemoveProfilePic() error {
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlRemoveProfPic,
-			Query:    generateSignature(data),
 			IsPost:   true,
+			Query:    generateSignature(data),
 		},
 	)
 	if err == nil {
@@ -158,11 +188,14 @@ func (account *Account) RemoveProfilePic() error {
 // See example: examples/account/change-profile-pic/main.go
 func (account *Account) ChangeProfilePic(photo io.Reader) error {
 	insta := account.insta
-	config, err := insta.postPhoto(photo, "", 1, 1, false)
+
+	o := UploadOptions{
+		File: photo,
+	}
+	err := o.uploadPhoto()
 	if err != nil {
 		return err
 	}
-	data, err := insta.prepareData(config)
 	if err != nil {
 		return err
 	}
@@ -170,8 +203,12 @@ func (account *Account) ChangeProfilePic(photo io.Reader) error {
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlChangeProfPic,
-			Query:    generateSignature(data),
-			IsPost:   true,
+			Query: map[string]string{
+				"_uuid":          insta.uuid,
+				"use_fbuploader": "true",
+				"upload_id":      o.uploadID,
+			},
+			IsPost: true,
 		},
 	)
 	if err == nil {
@@ -191,28 +228,7 @@ func (account *Account) ChangeProfilePic(photo io.Reader) error {
 //
 // See example: examples/account/setPrivate.go
 func (account *Account) SetPrivate() error {
-	insta := account.insta
-	data, err := insta.prepareData()
-	if err != nil {
-		return err
-	}
-
-	body, _, err := insta.sendRequest(
-		&reqOptions{
-			Endpoint: urlSetPrivate,
-			Query:    generateSignature(data),
-			IsPost:   true,
-		},
-	)
-	if err == nil {
-		resp := profResp{}
-		err = json.Unmarshal(body, &resp)
-		if err == nil {
-			*account = resp.Account
-			account.insta = insta
-		}
-	}
-	return err
+	return account.changePublic(urlSetPrivate)
 }
 
 // SetPublic sets account to public mode.
@@ -221,17 +237,25 @@ func (account *Account) SetPrivate() error {
 //
 // See example: examples/account/setPublic.go
 func (account *Account) SetPublic() error {
+	return account.changePublic(urlSetPublic)
+}
+
+func (account *Account) changePublic(endpoint string) error {
 	insta := account.insta
-	data, err := insta.prepareData()
+	data, err := json.Marshal(
+		map[string]string{
+			"_uid":  toString(insta.Account.ID),
+			"_uuid": insta.uuid,
+		})
 	if err != nil {
 		return err
 	}
 
 	body, _, err := insta.sendRequest(
 		&reqOptions{
-			Endpoint: urlSetPublic,
-			Query:    generateSignature(data),
+			Endpoint: endpoint,
 			IsPost:   true,
+			Query:    generateSignature(data),
 		},
 	)
 	if err == nil {
@@ -314,7 +338,7 @@ func (account *Account) Stories() *StoryMedia {
 //
 // For pagination use FeedMedia.Next()
 func (account *Account) Tags(minTimestamp []byte) (*FeedMedia, error) {
-	timestamp := b2s(minTimestamp)
+	timestamp := string(minTimestamp)
 	body, _, err := account.insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlUserTags, account.ID),
@@ -344,8 +368,7 @@ func (account *Account) Tags(minTimestamp []byte) (*FeedMedia, error) {
 func (account *Account) Saved() *SavedMedia {
 	return &SavedMedia{
 		insta:    account.insta,
-		endpoint: urlFeedSaved,
-		err:      nil,
+		endpoint: urlFeedSavedPosts,
 	}
 }
 
@@ -374,75 +397,83 @@ func (account *Account) edit() {
 	}
 }
 
-// UpdateProfile This function updates current Account information.
-func (account *Account) UpdateProfile(
-	editProfileForm map[string]interface{},
-) error {
+// UpdateProfile method allows you to update your current account information.
+// :param: form takes a map[string]string, the common values are:
+//
+// external_url
+// phone_number
+// username
+// first_name -- is actually your full name
+// biography
+// email
+//
+func (account *Account) UpdateProfile(form map[string]string) error {
 	insta := account.insta
-	data, err := insta.prepareData(editProfileForm)
+	query := map[string]string{
+		"external_url": "",
+		"phone_number": "",
+		"username":     insta.Account.Username,
+		"first_name":   insta.Account.FullName,
+		"_uid":         toString(insta.Account.ID),
+		"device_id":    insta.dID,
+		"biography":    insta.Account.Biography,
+		"_uuid":        insta.uuid,
+		"email":        insta.Account.Email,
+	}
+
+	for k, v := range form {
+		query[k] = v
+	}
+	data, err := json.Marshal(query)
 	if err != nil {
 		return err
 	}
 	body, _, err := insta.sendRequest(
 		&reqOptions{
-			Endpoint:   urlEditProfile,
-			IsPost:     true,
-			Connection: "keep-alive",
-			Query:      generateSignature(data),
+			Endpoint: urlEditProfile,
+			IsPost:   true,
+			Query:    generateSignature(data),
 		},
 	)
 	if err != nil {
 		return err
 	}
-	var respEdit struct {
-		Status string `json:"status"`
+	resp := struct {
+		Status string   `json:"status"`
+		User   *Account `json:"user"`
+	}{
+		User: insta.Account,
 	}
-	err = json.Unmarshal(body, &respEdit)
+	err = json.Unmarshal(body, &resp)
 	if err != nil {
 		return err
 	}
-	if respEdit.Status == "success" {
+	if resp.Status != "ok" {
 		return fmt.Errorf("Can't update profile")
 	}
+	insta.Account = resp.User
 	return nil
 }
 
-// SetBiography changes your Instagram's biography.
+// EditBiography changes your Instagram's biography.
 //
 // This function updates current Account information.
-func (account *Account) SetBiography(bio string) error {
-	account.edit() // preparing to edit
-	insta := account.insta
-	data, err := insta.prepareData(
-		map[string]interface{}{
-			"raw_text": bio,
-		},
-	)
-	if err != nil {
-		return err
-	}
+func (account *Account) EditBiography(bio string) error {
+	return account.UpdateProfile(map[string]string{"biography": bio})
+}
 
-	body, _, err := insta.sendRequest(
-		&reqOptions{
-			Endpoint: urlSetBiography,
-			Query:    generateSignature(data),
-			IsPost:   true,
-		},
-	)
-	if err == nil {
-		var resp struct {
-			User struct {
-				Pk        int64  `json:"pk"`
-				Biography string `json:"biography"`
-			} `json:"user"`
-			Status string `json:"status"`
-		}
-		err = json.Unmarshal(body, &resp)
-		if err == nil {
-			account.Biography = resp.User.Biography
-		}
-	}
-	return err
+// EditName changes your Instagram account name.
+//
+// This function updates current Account information.
+func (account *Account) EditName(name string) error {
+	return account.UpdateProfile(map[string]string{"first_name": name})
+}
+
+// EditUrl changes your Instagram account url.
+//
+// This function updates current Account information.
+func (account *Account) EditUrl(url string) error {
+	return account.UpdateProfile(map[string]string{"external_url": url})
 }
 
 // Liked are liked publications
@@ -456,7 +487,7 @@ func (account *Account) Liked() *FeedMedia {
 }
 
 // PendingFollowRequests returns pending follow requests.
-func (account *Account) PendingFollowRequests() ([]User, error) {
+func (account *Account) PendingFollowRequests() ([]*User, error) {
 	insta := account.insta
 	resp, _, err := insta.sendRequest(
 		&reqOptions{
@@ -468,7 +499,7 @@ func (account *Account) PendingFollowRequests() ([]User, error) {
 	}
 
 	var result struct {
-		Users []User `json:"users"`
+		Users []*User `json:"users"`
 		// TODO: pagination
 		// TODO: SuggestedUsers
 		Status string `json:"status"`
@@ -479,6 +510,10 @@ func (account *Account) PendingFollowRequests() ([]User, error) {
 	}
 	if result.Status != "ok" {
 		return nil, fmt.Errorf("bad status: %s", result.Status)
+	}
+
+	for _, u := range result.Users {
+		u.insta = insta
 	}
 
 	return result.Users, nil

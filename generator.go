@@ -5,9 +5,11 @@ import (
 	"crypto/md5"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
+	"time"
 )
 
 const (
@@ -29,6 +31,35 @@ func generateHMAC(text, key string) string {
 func generateDeviceID(seed string) string {
 	hash := generateMD5Hash(seed + volatileSeed)
 	return "android-" + hash[:16]
+}
+
+func generateUserBreadcrumb(text string) string {
+	ts := time.Now().Unix()
+	d := fmt.Sprintf("%d %d %d %d%d",
+		len(text), 0, random(3000, 10000), ts, random(100, 999))
+	hmac := base64.StdEncoding.EncodeToString([]byte(generateHMAC(d, hmacKey)))
+	enc := base64.StdEncoding.EncodeToString([]byte(d))
+	return hmac + "\n" + enc + "\n"
+}
+
+func generateSignature(d interface{}, extra ...map[string]string) map[string]string {
+	var data string
+	switch x := d.(type) {
+	case []byte:
+		data = string(x)
+	case string:
+		data = x
+	}
+	r := map[string]string{
+		"signed_body": "SIGNATURE." + data,
+	}
+	for _, e := range extra {
+		for k, v := range e {
+			r[k] = v
+		}
+	}
+
+	return r
 }
 
 func newUUID() (string, error) {

@@ -1,4 +1,4 @@
-package goinsta
+package utilities
 
 import (
 	"crypto/aes"
@@ -101,7 +101,8 @@ func EncryptPassword(password, pubKeyEncoded string, pubKeyVersion int, t string
 		s = append(s, b...)
 	}
 
-	encCrypt := base64.StdEncoding.EncodeToString(s)
+	encoded := base64.StdEncoding.EncodeToString(s)
+	r := fmt.Sprintf("#PWD_INSTAGRAM:4:%s:%s", t, encoded)
 
-	return encCrypt, nil
+	return r, nil
 }

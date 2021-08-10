@@ -43,6 +43,7 @@ func (h *Hashtag) setValues() {
 			m := &FeedMedia{
 				insta: h.insta,
 			}
+			h.Sections[i].LayoutContent.Medias[j].Item.insta = h.insta
 			setToItem(&h.Sections[i].LayoutContent.Medias[j].Item, m)
 		}
 	}

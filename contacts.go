@@ -2,7 +2,6 @@ package goinsta
 
 import (
 	"encoding/json"
-	"strconv"
 )
 
 type Contacts struct {
@@ -37,20 +36,6 @@ func newContacts(insta *Instagram) *Contacts {
 }
 
 func (c *Contacts) SyncContacts(contacts *[]Contact) (*SyncAnswer, error) {
-	acquireContacts := &reqOptions{
-		Endpoint: "address_book/acquire_owner_contacts/",
-		IsPost:   true,
-		UseV2:    false,
-		Query: map[string]string{
-			"phone_id": c.insta.pid,
-			"me":       `{"phone_numbers":[],"email_addresses":[]}`,
-		},
-	}
-	body, _, err := c.insta.sendRequest(acquireContacts)
-	if err != nil {
-		return nil, err
-	}
-
 	byteContacts, err := json.Marshal(contacts)
 	if err != nil {
 		return nil, err
@@ -59,14 +44,18 @@ func (c *Contacts) SyncContacts(contacts *[]Contact) (*SyncAnswer, error) {
 	syncContacts := &reqOptions{
 		Endpoint: `address_book/link/`,
 		IsPost:   true,
+		Gzip:     true,
 		Query: map[string]string{
-			"_uuid":      c.insta.uuid,
-			"_csrftoken": c.insta.token,
-			"contacts":   string(byteContacts),
+			"phone_id":  c.insta.pid,
+			"module":    "find_friends_contacts",
+			"source":    "user_setting",
+			"device_id": c.insta.uuid,
+			"_uuid":     c.insta.uuid,
+			"contacts":  string(byteContacts),
 		},
 	}
 
-	body, _, err = c.insta.sendRequest(syncContacts)
+	body, _, err := c.insta.sendRequest(syncContacts)
 	if err != nil {
 		return nil, err
 	}
@@ -77,18 +66,15 @@ func (c *Contacts) SyncContacts(contacts *[]Contact) (*SyncAnswer, error) {
 }
 
 func (c *Contacts) UnlinkContacts() error {
-	toSign := map[string]string{
-		"_csrftoken": c.insta.token,
-		"_uid":       strconv.Itoa(int(c.insta.Account.ID)),
-		"_uuid":      c.insta.uuid,
-	}
-
-	bytesS, _ := json.Marshal(toSign)
-
 	unlinkBody := &reqOptions{
 		Endpoint: "address_book/unlink/",
 		IsPost:   true,
-		Query:    generateSignature(string(bytesS)),
+		Query: map[string]string{
+			"phone_id":       c.insta.pid,
+			"device_id":      c.insta.uuid,
+			"_uuid":          c.insta.uuid,
+			"user_initiated": "true",
+		},
 	}
 
 	_, _, err := c.insta.sendRequest(unlinkBody)
