@@ -248,6 +248,7 @@ func (insta *Instagram) Export(path string) error {
 		XmidExpiry:    insta.xmidExpiry,
 		HeaderOptions: insta.headerOptions,
 		Cookies:       insta.c.Jar.Cookies(url),
+		Account:       insta.Account,
 	}
 	bytes, err := json.Marshal(config)
 	if err != nil {
@@ -276,6 +277,7 @@ func Export(insta *Instagram, writer io.Writer) error {
 		XmidExpiry:    insta.xmidExpiry,
 		HeaderOptions: insta.headerOptions,
 		Cookies:       insta.c.Jar.Cookies(url),
+		Account:       insta.Account,
 	}
 	bytes, err := json.Marshal(config)
 	if err != nil {
@@ -288,7 +290,7 @@ func Export(insta *Instagram, writer io.Writer) error {
 // ImportReader imports instagram configuration from io.Reader
 //
 // This function does not set proxy automatically. Use SetProxy after this call.
-func ImportReader(r io.Reader) (*Instagram, error) {
+func ImportReader(r io.Reader, args ...interface{}) (*Instagram, error) {
 	bytes, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -299,13 +301,13 @@ func ImportReader(r io.Reader) (*Instagram, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ImportConfig(config)
+	return ImportConfig(config, args...)
 }
 
 // ImportConfig imports instagram configuration from a configuration object.
 //
 // This function does not set proxy automatically. Use SetProxy after this call.
-func ImportConfig(config ConfigFile) (*Instagram, error) {
+func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 	url, err := neturl.Parse(baseUrl)
 	if err != nil {
 		return nil, err
@@ -327,6 +329,7 @@ func ImportConfig(config ConfigFile) (*Instagram, error) {
 			},
 		},
 		ErrHandler: DefaultErrHandler,
+		Account:    config.Account,
 	}
 	insta.c.Jar, err = cookiejar.New(nil)
 	if err != nil {
@@ -335,15 +338,27 @@ func ImportConfig(config ConfigFile) (*Instagram, error) {
 	insta.c.Jar.SetCookies(url, config.Cookies)
 
 	insta.init()
-	insta.Account = &Account{
-		insta: insta,
-		ID:    config.ID,
+
+	dontSync := false
+	if len(args) != 0 {
+		switch v := args[0].(type) {
+		case bool:
+			dontSync = v
+		}
 	}
-	err = insta.Account.Sync()
-	if err != nil {
-		return nil, err
+
+	if dontSync {
+		insta.Account.insta = insta
+	} else {
+		insta.Account = &Account{
+			insta: insta,
+			ID:    config.ID,
+		}
+		err = insta.Account.Sync()
+		if err != nil {
+			return nil, err
+		}
 	}
-	fmt.Printf("Decoded account: '%s', '%s', '%s'\n", insta.Account.Username, insta.user, config.User)
 
 	return insta, nil
 }
@@ -351,13 +366,13 @@ func ImportConfig(config ConfigFile) (*Instagram, error) {
 // Import imports instagram configuration
 //
 // This function does not set proxy automatically. Use SetProxy after this call.
-func Import(path string) (*Instagram, error) {
+func Import(path string, args ...interface{}) (*Instagram, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	return ImportReader(f)
+	return ImportReader(f, args...)
 }
 
 // Login performs instagram login sequence in close resemblance to the android apk.
@@ -699,7 +714,7 @@ func (insta *Instagram) callStClPushPerm() error {
 	return err
 }
 
-func (insta *Instagram) sync(params ...map[string]string) error {
+func (insta *Instagram) sync(args ...map[string]string) error {
 	var query map[string]string
 	if insta.Account == nil {
 		query = map[string]string{

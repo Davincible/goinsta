@@ -30,7 +30,7 @@ type SearchResult struct {
 	entityType    string
 
 	// Regular Search Results
-	Results []TopSearchItem `json:"list"`
+	Results []*TopSearchItem `json:"list"`
 	History []SearchHistory
 
 	// User search results
@@ -164,6 +164,8 @@ func (sb *Search) History() (*[]SearchHistory, error) {
 }
 
 func (sr *TopSearchItem) RegisterClick() error {
+	insta := sr.insta
+
 	var entityType string
 	var id int64
 	if id = sr.User.ID; id != 0 {
@@ -174,10 +176,10 @@ func (sr *TopSearchItem) RegisterClick() error {
 		entityType = "place"
 	}
 
-	err := sr.insta.sendSearchRegisterRequest(
+	err := insta.sendSearchRegisterRequest(
 		map[string]string{
 			"entity_id":   toString(id),
-			"_uuid":       sr.insta.uuid,
+			"_uuid":       insta.uuid,
 			"entity_type": entityType,
 		},
 	)
@@ -271,6 +273,7 @@ func (sb *Search) search(query string, fn func(string) (*SearchResult, error)) (
 func (search *Search) topsearch(query string) (*SearchResult, error) {
 	insta := search.insta
 	res := &SearchResult{
+		insta:         insta,
 		Query:         query,
 		SearchSurface: "top_search_page",
 		context:       "blended",
@@ -292,8 +295,11 @@ func (search *Search) topsearch(query string) (*SearchResult, error) {
 		return nil, err
 	}
 	err = json.Unmarshal(body, res)
+	if err != nil {
+		return nil, err
+	}
 	res.setValues()
-	return res, err
+	return res, nil
 }
 
 func (sr *SearchResult) Error() error {
@@ -303,10 +309,14 @@ func (sr *SearchResult) Error() error {
 func (sr *SearchResult) setValues() {
 	for _, r := range sr.Results {
 		r.insta = sr.insta
-		r.User.insta = sr.insta
+		if r.User != nil {
+			r.User.insta = sr.insta
+		}
 
-		r.Hashtag.insta = sr.insta
-		r.Hashtag.setValues()
+		if r.Hashtag != nil {
+			r.Hashtag.insta = sr.insta
+			r.Hashtag.setValues()
+		}
 	}
 
 	for _, u := range sr.Users {

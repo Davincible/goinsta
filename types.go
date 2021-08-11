@@ -19,6 +19,7 @@ type ConfigFile struct {
 	XmidExpiry    int64             `json:"xmid_expiry"`
 	HeaderOptions map[string]string `json:"header_options"`
 	Cookies       []*http.Cookie    `json:"cookies"`
+	Account       *Account          `json:"account"`
 }
 
 // School is void structure (yet).

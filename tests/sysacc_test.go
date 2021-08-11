@@ -19,7 +19,7 @@ func readFromBase64(base64EncodedString string) (*goinsta.Instagram, error) {
 	if err != nil {
 		return nil, err
 	}
-	return goinsta.ImportReader(bytes.NewReader(base64Bytes))
+	return goinsta.ImportReader(bytes.NewReader(base64Bytes), true)
 }
 
 func availableEncodedAccounts() ([]string, error) {
@@ -46,7 +46,7 @@ func availableEncodedAccounts() ([]string, error) {
 
 func TestGetRandomAccount(t *testing.T) {
 	for i := 0; i < 50; i++ {
-		insta, err := getRandomAccount(t)
+		insta, err := getRandomAccount()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -64,7 +64,7 @@ func TestGetRandomLogin(t *testing.T) {
 	}
 }
 
-func getRandomAccount(ts ...*testing.T) (*goinsta.Instagram, error) {
+func getRandomAccount() (*goinsta.Instagram, error) {
 	accounts, err := availableEncodedAccounts()
 	if err != nil {
 		return nil, err
@@ -80,18 +80,6 @@ func getRandomAccount(ts ...*testing.T) (*goinsta.Instagram, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// if t != nil {
-	// 	t.Logf("Found %d accounts, rand n = %d aka '%s' %p, %s, %+v\n\"%s\"\n",
-	// 		len(accounts),
-	// 		r,
-	// 		insta.Account.Username,
-	// 		insta.Account,
-	// 		insta.Account.FullName,
-	// 		insta.Account,
-	// 		encodedAccount,
-	// 	)
-	// }
 	return insta, err
 }
 

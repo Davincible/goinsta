@@ -189,8 +189,11 @@ func (tl *Timeline) Next(p ...interface{}) bool {
 
 			// copy post items over
 			for _, i := range tmp.Items {
-				setToItem(i.Media_or_ad, tl)
-				tl.Items = append(tl.Items, i.Media_or_ad)
+				// will be nil if end of feed, EndOfFeed will then be set
+				if i.Media_or_ad != nil {
+					setToItem(i.Media_or_ad, tl)
+					tl.Items = append(tl.Items, i.Media_or_ad)
+				}
 			}
 
 			// Set index value

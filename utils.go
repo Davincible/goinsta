@@ -184,20 +184,20 @@ func (insta *Instagram) ExportAsBase64String() (string, error) {
 // ImportFromBytes imports instagram configuration from an array of bytes.
 //
 // This function does not set proxy automatically. Use SetProxy after this call.
-func ImportFromBytes(inputBytes []byte) (*Instagram, error) {
-	return ImportReader(bytes.NewReader(inputBytes))
+func ImportFromBytes(inputBytes []byte, args ...interface{}) (*Instagram, error) {
+	return ImportReader(bytes.NewReader(inputBytes), args...)
 }
 
 // ImportFromBase64String imports instagram configuration from a base64 encoded string.
 //
 // This function does not set proxy automatically. Use SetProxy after this call.
-func ImportFromBase64String(base64String string) (*Instagram, error) {
+func ImportFromBase64String(base64String string, args ...interface{}) (*Instagram, error) {
 	sDec, err := base64.StdEncoding.DecodeString(base64String)
 	if err != nil {
 		return nil, err
 	}
 
-	return ImportFromBytes(sDec)
+	return ImportFromBytes(sDec, args...)
 }
 
 func MergeMapI(one map[string]interface{}, extra ...map[string]interface{}) map[string]interface{} {
