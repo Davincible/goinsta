@@ -44,13 +44,37 @@ func (l *LocationInstance) Feeds(locationID int64) (*Section, error) {
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlFeedLocations, locationID),
+			IsPost:   true,
 			Query: map[string]string{
 				"rank_token":     insta.rankToken,
 				"ranked_content": "true",
-				"_csrftoken":     insta.token,
+				"_uid":           toString(insta.Account.ID),
 				"_uuid":          insta.uuid,
 			},
-			IsPost: true,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	section := &Section{}
+	err = json.Unmarshal(body, section)
+	return section, err
+}
+
+func (l *Location) Feed() (*Section, error) {
+	// TODO: use pagination for location feeds.
+	insta := l.insta
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: fmt.Sprintf(urlFeedLocations, l.ID),
+			IsPost:   true,
+			Query: map[string]string{
+				"rank_token":     insta.rankToken,
+				"ranked_content": "true",
+				"_uid":           toString(insta.Account.ID),
+				"_uuid":          insta.uuid,
+			},
 		},
 	)
 	if err != nil {

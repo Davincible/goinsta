@@ -119,3 +119,23 @@ func TestSearchHashtag(t *testing.T) {
 		}
 	}
 }
+
+func TestSearchLocation(t *testing.T) {
+	insta, err := getRandomAccount()
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	// Search for hashtags
+	result, err := insta.Searchbar.SearchLocation("New York")
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	if result.Status != "ok" {
+		t.Fatal(result.Status)
+		return
+	}
+	t.Logf("Result length is %d", len(result.Places))
+}

@@ -114,7 +114,9 @@ type friendResp struct {
 
 // Location stores media location information.
 type Location struct {
-	Pk               int64   `json:"pk"`
+	insta *Instagram
+
+	ID               int64   `json:"pk"`
 	Name             string  `json:"name"`
 	Address          string  `json:"address"`
 	City             string  `json:"city"`

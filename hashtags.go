@@ -28,6 +28,7 @@ type Hashtag struct {
 	Items []*Item
 	// All Recent Items
 	Recent     []*Item
+	Story      *StoryMedia
 	NumResults int
 
 	// Sections will always contain the last fetched sections, regardless of tab
@@ -253,17 +254,22 @@ func (media *Hashtag) getInsta() *Instagram {
 }
 
 // Stories returns hashtag stories.
-func (h *Hashtag) Stories() (*StoryMedia, error) {
+func (h *Hashtag) Stories() error {
 	body, err := h.insta.sendSimpleRequest(
 		urlTagStories, h.Name,
 	)
-	if err == nil {
-		var resp struct {
-			Story  StoryMedia `json:"story"`
-			Status string     `json:"status"`
-		}
-		err = json.Unmarshal(body, &resp)
-		return &resp.Story, err
+	if err != nil {
+		return err
 	}
-	return nil, err
+
+	var resp struct {
+		Story  *StoryMedia `json:"story"`
+		Status string      `json:"status"`
+	}
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		return err
+	}
+	h.Story = resp.Story
+	return err
 }

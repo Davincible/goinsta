@@ -232,6 +232,11 @@ func (sr *SearchResult) RegisterHashtagClick(h *Hashtag) error {
 		return err
 	}
 	err = h.Info()
+	if err != nil {
+		return err
+	}
+
+	err = h.Stories()
 	return err
 }
 
