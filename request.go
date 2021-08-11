@@ -266,10 +266,6 @@ func (insta *Instagram) extractHeaders(h http.Header) {
 func isError(code int, body []byte) (err error) {
 	switch code {
 	case 200:
-	case 503:
-		return Error503{
-			Message: "Instagram API error. Try it later.",
-		}
 	case 400:
 		ierr := Error400{}
 		err = json.Unmarshal(body, &ierr)
@@ -283,6 +279,12 @@ func isError(code int, body []byte) (err error) {
 
 		if err == nil && ierr.Message != "" {
 			return ierr
+		}
+	case 429:
+		return ErrTooManyRequests
+	case 503:
+		return Error503{
+			Message: "Instagram API error. Try it later.",
 		}
 	default:
 		ierr := ErrorN{}

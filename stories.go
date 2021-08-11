@@ -114,8 +114,12 @@ func (media *StoryMedia) setValues() {
 }
 
 // Error returns error happened any error
-func (media StoryMedia) Error() error {
+func (media *StoryMedia) Error() error {
 	return media.err
+}
+
+func (media *StoryMedia) getInsta() *Instagram {
+	return media.insta
 }
 
 // Seen marks story as seen.

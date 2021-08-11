@@ -196,7 +196,7 @@ const (
 	urlInboxUnmute   = "direct_v2/threads/%s/unmute/"
 
 	// Tags
-	urlTagSync    = "tags/%s/info/"
+	urlTagInfo    = "tags/%s/info/"
 	urlTagStories = "tags/%s/story/"
 	urlTagContent = "tags/%s/ranked_sections/"
 
@@ -213,15 +213,28 @@ const (
 	url2FALogin        = "accounts/two_factor_login/"
 )
 
+// Errors
 var (
 	RespErr2FA = "two_factor_required"
 
-	// Errors
-	ErrBadPassword        = errors.New("Password is incorrect")
-	ErrByteIndexNotFound  = errors.New("Failed to index byte slice, delim not found")
+	// Account & Login Errors
+	ErrBadPassword     = errors.New("Password is incorrect")
+	ErrTooManyRequests = errors.New("Too many requests, please wait a few minutes before you try again")
+
+	// Upload Errors
 	ErrInvalidFormat      = errors.New("Invalid file type, please use one of jpeg, jpg, mp4")
 	ErrCarouselType       = errors.New("Invalid file type, please use a jpeg or jpg image")
 	ErrCarouselMediaLimit = errors.New("Carousel media limit of 10 exceeded")
 	ErrStoryBadMediaType  = errors.New("When uploading multiple items to your story at once, all have to be mp4")
 	ErrStoryMediaTooLong  = errors.New("Story media must not exceed 15 seconds per item")
+
+	// Search Errors
+	ErrSearchUserNotFound = errors.New("User not found in search result")
+
+	// Feed Errors
+	ErrInvalidTab = errors.New("Invalid tab, please select top or recent")
+	ErrNoMore     = errors.New("No more posts availible, page end has been reached")
+
+	// Misc
+	ErrByteIndexNotFound = errors.New("Failed to index byte slice, delim not found")
 )

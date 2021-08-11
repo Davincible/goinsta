@@ -3,7 +3,6 @@ package goinsta
 import (
 	"encoding/json"
 	"errors"
-	"strconv"
 	"time"
 )
 
@@ -41,19 +40,7 @@ type SearchResult struct {
 	Places []Place `json:"items"`
 
 	// Tag search results
-	Tags []struct {
-		ID               int64       `json:"id"`
-		Name             string      `json:"name"`
-		MediaCount       int         `json:"media_count"`
-		FollowStatus     interface{} `json:"follow_status"`
-		Following        interface{} `json:"following"`
-		AllowFollowing   interface{} `json:"allow_following"`
-		AllowMutingStory interface{} `json:"allow_muting_story"`
-		ProfilePicURL    interface{} `json:"profile_pic_url"`
-		NonViolating     interface{} `json:"non_violating"`
-		RelatedTags      interface{} `json:"related_tags"`
-		DebugInfo        interface{} `json:"debug_info"`
-	} `json:"results"`
+	Tags []*Hashtag `json:"results"`
 
 	// Location search result
 	RequestID string `json:"request_id"`
@@ -78,10 +65,10 @@ type Place struct {
 type TopSearchItem struct {
 	insta *Instagram
 
-	Position int     `json:"position"`
-	User     User    `json:"user"`
-	Hashtag  Hashtag `json:"hashtag"`
-	Place    Place   `json:"place"`
+	Position int      `json:"position"`
+	User     *User    `json:"user"`
+	Hashtag  *Hashtag `json:"hashtag"`
+	Place    Place    `json:"place"`
 }
 
 type SearchHistory struct {
@@ -187,14 +174,70 @@ func (sr *TopSearchItem) RegisterClick() error {
 		entityType = "place"
 	}
 
-	_, _, err := sr.insta.sendRequest(&reqOptions{
-		Endpoint: urlSearchRegisterClick,
-		IsPost:   true,
-		Query: map[string]string{
-			"entity_id":   strconv.Itoa(int(id)),
+	err := sr.insta.sendSearchRegisterRequest(
+		map[string]string{
+			"entity_id":   toString(id),
 			"_uuid":       sr.insta.uuid,
 			"entity_type": entityType,
 		},
+	)
+	return err
+}
+
+func (sr *SearchResult) RegisterUserClick(user *User) error {
+	present := false
+	for _, u := range sr.Users {
+		if u.ID == user.ID {
+			present = true
+			break
+		}
+	}
+	if !present {
+		return ErrSearchUserNotFound
+	}
+
+	err := sr.insta.sendSearchRegisterRequest(
+		map[string]string{
+			"entity_id":   toString(user.ID),
+			"_uuid":       sr.insta.uuid,
+			"entity_type": "user",
+		},
+	)
+	return err
+}
+
+// RegisterHashtagClick send a register click request, and calls Hashtag.Info()
+func (sr *SearchResult) RegisterHashtagClick(h *Hashtag) error {
+	present := false
+	for _, x := range sr.Tags {
+		if x.ID == h.ID {
+			present = true
+			break
+		}
+	}
+	if !present {
+		return ErrSearchUserNotFound
+	}
+
+	err := sr.insta.sendSearchRegisterRequest(
+		map[string]string{
+			"entity_id":   toString(h.ID),
+			"_uuid":       sr.insta.uuid,
+			"entity_type": "hashtag",
+		},
+	)
+	if err != nil {
+		return err
+	}
+	err = h.Info()
+	return err
+}
+
+func (insta *Instagram) sendSearchRegisterRequest(query map[string]string) error {
+	_, _, err := insta.sendRequest(&reqOptions{
+		Endpoint: urlSearchRegisterClick,
+		IsPost:   true,
+		Query:    query,
 	})
 	return err
 }
@@ -261,10 +304,18 @@ func (sr *SearchResult) setValues() {
 	for _, r := range sr.Results {
 		r.insta = sr.insta
 		r.User.insta = sr.insta
+
 		r.Hashtag.insta = sr.insta
+		r.Hashtag.setValues()
 	}
+
 	for _, u := range sr.Users {
 		u.insta = sr.insta
+	}
+
+	for _, t := range sr.Tags {
+		t.insta = sr.insta
+		t.setValues()
 	}
 }
 
@@ -299,6 +350,7 @@ func (search *Search) user(user string) (*SearchResult, error) {
 func (search *Search) tags(tag string) (*SearchResult, error) {
 	insta := search.insta
 	res := &SearchResult{
+		insta:         insta,
 		SearchSurface: "hashtag_search_page",
 		queryParam:    "q",
 		Query:         tag,
@@ -319,12 +371,17 @@ func (search *Search) tags(tag string) (*SearchResult, error) {
 	}
 
 	err = json.Unmarshal(body, res)
-	return res, err
+	if err != nil {
+		return nil, err
+	}
+	res.setValues()
+	return res, nil
 }
 
 func (search *Search) places(location string) (*SearchResult, error) {
 	insta := search.insta
 	res := &SearchResult{
+		insta:         insta,
 		SearchSurface: "places_search_page",
 		queryParam:    "query",
 		Query:         location,

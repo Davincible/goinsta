@@ -67,7 +67,10 @@ type FeedLocation struct {
 //   feed items for the specified Tag. The preffered way would be to search
 //   for the tag, call TopSearchItem.RegisterClick(), and then fetch the feed.
 //
-// (sorry for returning FeedTag. See #FeedTag)
+// This method uses an older endpoint, although it still seems to work.
+// The preffered way to fetch Hashtag feeds is by using the Hashtag struct.
+// This can be obtained from insta.NewHashtag(tag), or insta.Searchbar.SearchHashtag(tag)
+//
 func (feed *Feed) Tags(tag string) (*FeedTag, error) {
 	insta := feed.insta
 	body, _, err := insta.sendRequest(
@@ -90,7 +93,6 @@ func (feed *Feed) Tags(tag string) (*FeedTag, error) {
 		return nil, err
 	}
 	res.name = tag
-	res.insta = feed.insta
 	res.setValues()
 
 	return res, nil
@@ -104,7 +106,7 @@ type FeedTag struct {
 	name string
 
 	RankedItems         []*Item    `json:"ranked_items"`
-	Images              []*Item    `json:"items"`
+	Items               []*Item    `json:"items"`
 	NumResults          int        `json:"num_results"`
 	NextID              string     `json:"next_max_id"`
 	MoreAvailable       bool       `json:"more_available"`
@@ -123,11 +125,11 @@ func (ft *FeedTag) setValues() {
 		}
 	}
 
-	for i := range ft.Images {
-		ft.Images[i].insta = ft.insta
-		ft.Images[i].media = &FeedMedia{
+	for i := range ft.Items {
+		ft.Items[i].insta = ft.insta
+		ft.Items[i].media = &FeedMedia{
 			insta:  ft.insta,
-			NextID: ft.Images[i].ID,
+			NextID: ft.Items[i].ID,
 		}
 	}
 }

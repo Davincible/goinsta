@@ -24,6 +24,7 @@ type Media interface {
 	GetNextID() string
 	// Delete removes media
 	Delete() error
+	getInsta() *Instagram
 }
 
 // Item represents media items
@@ -362,8 +363,11 @@ func MediaToString(t int) string {
 	return ""
 }
 
+// TODO: remove excessive insta = media.insta lines from setValues() funcs
 func setToItem(item *Item, media Media) {
 	item.media = media
+	item.insta = media.getInsta()
+	item.User.insta = media.getInsta()
 	item.Comments = newComments(item)
 	for i := range item.CarouselMedia {
 		item.CarouselMedia[i].User = item.User
@@ -806,14 +810,19 @@ func (media *FeedMedia) Sync() error {
 		return err
 	}
 
-	m := FeedMedia{}
+	m := FeedMedia{
+		insta:    insta,
+		endpoint: urlMediaInfo,
+	}
 	err = json.Unmarshal(body, &m)
+	if err != nil {
+		return err
+	}
+
 	*media = m
-	media.endpoint = urlMediaInfo
-	media.insta = insta
 	media.NextID = id
 	media.setValues()
-	return err
+	return nil
 }
 
 func (media *FeedMedia) setIndex() {
@@ -830,8 +839,15 @@ func (media *FeedMedia) setValues() {
 	}
 }
 
-func (media FeedMedia) Error() error {
+func (item *Item) setValues(media Media) {
+}
+
+func (media *FeedMedia) Error() error {
 	return media.err
+}
+
+func (media *FeedMedia) getInsta() *Instagram {
+	return media.insta
 }
 
 // ID returns media id.
@@ -878,7 +894,9 @@ func (media *FeedMedia) Next(params ...interface{}) bool {
 		},
 	)
 	if err == nil {
-		m := FeedMedia{}
+		m := FeedMedia{
+			insta: insta,
+		}
 		d := json.NewDecoder(bytes.NewReader(body))
 		d.UseNumber()
 		err = d.Decode(&m)

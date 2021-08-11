@@ -3,7 +3,6 @@ package goinsta
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -38,9 +37,6 @@ func newUsers(insta *Instagram) *Users {
 func (users *Users) SetInstagram(insta *Instagram) {
 	users.insta = insta
 }
-
-// ErrNoMore is an error that comes when there is no more elements available on the list.
-var ErrNoMore = errors.New("List end have been reached")
 
 // Next allows to paginate after calling:
 // Account.Follow* and User.Follow*
@@ -703,8 +699,10 @@ func (user *User) IGTV() (*IGTVChannel, error) {
 //
 // See example: examples/user/tags.go
 func (user *User) Tags(minTimestamp []byte) (*FeedMedia, error) {
+	insta := user.insta
+
 	timestamp := string(minTimestamp)
-	body, _, err := user.insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlUserTags, user.ID),
 			Query: map[string]string{
@@ -719,10 +717,15 @@ func (user *User) Tags(minTimestamp []byte) (*FeedMedia, error) {
 		return nil, err
 	}
 
-	media := &FeedMedia{}
+	media := &FeedMedia{
+		insta:    insta,
+		endpoint: urlUserTags,
+		uid:      user.ID,
+	}
 	err = json.Unmarshal(body, media)
-	media.insta = user.insta
-	media.endpoint = urlUserTags
-	media.uid = user.ID
-	return media, err
+	if err != nil {
+		return nil, err
+	}
+	media.setValues()
+	return media, nil
 }

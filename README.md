@@ -36,6 +36,11 @@ import (
 
 func main() {  
   insta := goinsta.New("USERNAME", "PASSWORD")
+  
+  err := insta.Login()
+  if err != nil {
+          panic(err)
+  }
 
   // Export your configuration
   // after exporting you can use Import function instead of New function.

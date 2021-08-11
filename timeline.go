@@ -20,7 +20,7 @@ type Timeline struct {
 	fetchExtra  bool
 
 	endpoint string
-	Items    []Item
+	Items    []*Item
 	Tray     Tray
 
 	MoreAvailable         bool
@@ -34,7 +34,7 @@ type Timeline struct {
 
 type FeedCache struct {
 	Items []struct {
-		Media_or_ad Item `json:"media_or_ad"`
+		Media_or_ad *Item `json:"media_or_ad"`
 		EndOfFeed   struct {
 			Pause    bool   `json:"pause"`
 			Title    string `json:"title"`
@@ -188,9 +188,9 @@ func (tl *Timeline) Next(p ...interface{}) bool {
 			tl.fetchExtra = false
 
 			// copy post items over
-			for i := range tmp.Items {
-				populateItem(&tmp.Items[i].Media_or_ad, insta)
-				tl.Items = append(tl.Items, tmp.Items[i].Media_or_ad)
+			for _, i := range tmp.Items {
+				setToItem(i.Media_or_ad, tl)
+				tl.Items = append(tl.Items, i.Media_or_ad)
 			}
 
 			// Set index value
@@ -228,17 +228,7 @@ func (tl *Timeline) UnsetPullRefresh() {
 }
 
 func (tl *Timeline) ClearPosts() {
-	tl.Items = []Item{}
-}
-
-func populateItem(item *Item, insta *Instagram) {
-	item.insta = insta
-	item.User.insta = insta
-	item.Comments = newComments(item)
-	for i := range item.CarouselMedia {
-		item.CarouselMedia[i].User = item.User
-		item.CarouselMedia[i].Comments = newComments(&item.CarouselMedia[i])
-	}
+	tl.Items = []*Item{}
 }
 
 func (tl *Timeline) fetchTray(reason string) {
@@ -295,6 +285,10 @@ func (tl *Timeline) GetNextID() string {
 
 func (tl *Timeline) Delete() error {
 	return nil
+}
+
+func (tl *Timeline) getInsta() *Instagram {
+	return tl.insta
 }
 
 func (tl *Timeline) Error() error {

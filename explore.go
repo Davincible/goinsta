@@ -56,6 +56,7 @@ type DiscoverSectionalItem struct {
 		TwoByTwoItem DiscoverMediaItem   `json:"two_by_two_item"`
 
 		ThreeByFourItem struct {
+			// TODO: this is a reels section, which you can paginate on its own
 			Clips struct {
 				ContentSource string              `json:"content_source"`
 				Design        string              `json:"design"`

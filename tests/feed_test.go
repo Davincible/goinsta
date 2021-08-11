@@ -12,6 +12,7 @@ func TestFeedUser(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
+	t.Logf("Logged in as %s\n", insta.Account.Username)
 
 	sr, err := insta.Searchbar.SearchUser("miakhalifa")
 	if err != nil {
@@ -48,9 +49,11 @@ func TestFeedDiscover(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
+	t.Logf("Logged in as %s\n", insta.Account.Username)
 
 	feed := insta.Discover
 	next := feed.NextID
+
 outside:
 	for i := 0; feed.Next(); i++ {
 		if feed.NextID == next {
@@ -77,12 +80,27 @@ func TestFeedTagLike(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
-	feedTag, err := insta.Feed.Tags("golang")
+	t.Logf("Logged in as %s\n", insta.Account.Username)
+	hashtag := insta.NewHashtag("golang")
+	err = hashtag.Info()
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
-	for i, item := range feedTag.RankedItems {
+
+	// First round
+	if s := hashtag.Next(); !s {
+		t.Fatal(hashtag.Error())
+		return
+	}
+
+	if len(hashtag.Items) == 0 {
+		t.Logf("%+v", hashtag.Sections)
+		t.Fatalf("Items length is 0, section length is %d\n", len(hashtag.Sections))
+		return
+	}
+
+	for i, item := range hashtag.Items {
 		err = item.Like()
 		if err != nil {
 			t.Fatal(err)
@@ -96,12 +114,13 @@ func TestFeedTagLike(t *testing.T) {
 	}
 }
 
-func TestFeedTagNext(t *testing.T) {
+func TestFeedTagNextOld(t *testing.T) {
 	insta, err := getRandomAccount()
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
+	t.Logf("Logged in as %s\n", insta.Account.Username)
 	feedTag, err := insta.Feed.Tags("golang")
 	if err != nil {
 		t.Fatal(err)
@@ -124,4 +143,83 @@ func TestFeedTagNext(t *testing.T) {
 	if gotNextID == initNextID {
 		t.Errorf("NextID must differ after FeedTag.Next() call")
 	}
+	t.Logf("Fetched %d posts", len(feedTag.Items))
+}
+
+func TestFeedTagNext(t *testing.T) {
+	insta, err := getRandomAccount()
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	t.Logf("Logged in as %s\n", insta.Account.Username)
+	hashtag := insta.NewHashtag("golang")
+	err = hashtag.Info()
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	// First round
+	if s := hashtag.Next(); !s {
+		t.Fatal(hashtag.Error())
+		return
+	}
+
+	initNextID := hashtag.NextID
+
+	// Second round
+	if s := hashtag.Next(); !s {
+		t.Fatal(hashtag.Error())
+		return
+	}
+
+	if hashtag.Status != "ok" {
+		t.Errorf("Status = %s; want ok", hashtag.Status)
+	}
+
+	gotNextID := hashtag.NextID
+	if gotNextID == initNextID {
+		t.Errorf("NextID must differ after FeedTag.Next() call")
+	}
+	t.Logf("Fetched %d posts", len(hashtag.Items))
+}
+
+func TestFeedTagNextRecent(t *testing.T) {
+	insta, err := getRandomAccount()
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	t.Logf("Logged in as %s\n", insta.Account.Username)
+	hashtag := insta.NewHashtag("golang")
+	err = hashtag.Info()
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	// First round
+	if s := hashtag.NextRecent(); !s {
+		t.Fatal(hashtag.Error())
+		return
+	}
+
+	initNextID := hashtag.NextID
+
+	// Second round
+	if s := hashtag.NextRecent(); !s {
+		t.Fatal(hashtag.Error())
+		return
+	}
+
+	if hashtag.Status != "ok" {
+		t.Errorf("Status = %s; want ok", hashtag.Status)
+	}
+
+	gotNextID := hashtag.NextID
+	if gotNextID == initNextID {
+		t.Errorf("NextID must differ after FeedTag.Next() call")
+	}
+	t.Logf("Fetched %d posts", len(hashtag.Recent))
 }

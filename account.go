@@ -92,15 +92,19 @@ func (account *Account) Sync() error {
 			"edit": "true",
 		},
 	})
-	if err == nil {
-		resp := profResp{}
-		err = json.Unmarshal(body, &resp)
-		if err == nil {
-			*account = resp.Account
-			account.insta = insta
-		}
+	if err != nil {
+		return err
 	}
-	return err
+
+	resp := profResp{}
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		return err
+	}
+
+	*account = resp.Account
+	account.insta = insta
+	return nil
 }
 
 // ChangePassword changes current password.
@@ -306,10 +310,11 @@ func (account *Account) Following() *Users {
 func (account *Account) Feed(params ...interface{}) *FeedMedia {
 	insta := account.insta
 
-	media := &FeedMedia{}
-	media.insta = insta
-	media.endpoint = urlUserFeed
-	media.uid = account.ID
+	media := &FeedMedia{
+		insta:    insta,
+		endpoint: urlUserFeed,
+		uid:      account.ID,
+	}
 
 	for _, param := range params {
 		switch s := param.(type) {
@@ -338,8 +343,10 @@ func (account *Account) Stories() *StoryMedia {
 //
 // For pagination use FeedMedia.Next()
 func (account *Account) Tags(minTimestamp []byte) (*FeedMedia, error) {
+	insta := account.insta
+
 	timestamp := string(minTimestamp)
-	body, _, err := account.insta.sendRequest(
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlUserTags, account.ID),
 			Query: map[string]string{
@@ -354,11 +361,12 @@ func (account *Account) Tags(minTimestamp []byte) (*FeedMedia, error) {
 		return nil, err
 	}
 
-	media := &FeedMedia{}
+	media := &FeedMedia{
+		insta:    insta,
+		endpoint: urlUserTags,
+		uid:      account.ID,
+	}
 	err = json.Unmarshal(body, media)
-	media.insta = account.insta
-	media.endpoint = urlUserTags
-	media.uid = account.ID
 	return media, err
 }
 
@@ -480,9 +488,10 @@ func (account *Account) EditUrl(url string) error {
 func (account *Account) Liked() *FeedMedia {
 	insta := account.insta
 
-	media := &FeedMedia{}
-	media.insta = insta
-	media.endpoint = urlFeedLiked
+	media := &FeedMedia{
+		insta:    insta,
+		endpoint: urlFeedLiked,
+	}
 	return media
 }
 
@@ -525,9 +534,10 @@ func (account *Account) PendingFollowRequests() ([]*User, error) {
 func (account *Account) Archived(params ...interface{}) *FeedMedia {
 	insta := account.insta
 
-	media := &FeedMedia{}
-	media.insta = insta
-	media.endpoint = urlUserArchived
+	media := &FeedMedia{
+		insta:    insta,
+		endpoint: urlUserArchived,
+	}
 
 	for _, param := range params {
 		switch s := param.(type) {

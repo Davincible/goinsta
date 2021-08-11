@@ -486,6 +486,10 @@ func (c *Collection) Error() error {
 	return c.err
 }
 
+func (media *Collection) getInsta() *Instagram {
+	return media.insta
+}
+
 // GetNextID will return the pagination ID as a string
 func (c *Collection) GetNextID() string {
 	return formatID(c.NextID)
@@ -679,6 +683,10 @@ func (media *SavedMedia) Delete() error {
 		}
 	}
 	return nil
+}
+
+func (media *SavedMedia) getInsta() *Instagram {
+	return media.insta
 }
 
 // setValues set the SavedMedia items values

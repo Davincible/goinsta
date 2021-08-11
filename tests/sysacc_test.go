@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"strings"
+	"testing"
 
 	"github.com/Davincible/goinsta"
 )
@@ -26,7 +27,7 @@ func availableEncodedAccounts() ([]string, error) {
 
 	environ, err := loadEnv()
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 
 	for _, env := range environ {
@@ -43,7 +44,27 @@ func availableEncodedAccounts() ([]string, error) {
 	return output, nil
 }
 
-func getRandomAccount() (*goinsta.Instagram, error) {
+func TestGetRandomAccount(t *testing.T) {
+	for i := 0; i < 50; i++ {
+		insta, err := getRandomAccount(t)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Log(insta.Account.Username)
+	}
+}
+
+func TestGetRandomLogin(t *testing.T) {
+	for i := 0; i < 50; i++ {
+		uname, pw, err := getLogin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Log(uname, pw)
+	}
+}
+
+func getRandomAccount(ts ...*testing.T) (*goinsta.Instagram, error) {
 	accounts, err := availableEncodedAccounts()
 	if err != nil {
 		return nil, err
@@ -53,8 +74,25 @@ func getRandomAccount() (*goinsta.Instagram, error) {
 		return nil, errNoValidLogin
 	}
 
-	encodedAccount := accounts[rand.Intn(len(accounts))]
-	return readFromBase64(encodedAccount)
+	r := rand.Intn(len(accounts))
+	encodedAccount := accounts[r]
+	insta, err := readFromBase64(encodedAccount)
+	if err != nil {
+		return nil, err
+	}
+
+	// if t != nil {
+	// 	t.Logf("Found %d accounts, rand n = %d aka '%s' %p, %s, %+v\n\"%s\"\n",
+	// 		len(accounts),
+	// 		r,
+	// 		insta.Account.Username,
+	// 		insta.Account,
+	// 		insta.Account.FullName,
+	// 		insta.Account,
+	// 		encodedAccount,
+	// 	)
+	// }
+	return insta, err
 }
 
 func getLogin() (string, string, error) {

@@ -335,8 +335,15 @@ func ImportConfig(config ConfigFile) (*Instagram, error) {
 	insta.c.Jar.SetCookies(url, config.Cookies)
 
 	insta.init()
-	insta.Account = &Account{insta: insta, ID: config.ID}
-	insta.Account.Sync()
+	insta.Account = &Account{
+		insta: insta,
+		ID:    config.ID,
+	}
+	err = insta.Account.Sync()
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("Decoded account: '%s', '%s', '%s'\n", insta.Account.Username, insta.user, config.User)
 
 	return insta, nil
 }

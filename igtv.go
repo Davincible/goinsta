@@ -39,7 +39,7 @@ type IGTVItem struct {
 	Title      string      `json:"title"`
 	Type       string      `json:"type"`
 	Channel    IGTVChannel `json:"channel"`
-	Item       Item        `json:"item"`
+	Item       *Item       `json:"item"`
 	LogingInfo struct {
 		SourceChannelType string `json:"source_channel_type"`
 	} `json:"logging_info"`
@@ -62,11 +62,11 @@ type IGTVChannel struct {
 	CoverPhotoUrl            string      `json:"cover_photo_url"`
 	Description              string      `json:"description"`
 	ID                       string      `json:"id"`
-	Items                    []Item      `json:"items"`
+	Items                    []*Item     `json:"items"`
 	LiveItems                []Broadcast `json:"live_items"`
 	Title                    string      `json:"title"`
 	Type                     string      `json:"user"`
-	User                     User        `json:"user_dict"`
+	User                     *User       `json:"user_dict"`
 	DestinationClientConfigs interface{} `json:"destination_client_configs"`
 	NextID                   interface{} `json:"max_id"`
 	MoreAvailable            bool        `json:"more_available"`
@@ -143,13 +143,14 @@ func (igtv *IGTVChannel) Error() error {
 	return igtv.err
 }
 
+func (media *IGTVChannel) getInsta() *Instagram {
+	return media.insta
+}
+
 func (igtv *IGTVChannel) setValues() {
 	insta := igtv.insta
-
 	igtv.User.insta = insta
 	for _, i := range igtv.Items {
-		i.insta = insta
-		i.User.insta = insta
-		i.media = igtv
+		setToItem(i, igtv)
 	}
 }
