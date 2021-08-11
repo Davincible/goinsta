@@ -469,6 +469,7 @@ func (o *UploadOptions) createRUploadParams(extra ...map[string]string) error {
 }
 
 func (o *UploadOptions) createPhotoConfig() {
+	device := o.insta.device
 	config := map[string]interface{}{
 		"scene_capture_type": "",
 		"upload_id":          o.uploadID,
@@ -476,10 +477,10 @@ func (o *UploadOptions) createPhotoConfig() {
 		"source_type":        "4", // 3 = camera, 4 = library
 		"scene_type":         nil,
 		"device": map[string]interface{}{
-			"manufacturer":    deviceSettings["manufacturer"],
-			"model":           deviceSettings["model"],
-			"android_version": deviceSettings["android_version"],
-			"android_release": deviceSettings["android_release"],
+			"manufacturer":    device.Manufacturer,
+			"model":           device.Model,
+			"android_version": device.AndroidVersion,
+			"android_release": toString(device.AndroidRelease),
 		},
 		"edits": map[string]interface{}{
 			"crop_original_size": []int{o.width * 1.0, o.height * 1.0},
@@ -504,6 +505,7 @@ func (o *UploadOptions) createPhotoConfig() {
 func (o *UploadOptions) createVideoConfig() error {
 	// Duration in seconds
 	length := fmt.Sprintf("%.3f", float64(o.duration)/1000)
+	device := o.insta.device
 
 	config := map[string]interface{}{
 		"filter_type":  "0",
@@ -517,10 +519,10 @@ func (o *UploadOptions) createVideoConfig() error {
 		"video_subtitles_enabled": "1",
 		"multi_sharing":           "1",
 		"device": map[string]interface{}{
-			"manufacturer":    deviceSettings["manufacturer"],
-			"model":           deviceSettings["model"],
-			"android_version": deviceSettings["android_version"],
-			"android_release": deviceSettings["android_release"],
+			"manufacturer":    device.Manufacturer,
+			"model":           device.Model,
+			"android_version": device.AndroidVersion,
+			"android_release": toString(device.AndroidRelease),
 		},
 		"length": length,
 		"clips": map[string]interface{}{

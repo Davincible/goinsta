@@ -20,7 +20,7 @@ const (
 	appVersion         = "195.0.0.31.123"
 	appVersionCode     = "302733750"
 
-	// Used for tray requests
+	// Used for supported_capabilities value used in some requests, e.g. tray requests
 	supportedSdkVersions = "100.0,101.0,102.0,103.0,104.0,105.0,106.0,107.0,108.0,109.0,110.0,111.0,112.0,113.0,114.0,115.0,116.0,117.0"
 	facetrackerVersion   = "14"
 	segmentation         = "segmentation_enabled"
@@ -34,18 +34,31 @@ const (
 )
 
 var (
-	deviceSettings = map[string]interface{}{
-		"manufacturer":      "samsung",
-		"model":             "SM-G975F",
-		"code_name":         "beyond2",
-		"android_version":   30,
-		"android_release":   "11",
-		"screen_dpi":        "560dpi",
-		"screen_resolution": "1440x2898",
-		"chipset":           "exynos9820",
+	defaultHeaderOptions = map[string]string{
+		"X-Ig-Www-Claim": "0",
+	}
+	// Default Device
+	GalaxyS10 = Device{
+		Manufacturer:     "samsung",
+		Model:            "SM-G975F",
+		CodeName:         "beyond2",
+		AndroidVersion:   30,
+		AndroidRelease:   11,
+		ScreenDpi:        "560dpi",
+		ScreenResolution: "1440x2898",
+		Chipset:          "exynos9820",
+	}
+	G6 = Device{
+		Manufacturer:     "LGE/lge",
+		Model:            "LG-H870DS",
+		CodeName:         "lucye",
+		AndroidVersion:   28,
+		AndroidRelease:   9,
+		ScreenDpi:        "560dpi",
+		ScreenResolution: "1440x2698",
+		Chipset:          "lucye",
 	}
 	timeOffset = getTimeOffset()
-	userAgent  = createUserAgent()
 )
 
 type muteOption string

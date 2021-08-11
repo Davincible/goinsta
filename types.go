@@ -20,9 +20,21 @@ type ConfigFile struct {
 	HeaderOptions map[string]string `json:"header_options"`
 	Cookies       []*http.Cookie    `json:"cookies"`
 	Account       *Account          `json:"account"`
+	Device        Device            `json:"device"`
 }
 
-// School is void structure (yet).
+type Device struct {
+	Manufacturer     string `json:"manufacturer"`
+	Model            string `json:"model"`
+	CodeName         string `json:"code_name"`
+	AndroidVersion   int    `json:"android_version"`
+	AndroidRelease   int    `json:"android_release"`
+	ScreenDpi        string `json:"screen_dpi"`
+	ScreenResolution string `json:"screen_resolution"`
+	Chipset          string `json:"chipset"`
+}
+
+// School is void structure (yet). Whats this even for lol
 type School struct{}
 
 // PicURLInfo repre

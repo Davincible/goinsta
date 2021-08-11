@@ -70,6 +70,10 @@ type Instagram struct {
 	pubKey string
 	// Public Key ID
 	pubKeyID int
+	// Device Settings
+	device Device
+	// User-Agent
+	userAgent string
 
 	// Instagram objects
 
@@ -167,12 +171,14 @@ func New(username, password string) *Instagram {
 		dID: generateDeviceID(
 			generateMD5Hash(username + password),
 		),
-		uuid:          generateUUID(), // both uuid must be differents
+		uuid:          generateUUID(),
 		pid:           generateUUID(),
 		fID:           generateUUID(),
 		psID:          "UFS-" + generateUUID() + "-0",
-		headerOptions: map[string]string{"X-Ig-Www-Claim": "0"},
+		headerOptions: defaultHeaderOptions,
 		xmidExpiry:    -1,
+		device:        GalaxyS10,
+		userAgent:     createUserAgent(GalaxyS10),
 		c: &http.Client{
 			Transport: &http.Transport{
 				Proxy: http.ProxyFromEnvironment,
@@ -249,6 +255,7 @@ func (insta *Instagram) Export(path string) error {
 		HeaderOptions: insta.headerOptions,
 		Cookies:       insta.c.Jar.Cookies(url),
 		Account:       insta.Account,
+		Device:        insta.device,
 	}
 	bytes, err := json.Marshal(config)
 	if err != nil {
@@ -278,6 +285,7 @@ func Export(insta *Instagram, writer io.Writer) error {
 		HeaderOptions: insta.headerOptions,
 		Cookies:       insta.c.Jar.Cookies(url),
 		Account:       insta.Account,
+		Device:        insta.device,
 	}
 	bytes, err := json.Marshal(config)
 	if err != nil {
@@ -323,6 +331,7 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 		pid:           config.PhoneID,
 		xmidExpiry:    config.XmidExpiry,
 		headerOptions: config.HeaderOptions,
+		device:        config.Device,
 		c: &http.Client{
 			Transport: &http.Transport{
 				Proxy: http.ProxyFromEnvironment,
@@ -331,6 +340,7 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 		ErrHandler: DefaultErrHandler,
 		Account:    config.Account,
 	}
+	insta.userAgent = createUserAgent(insta.device)
 	insta.c.Jar, err = cookiejar.New(nil)
 	if err != nil {
 		return insta, err
@@ -745,6 +755,9 @@ func (insta *Instagram) sync(args ...map[string]string) error {
 			},
 		},
 	)
+	if err != nil {
+		return err
+	}
 
 	hkey := h["Ig-Set-Password-Encryption-Pub-Key"]
 	hkeyID := h["Ig-Set-Password-Encryption-Key-Id"]
@@ -757,12 +770,12 @@ func (insta *Instagram) sync(args ...map[string]string) error {
 
 	id, err := strconv.Atoi(keyID)
 	if err != nil {
-		return err
+		insta.ErrHandler(fmt.Errorf("Failed to parse public key id: %s", err))
 	}
 	insta.pubKey = key
 	insta.pubKeyID = id
 
-	return err
+	return nil
 }
 
 func (insta *Instagram) getAccountFamily() error {
@@ -913,4 +926,11 @@ func (insta *Instagram) GetMedia(o interface{}) (*FeedMedia, error) {
 		NextID: o,
 	}
 	return media, media.Sync()
+}
+
+// SetDevice allows you to set a custom device. This will also change the
+//   user agent based on the new device.
+func (insta *Instagram) SetDevice(device Device) {
+	insta.device = device
+	insta.userAgent = createUserAgent(device)
 }
