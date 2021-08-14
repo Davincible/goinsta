@@ -21,6 +21,9 @@ type reqOptions struct {
 	// Endpoint is the request path of instagram api
 	Endpoint string
 
+	// Omit API omit the /api/v1/ part of the url
+	OmitAPI bool
+
 	// IsPost set to true will send request with POST method.
 	//
 	// By default this option is false.
@@ -88,6 +91,9 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 		nu = instaAPIUrlv2
 	} else if o.UseV2 && o.Useb {
 		nu = instaAPIUrlv2b
+	}
+	if o.OmitAPI {
+		nu = baseUrl
 	}
 
 	u, err := url.Parse(nu + o.Endpoint)
@@ -201,7 +207,12 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 
 	resp, err := insta.c.Do(req)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf(
+			"Status: '%s', Status Code: '%d', Err: '%v'",
+			resp.Status,
+			resp.StatusCode,
+			err,
+		)
 	}
 	defer resp.Body.Close()
 
@@ -269,17 +280,16 @@ func isError(code int, body []byte) (err error) {
 	case 400:
 		ierr := Error400{}
 		err = json.Unmarshal(body, &ierr)
-		if err != nil {
-			return err
+		if err == nil {
+			if ierr.Message == "challenge_required" {
+				return ierr.ChallengeError
+			}
+
+			if err == nil && ierr.Message != "" {
+				return ierr
+			}
 		}
 
-		if ierr.Message == "challenge_required" {
-			return ierr.ChallengeError
-		}
-
-		if err == nil && ierr.Message != "" {
-			return ierr
-		}
 	case 429:
 		return ErrTooManyRequests
 	case 503:

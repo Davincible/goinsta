@@ -110,6 +110,57 @@ type LocationTag struct {
 	PlacesID       string  `json:"facebook_places_id"`
 }
 
+// Upload is the single function used for all upload in goinsta.
+// You can specify the options of your upload with the single parameter &UploadOptions{}
+// See the UploadOptions struct for more details.
+//
+func (insta *Instagram) Upload(o *UploadOptions) (*Item, error) {
+	o.insta = insta
+	o.startTime = toString(time.Now().Unix())
+
+	// Format User & Location Tags
+	err := o.processTags()
+	if err != nil {
+		return nil, err
+	}
+
+	// Multiple file uploads
+	if len(o.Album) > 0 && !o.IsStory {
+		// Upload carousel
+		return o.uploadAlbum()
+	} else if len(o.Album) > 0 && o.IsStory {
+		// Upload multiple story videos
+		return o.uploadMultiStory()
+	}
+
+	// Single file uploads
+	// Read file into memory
+	buf, err := readFile(o.File)
+	if err != nil {
+		return nil, err
+	}
+	o.buf = buf
+
+	// Check file type
+	t := http.DetectContentType(buf.Bytes())
+	if t == "image/jpeg" {
+		err := o.uploadPhoto()
+		if err != nil {
+			return nil, err
+		}
+		return o.configureImage()
+	} else if t == "image/mp4" {
+		err := o.uploadVideo()
+		if err != nil {
+			return nil, err
+		}
+		return o.configureVideo()
+	}
+
+	insta.ErrHandler(fmt.Errorf("Unable to handle file upload with format %s", t))
+	return nil, ErrInvalidFormat
+}
+
 func formatUserTags(tags []UserTag, isVideo bool) *postTags {
 	var f []postTagUser
 	for _, tag := range tags {
@@ -179,7 +230,7 @@ func (o *UploadOptions) uploadPhoto() error {
 	}
 
 	// Get image properties
-	width, height, err := getImageSize(o.File)
+	width, height, err := getImageSize(bytes.NewReader(o.buf.Bytes()))
 	if err != nil {
 		return err
 	}
@@ -210,6 +261,7 @@ func (o *UploadOptions) configurePost(video bool) (*Item, error) {
 			"creation_logger_session_id": generateUUID(),
 			"nav_chain":                  "",
 			"multi_sharing":              "1",
+			"caption":                    o.Caption,
 		},
 	)
 
@@ -369,6 +421,7 @@ func (o *UploadOptions) postPhoto() error {
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint:  fmt.Sprintf(urlUploadPhoto, o.name),
+			OmitAPI:   true,
 			IsPost:    true,
 			DataBytes: o.buf,
 			ExtraHeaders: map[string]string{
@@ -713,52 +766,6 @@ func (o *UploadOptions) configure() (*Item, error) {
 		return nil, fmt.Errorf("invalid status, result: %s, %s", res.Status, res.Message)
 	}
 	return &res.Media, nil
-}
-
-func (insta *Instagram) Upload(o *UploadOptions) (*Item, error) {
-	o.insta = insta
-	o.startTime = toString(time.Now().Unix())
-
-	// Format User & Location Tags
-	err := o.processTags()
-	if err != nil {
-		return nil, err
-	}
-
-	// Multiple file uploads
-	if len(o.Album) > 0 && !o.IsStory {
-		// Upload carousel
-		return o.uploadAlbum()
-	} else if len(o.Album) > 0 && o.IsStory {
-		// Upload multiple story videos
-		return o.uploadMultiStory()
-	}
-
-	// Single file uploads
-	// Read file into memory
-	buf, err := readFile(o.File)
-	if err != nil {
-		return nil, err
-	}
-	o.buf = buf
-
-	// Check file type
-	t := http.DetectContentType(buf.Bytes())
-	if t == "image/jpeg" {
-		err := o.uploadPhoto()
-		if err != nil {
-			return nil, err
-		}
-		return o.configureImage()
-	} else if t == "image/mp4" {
-		err := o.uploadVideo()
-		if err != nil {
-			return nil, err
-		}
-		return o.configureVideo()
-	}
-
-	return nil, ErrInvalidFormat
 }
 
 func (o *UploadOptions) uploadMultiStory() (*Item, error) {
