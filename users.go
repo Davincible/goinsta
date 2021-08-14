@@ -1,7 +1,6 @@
 package goinsta
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -145,6 +144,7 @@ type User struct {
 	IsVideoCreator             bool          `json:"is_video_creator"`
 	MediaCount                 int           `json:"media_count"`
 	IGTVCount                  int           `json:"total_igtv_videos"`
+	HasIGTVSeries              bool          `json:"has_igtv_series"`
 	TotalClipCount             int           `json:"total_clips_count"`
 	TotalAREffects             int           `json:"total_ar_effects"`
 	FollowerCount              int           `json:"follower_count"`
@@ -157,7 +157,6 @@ type User struct {
 	ExternalURL                string        `json:"external_url"`
 	HasBiographyTranslation    bool          `json:"has_biography_translation"`
 	HasVideos                  bool          `json:"has_videos"`
-	HasIGTVSeries              bool          `json:"has_igtv_series"`
 	HasProfileVideoFeed        bool          `json:"has_profile_video_feed"`
 	HasSavedItems              bool          `json:"has_saved_items"`
 	ExternalLynxURL            string        `json:"external_lynx_url"`
@@ -571,10 +570,10 @@ func (user *User) Unfollow() error {
 	return nil
 }
 
-// FriendShip allows user to get friend relationship.
+// GetFriendship allows user to get friend relationship.
 //
 // The result is stored in user.Friendship
-func (user *User) FriendShip() (fr *Friendship, err error) {
+func (user *User) GetFriendship() (fr *Friendship, err error) {
 	insta := user.insta
 	body, _, err := insta.sendRequest(
 		&reqOptions{
@@ -629,62 +628,6 @@ func (user *User) Feed(params ...interface{}) *FeedMedia {
 	}
 
 	return media
-}
-
-// Stories will fetch a user's stories.
-func (user *User) Stories() (*StoryMedia, error) {
-	return user.insta.fetchStories(user.ID)
-}
-
-// Highlights will fetch a user's highlights.
-func (user *User) Highlights() ([]Reel, error) {
-	data, err := getSupCap()
-	if err != nil {
-		return nil, err
-	}
-
-	body, _, err := user.insta.sendRequest(
-		&reqOptions{
-			Endpoint: fmt.Sprintf(urlUserHighlights, user.ID),
-			Query:    map[string]string{"supported_capabilities_new": data},
-		},
-	)
-	if err == nil {
-		tray := &Tray{}
-		err = json.Unmarshal(body, &tray)
-		if err == nil {
-			tray.set(user.insta)
-			return tray.Stories, nil
-		}
-	}
-	return nil, err
-}
-
-// IGTV returns the IGTV items of a user
-//
-// Use IGTVChannel.Next for pagination.
-//
-func (user *User) IGTV() (*IGTVChannel, error) {
-	insta := user.insta
-
-	id := fmt.Sprintf("user_%d", user.ID)
-	body, _, err := insta.sendRequest(&reqOptions{
-		Endpoint: urlIGTVChannel,
-		IsPost:   true,
-		Query: map[string]string{
-			"id":    id,
-			"_uuid": user.insta.uuid,
-			"count": "10",
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	igtv := IGTVChannel{insta: insta, id: id}
-	d := json.NewDecoder(bytes.NewReader(body))
-	d.UseNumber()
-	err = d.Decode(&igtv)
-	return &igtv, err
 }
 
 // Tags returns media where user is tagged in

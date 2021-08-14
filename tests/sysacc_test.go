@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Davincible/goinsta"
 )
@@ -74,6 +75,7 @@ func getRandomAccount() (*goinsta.Instagram, error) {
 		return nil, errNoValidLogin
 	}
 
+	rand.Seed(time.Now().UnixNano())
 	r := rand.Intn(len(accounts))
 	encodedAccount := accounts[r]
 	insta, err := readFromBase64(encodedAccount)
@@ -143,4 +145,9 @@ func dotenv() ([]string, error) {
 	}
 	env := strings.Split(string(buf.Bytes()), "\n")
 	return env, nil
+}
+
+func Error(t *testing.T, err error) {
+	t.Log(err.Error())
+	t.Fatal(err)
 }

@@ -37,12 +37,13 @@ type Item struct {
 	module   string
 	Comments *Comments `json:"-"`
 
+	// Post Info
 	TakenAt           int64  `json:"taken_at"`
 	Pk                int64  `json:"pk"`
 	ID                string `json:"id"`
-	Index             int
-	CommentsDisabled  bool  `json:"comments_disabled"`
-	DeviceTimestamp   int64 `json:"device_timestamp"`
+	Index             int    // position in feed
+	CommentsDisabled  bool   `json:"comments_disabled"`
+	DeviceTimestamp   int64  `json:"device_timestamp"`
 	FacepileTopLikers []struct {
 		FollowFrictionType float64 `json:"follow_friction_type"`
 		FullNeme           string  `json:"ful_name"`
@@ -57,8 +58,6 @@ type Item struct {
 	Code                  string  `json:"code"`
 	ClientCacheKey        string  `json:"client_cache_key"`
 	FilterType            int     `json:"filter_type"`
-	CarouselParentID      string  `json:"carousel_parent_id"`
-	CarouselMedia         []Item  `json:"carousel_media,omitempty"`
 	User                  User    `json:"user"`
 	CanViewerReshare      bool    `json:"can_viewer_reshare"`
 	Caption               Caption `json:"caption"`
@@ -67,11 +66,12 @@ type Item struct {
 	FundraiserTag         struct {
 		HasStandaloneFundraiser bool `json:"has_standalone_fundraiser"`
 	} `json:"fundraiser_tag"`
-	IsSeen          bool   `json:"is_seen"`
-	InventorySource string `json:"inventory_source"`
-	ProductType     string `json:"product_type"`
-	Likes           int    `json:"like_count"`
-	HasLiked        bool   `json:"has_liked"`
+	IsSeen                       bool   `json:"is_seen"`
+	InventorySource              string `json:"inventory_source"`
+	ProductType                  string `json:"product_type"`
+	Likes                        int    `json:"like_count"`
+	HasLiked                     bool   `json:"has_liked"`
+	NearlyCompleteCopyRightMatch bool   `json:"nearly_complete_copyright_match"`
 	// Toplikers can be `string` or `[]string`.
 	// Use TopLikers function instead of getting it directly.
 	Toplikers                    interface{} `json:"top_likers"`
@@ -102,6 +102,13 @@ type Item struct {
 	Lat             float64  `json:"lat,omitempty"`
 	Lng             float64  `json:"lng,omitempty"`
 
+	// Carousel
+	CarouselParentID string `json:"carousel_parent_id"`
+	CarouselMedia    []Item `json:"carousel_media,omitempty"`
+
+	// Live
+	IsPostLive bool `json:"is_post_live"`
+
 	// Videos
 	Videos            []Video `json:"video_versions,omitempty"`
 	VideoCodec        string  `json:"video_codec"`
@@ -112,6 +119,19 @@ type Item struct {
 	IsUnifiedVideo    bool    `json:"is_unified_video"`
 	VideoDashManifest string  `json:"video_dash_manifest,omitempty"`
 	NumberOfQualities int     `json:"number_of_qualities,omitempty"`
+
+	// IGTV
+	IGTVExistsInViewerSeries bool `json:"igtv_exists_in_viewer_series"`
+	IGTVSeriesInfo           struct {
+		HasCoverPhoto bool `json:"has_cover_photo"`
+		ID            int64
+		NumEpisodes   int    `json:"num_episodes"`
+		Title         string `json:"title"`
+	} `json:"igtv_series_info"`
+	IGTVAdsInfo struct {
+		AdsToggledOn            bool `json:"ads_toggled_on"`
+		ElegibleForInsertingAds bool `json:"is_video_elegible_for_inserting_ads"`
+	} `json:"igtv_ads_info"`
 
 	// Ads
 	IsCommercial        bool   `json:"is_commercial"`

@@ -87,6 +87,38 @@ type Reel struct {
 	User                 User   `json:"user"`
 }
 
+// Stories will fetch a user's stories.
+func (user *User) Stories() (*StoryMedia, error) {
+	return user.insta.fetchStories(user.ID)
+}
+
+// Highlights will fetch a user's highlights.
+func (user *User) Highlights() ([]Reel, error) {
+	data, err := getSupCap()
+	if err != nil {
+		return nil, err
+	}
+
+	body, _, err := user.insta.sendRequest(
+		&reqOptions{
+			Endpoint: fmt.Sprintf(urlUserHighlights, user.ID),
+			Query:    map[string]string{"supported_capabilities_new": data},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	tray := &Tray{}
+	err = json.Unmarshal(body, &tray)
+	if err != nil {
+		return nil, err
+	}
+
+	tray.set(user.insta)
+	return tray.Stories, nil
+}
+
 // Deletes ALL user's instagram stories.
 // If you want to remove a single story, pick one from StoryMedia.Items, and
 //   call Item.Delete()

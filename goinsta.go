@@ -83,6 +83,8 @@ type Instagram struct {
 	Discover *Discover
 	// Profiles is the user interaction
 	Profiles *Profiles
+	// IGTV allows you to fetch the IGTV Discover page
+	IGTV *IGTV
 	// Account stores all personal data of the user and his/her options.
 	Account *Account
 	// Collections represents your collections with saved posts
@@ -204,6 +206,7 @@ func (insta *Instagram) init() {
 	insta.Locations = newLocation(insta)
 	insta.Discover = newDiscover(insta)
 	insta.Collections = newCollections(insta)
+	insta.IGTV = newIGTV(insta)
 }
 
 // SetProxy sets proxy for connection.

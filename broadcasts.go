@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-// Broadcast is live videos.
+// Broadcast struct represents live video streams.
 type Broadcast struct {
 	insta              *Instagram
 	LastLikeTs         int64
@@ -31,7 +31,7 @@ type Broadcast struct {
 	BroadcastMessage           string  `json:"broadcast_message"`
 	OrganicTrackingToken       string  `json:"organic_tracking_token"`
 	IsPlayerLiveTrace          int     `json:"is_player_live_trace_enabled"`
-	IsGamingContent            int     `json:"is_gaming_content"`
+	IsGamingContent            bool    `json:"is_gaming_content"`
 	IsViewerCommentAllowed     bool    `json:"is_viewer_comment_allowed"`
 	LiveCommentMentionEnabled  bool    `json:"is_live_comment_mention_enabled"`
 	LiveCommmentRepliesEnabled bool    `json:"is_live_comment_replies_enabled"`
@@ -60,7 +60,7 @@ type Broadcast struct {
 				ButtonTitle string `json:"button_title"`
 				Description string `json:"description"`
 			} `json:"pinned_row_config"`
-			TierInfos struct {
+			TierInfos []struct {
 				DigitalProductID int64  `json:"digital_product_id"`
 				Sku              string `json:"sku"`
 				SupportTier      string `json:"support_tier"`
@@ -116,6 +116,12 @@ type BroadcastHeartbeat struct {
 	Status                  string   `json:"status"`
 }
 
+// Discover wraps Instagram.IGTV.Live
+func (br *Broadcast) Discover() (*IGTVChannel, error) {
+	return br.insta.IGTV.Live()
+}
+
+// GetInfo will fetch the information about a broadcast
 func (br *Broadcast) GetInfo() error {
 	body, _, err := br.insta.sendRequest(
 		&reqOptions{

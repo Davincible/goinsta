@@ -177,8 +177,10 @@ const (
 	urlLiveHeartbeat = "live/%s/heartbeat_and_get_viewer_count/"
 
 	// IGTV
-	urlIGTVChannel = "igtv/channel/"
-	urlIGTVSeen    = "igtv/write_seen_state/"
+	urlIGTVDiscover = "igtv/discover/"
+	urlIGTVChannel  = "igtv/channel/"
+	urlIGTVSeries   = "igtv/series/all_user_series/%d/"
+	urlIGTVSeen     = "igtv/write_seen_state/"
 
 	// Discover
 	urlDiscoverExplore = "discover/topical_explore/"
@@ -243,6 +245,11 @@ var (
 
 	// Search Errors
 	ErrSearchUserNotFound = errors.New("User not found in search result")
+
+	// IGTV
+	ErrIGTVNoSeries = errors.New(
+		"User has no IGTV series, unable to fetch. If you think this was a mistake please update the user",
+	)
 
 	// Feed Errors
 	ErrInvalidTab   = errors.New("Invalid tab, please select top or recent")

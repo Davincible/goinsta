@@ -68,7 +68,7 @@ func (user *User) VisitProfile() (*Profile, error) {
 	p := Profile{User: user}
 
 	// Fetch Friendship
-	fr, err := user.FriendShip()
+	fr, err := user.GetFriendship()
 	if err != nil {
 		return nil, err
 	}
