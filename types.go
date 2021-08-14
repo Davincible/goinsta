@@ -249,13 +249,13 @@ type timeStoryResp struct {
 }
 
 type trayResp struct {
-	Reels  map[string]StoryMedia `json:"reels"`
-	Status string                `json:"status"`
+	Reels  map[string]Reel `json:"reels"`
+	Status string          `json:"status"`
 }
 
 // Tray is a set of story media received from timeline calls.
 type Tray struct {
-	Stories []StoryMedia `json:"tray"`
+	Stories []Reel `json:"tray"`
 	// think this is depricated, and only broadcasts are used
 	Lives struct {
 		LiveItems []LiveItems `json:"post_live_items"`
@@ -282,11 +282,9 @@ type Tray struct {
 	} `json:"emoji_reactions_config"`
 }
 
-func (tray *Tray) set(insta *Instagram, url string) {
+func (tray *Tray) set(insta *Instagram) {
 	for i := range tray.Stories {
-		tray.Stories[i].insta = insta
-		tray.Stories[i].endpoint = url
-		tray.Stories[i].setValues()
+		tray.Stories[i].setValues(insta)
 	}
 	for i := range tray.Lives.LiveItems {
 		tray.Lives.LiveItems[i].User.insta = insta
@@ -295,7 +293,7 @@ func (tray *Tray) set(insta *Instagram, url string) {
 		}
 	}
 	for i := range tray.Broadcasts {
-		tray.Broadcasts[i].User.insta = insta
+		tray.Broadcasts[i].setValues(insta)
 	}
 }
 

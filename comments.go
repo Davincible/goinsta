@@ -67,10 +67,11 @@ func (comments *Comments) Enable() error {
 }
 
 func (comments *Comments) toggleComments(endpoint string) error {
-	switch comments.item.media.(type) {
-	case *StoryMedia:
-		return fmt.Errorf("Incompatible type. Cannot use Enable() with StoryMedia type")
-	}
+	// Use something else to repel stories
+	// switch comments.item.media.(type) {
+	// case *StoryMedia:
+	// 	return fmt.Errorf("Incompatible type. Cannot use Enable() with StoryMedia type")
+	// }
 	insta := comments.item.insta
 
 	_, _, err := insta.sendRequest(
@@ -249,7 +250,7 @@ type Comment struct {
 	DidReportAsSpam                bool      `json:"did_report_as_spam"`
 	HasLikedComment                bool      `json:"has_liked_comment"`
 	InlineComposerDisplayCondition string    `json:"inline_composer_display_condition"`
-	OtherPreviewUsers              []*User    `json:"other_preview_users"`
+	OtherPreviewUsers              []*User   `json:"other_preview_users"`
 	PreviewChildComments           []Comment `json:"preview_child_comments"`
 	NextMaxChildCursor             string    `json:"next_max_child_cursor,omitempty"`
 	HasMoreTailChildComments       bool      `json:"has_more_tail_child_comments,omitempty"`

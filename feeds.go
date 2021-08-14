@@ -116,7 +116,6 @@ type FeedTag struct {
 }
 
 func (ft *FeedTag) setValues() {
-	ft.Story.insta = ft.insta
 	for i := range ft.RankedItems {
 		ft.RankedItems[i].insta = ft.insta
 		ft.RankedItems[i].media = &FeedMedia{

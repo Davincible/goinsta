@@ -327,16 +327,8 @@ func (account *Account) Feed(params ...interface{}) *FeedMedia {
 }
 
 // Stories returns account stories.
-//
-// Use StoryMedia.Next for pagination.
-//
-// See example: examples/account/stories.go
-func (account *Account) Stories() *StoryMedia {
-	media := &StoryMedia{}
-	media.uid = account.ID
-	media.insta = account.insta
-	media.endpoint = urlUserStories
-	return media
+func (account *Account) Stories() (*StoryMedia, error) {
+	return account.insta.fetchStories(account.ID)
 }
 
 // Tags returns media where account is tagged in

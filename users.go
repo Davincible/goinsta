@@ -296,9 +296,11 @@ func (user *User) Info(params ...interface{}) error {
 		Endpoint: fmt.Sprintf(urlUserInfo, user.ID),
 		Query:    query,
 	})
-	if err == nil {
-		err = json.Unmarshal(body, user)
+	if err != nil {
+		return err
 	}
+
+	err = json.Unmarshal(body, user)
 	return err
 }
 
@@ -586,6 +588,7 @@ func (user *User) FriendShip() (fr *Friendship, err error) {
 	return
 }
 
+// GetFeaturedAccounts will call the featured accounts enpoint.
 func (user *User) GetFeaturedAccounts() ([]*User, error) {
 	body, _, err := user.insta.sendRequest(&reqOptions{
 		Endpoint: urlFeaturedAccounts,
@@ -628,23 +631,13 @@ func (user *User) Feed(params ...interface{}) *FeedMedia {
 	return media
 }
 
-// Stories returns user stories
-//
-// Use StoryMedia.Next for pagination.
-//
-// See example: examples/user/stories.go
-func (user *User) Stories() *StoryMedia {
-	media := &StoryMedia{}
-	media.uid = user.ID
-	media.insta = user.insta
-	media.endpoint = urlUserStories
-	return media
+// Stories will fetch a user's stories.
+func (user *User) Stories() (*StoryMedia, error) {
+	return user.insta.fetchStories(user.ID)
 }
 
-// Highlights represents saved stories.
-//
-// See example: examples/user/highlights.go
-func (user *User) Highlights() ([]StoryMedia, error) {
+// Highlights will fetch a user's highlights.
+func (user *User) Highlights() ([]Reel, error) {
 	data, err := getSupCap()
 	if err != nil {
 		return nil, err
@@ -660,7 +653,7 @@ func (user *User) Highlights() ([]StoryMedia, error) {
 		tray := &Tray{}
 		err = json.Unmarshal(body, &tray)
 		if err == nil {
-			tray.set(user.insta, "")
+			tray.set(user.insta)
 			return tray.Stories, nil
 		}
 	}
@@ -672,8 +665,10 @@ func (user *User) Highlights() ([]StoryMedia, error) {
 // Use IGTVChannel.Next for pagination.
 //
 func (user *User) IGTV() (*IGTVChannel, error) {
+	insta := user.insta
+
 	id := fmt.Sprintf("user_%d", user.ID)
-	body, _, err := user.insta.sendRequest(&reqOptions{
+	body, _, err := insta.sendRequest(&reqOptions{
 		Endpoint: urlIGTVChannel,
 		IsPost:   true,
 		Query: map[string]string{
@@ -685,12 +680,11 @@ func (user *User) IGTV() (*IGTVChannel, error) {
 	if err != nil {
 		return nil, err
 	}
-	igtv := IGTVChannel{insta: user.insta, id: id}
+	igtv := IGTVChannel{insta: insta, id: id}
 	d := json.NewDecoder(bytes.NewReader(body))
 	d.UseNumber()
 	err = d.Decode(&igtv)
-
-	return &igtv, nil
+	return &igtv, err
 }
 
 // Tags returns media where user is tagged in

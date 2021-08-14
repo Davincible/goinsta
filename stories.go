@@ -40,14 +40,20 @@ type StoryCTA struct {
 
 // StoryMedia is the struct that handles the information from the methods to get info about Stories.
 type StoryMedia struct {
-	insta    *Instagram
-	endpoint string
-	uid      int64
+	Reel       Reel         `json:"reel"`
+	Broadcast  Broadcast    `json:"broadcast"`
+	Broadcasts []*Broadcast `json:"broadcasts"`
+	Status     string       `json:"status"`
+}
 
-	err error
+// Reel represents a single user's story collection.
+// Every user has one reel, and one reel can contain many story items
+type Reel struct {
+	insta *Instagram
 
-	Pk                     interface{} `json:"id"`
-	MediaCount             int64       `json:"media_count"`
+	ID                     interface{} `json:"id"`
+	Items                  []*Item     `json:"items"`
+	MediaCount             int         `json:"media_count"`
 	MediaIDs               []int64     `json:"media_ids"`
 	Muted                  bool        `json:"muted"`
 	LatestReelMedia        int64       `json:"latest_reel_media"`
@@ -61,8 +67,6 @@ type StoryMedia struct {
 	Title                  string      `json:"title"`
 	CanReshare             bool        `json:"can_reshare"`
 	ReelType               string      `json:"reel_type"`
-	User                   User        `json:"user"`
-	Items                  []Item      `json:"items"`
 	ReelMentions           []string    `json:"reel_mentions"`
 	PrefetchCount          int         `json:"prefetch_count"`
 	// this field can be int or bool
@@ -77,11 +81,10 @@ type StoryMedia struct {
 		Ptap float64 `json:"ptap"`
 		Vm   float64 `json:"vm"`
 	} `json:"ranker_scores"`
-	StoryRankingToken    string      `json:"story_ranking_token"`
-	Broadcasts           []Broadcast `json:"broadcasts"`
-	FaceFilterNuxVersion int         `json:"face_filter_nux_version"`
-	HasNewNuxStory       bool        `json:"has_new_nux_story"`
-	Status               string      `json:"status"`
+	StoryRankingToken    string `json:"story_ranking_token"`
+	FaceFilterNuxVersion int    `json:"face_filter_nux_version"`
+	HasNewNuxStory       bool   `json:"has_new_nux_story"`
+	User                 User   `json:"user"`
 }
 
 // Deletes ALL user's instagram stories.
@@ -89,7 +92,8 @@ type StoryMedia struct {
 //   call Item.Delete()
 //
 // See example: examples/media/deleteStories.go
-func (media *StoryMedia) Delete() error {
+func (media *Reel) Delete() error {
+	// TODO: update to reel
 	for _, item := range media.Items {
 		err := item.Delete()
 		if err != nil {
@@ -101,25 +105,21 @@ func (media *StoryMedia) Delete() error {
 	return nil
 }
 
-// ID returns Story id
-func (media *StoryMedia) GetNextID() string {
-	return formatID(media.Pk)
-}
-
-func (media *StoryMedia) setValues() {
-	for i := range media.Items {
-		media.Items[i].insta = media.insta
-		setToItem(&media.Items[i], media)
+func (media *StoryMedia) setValues(insta *Instagram) {
+	media.Reel.setValues(insta)
+	media.Broadcast.setValues(insta)
+	for _, br := range media.Broadcasts {
+		br.setValues(insta)
 	}
 }
 
-// Error returns error happened any error
-func (media *StoryMedia) Error() error {
-	return media.err
-}
-
-func (media *StoryMedia) getInsta() *Instagram {
-	return media.insta
+func (media *Reel) setValues(insta *Instagram) {
+	media.insta = insta
+	media.User.insta = insta
+	for _, i := range media.Items {
+		i.insta = insta
+		i.User.insta = insta
+	}
 }
 
 // Seen marks story as seen.
@@ -156,20 +156,50 @@ type trayRequest struct {
 	Value string `json:"value"`
 }
 
-// Sync function is used when Highlight must be sync.
+func (insta *Instagram) fetchStories(id int64) (*StoryMedia, error) {
+	supCap, err := getSupCap()
+	if err != nil {
+		return nil, err
+	}
+
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: fmt.Sprintf(urlUserStories, id),
+			Query:    map[string]string{"supported_capabilities_new": supCap},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	m := &StoryMedia{}
+	err = json.Unmarshal(body, m)
+	if err != nil {
+		return nil, err
+	}
+
+	m.setValues(insta)
+	return m, nil
+}
+
+// Sync function is used when Highlights must be sync.
 // Highlight must be sync when User.Highlights does not return any object inside StoryMedia slice.
 //
 // This function does NOT update Stories items.
 //
 // This function updates (fetches) StoryMedia.Items
-func (media *StoryMedia) Sync() error {
+func (media *Reel) Sync() error {
+	if media.ReelType != "highlight_reel" {
+		return ErrNotHighlight
+	}
+
 	insta := media.insta
 	supCap, err := getSupCap()
 	if err != nil {
 		return err
 	}
 
-	id := media.Pk.(string)
+	id := media.ID.(string)
 	data, err := json.Marshal(
 		map[string]interface{}{
 			"exclude_media_ids":          "[]",
@@ -192,52 +222,20 @@ func (media *StoryMedia) Sync() error {
 		},
 	)
 	if err == nil {
-		resp := trayResp{}
-		err = json.Unmarshal(body, &resp)
-		if err == nil {
-			m, ok := resp.Reels[id]
-			if ok {
-				media.Items = m.Items
-				media.setValues()
-				return nil
-			}
-			err = fmt.Errorf("cannot find %s structure in response", id)
-		}
-	}
-	return err
-}
-
-// Next allows pagination after calling:
-// User.Stories
-//
-//
-// returns false when list reach the end
-// if StoryMedia.Error() is ErrNoMore no problem have been occurred.
-func (media *StoryMedia) Next(params ...interface{}) bool {
-	if media.err != nil {
-		return false
+		return err
 	}
 
-	insta := media.insta
-	endpoint := media.endpoint
-	if media.uid != 0 {
-		endpoint = fmt.Sprintf(endpoint, media.uid)
+	resp := trayResp{}
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		return err
 	}
 
-	body, err := insta.sendSimpleRequest(endpoint)
-	if err == nil {
-		m := StoryMedia{}
-		err = json.Unmarshal(body, &m)
-		if err == nil {
-			// TODO check NextID media
-			*media = m
-			media.insta = insta
-			media.endpoint = endpoint
-			media.err = ErrNoMore // TODO: See if stories has pagination
-			media.setValues()
-			return true
-		}
+	m, ok := resp.Reels[id]
+	if ok {
+		*media = m
+		media.setValues(insta)
+		return nil
 	}
-	media.err = err
-	return false
+	return fmt.Errorf("cannot find %s structure in response", id)
 }

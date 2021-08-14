@@ -180,7 +180,6 @@ func (h *Hashtag) next(tab string) bool {
 		return false
 	}
 
-	fmt.Println("About to call fill items")
 	h.fillItems(res, tab)
 	if !h.MoreAvailable {
 		h.err = ErrNoMore

@@ -172,7 +172,7 @@ func (sr *TopSearchItem) RegisterClick() error {
 		entityType = "user"
 	} else if id = sr.Hashtag.ID; id != 0 {
 		entityType = "hashtag"
-	} else if id = sr.Place.Location.Pk; id != 0 {
+	} else if id = sr.Place.Location.ID; id != 0 {
 		entityType = "place"
 	}
 

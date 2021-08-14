@@ -205,6 +205,10 @@ func (br *Broadcast) GetHeartbeat() (*BroadcastHeartbeat, error) {
 	return c, nil
 }
 
-func (br *Broadcast) SetInsta(insta *Instagram) {
+func (br *Broadcast) setValues(insta *Instagram) {
 	br.insta = insta
+	br.User.insta = insta
+	for _, cb := range br.Cobroadcasters {
+		cb.insta = insta
+	}
 }

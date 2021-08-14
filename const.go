@@ -134,7 +134,7 @@ const (
 	urlUserFeed          = "feed/user/%d/"
 	urlFriendship        = "friendships/show/%d/"
 	urlFriendshipPending = "friendships/pending/"
-	urlUserStories       = "feed/user/%d/reel_media/"
+	urlUserStories       = "feed/user/%d/story/"
 	urlUserTags          = "usertags/%d/feed/"
 	urlBlockedList       = "users/blocked_list/"
 	urlUserInfo          = "users/%d/info/"
@@ -245,8 +245,9 @@ var (
 	ErrSearchUserNotFound = errors.New("User not found in search result")
 
 	// Feed Errors
-	ErrInvalidTab = errors.New("Invalid tab, please select top or recent")
-	ErrNoMore     = errors.New("No more posts availible, page end has been reached")
+	ErrInvalidTab   = errors.New("Invalid tab, please select top or recent")
+	ErrNoMore       = errors.New("No more posts availible, page end has been reached")
+	ErrNotHighlight = errors.New("Unable to sync, Reel is not of type highlight")
 
 	// Misc
 	ErrByteIndexNotFound = errors.New("Failed to index byte slice, delim not found")

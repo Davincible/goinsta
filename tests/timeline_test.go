@@ -12,6 +12,7 @@ func TestTimeline(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
+	t.Logf("Logged in as %s\n", insta.Account.Username)
 
 	tl := insta.Timeline
 	next := tl.NextID

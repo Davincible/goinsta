@@ -209,7 +209,7 @@ type Item struct {
 // replying the Instagram story.
 func (item *Item) Comment(text string) error {
 	// if comment is called on a story media, use reply
-	if _, ok := item.media.(*StoryMedia); ok {
+	if item.ProductType == "story" {
 		return item.Reply(text)
 	}
 
@@ -295,7 +295,7 @@ func (item *Item) CommentCheckOffensive(comment string) (*CommentOffensive, erro
 }
 
 func (item *Item) Reply(text string) error {
-	if _, ok := item.media.(*StoryMedia); !ok {
+	if item.ProductType != "story" {
 		return item.Comment(text)
 	}
 
@@ -837,9 +837,6 @@ func (media *FeedMedia) setValues() {
 		media.Items[i].User.insta = media.insta
 		setToItem(&media.Items[i], media)
 	}
-}
-
-func (item *Item) setValues(media Media) {
 }
 
 func (media *FeedMedia) Error() error {

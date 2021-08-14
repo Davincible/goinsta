@@ -235,18 +235,20 @@ func (tl *Timeline) ClearPosts() {
 }
 
 func (tl *Timeline) fetchTray(reason string) {
-	body, _, err := tl.insta.sendRequest(&reqOptions{
-		Endpoint: urlStories,
-		IsPost:   true,
-		Query: map[string]string{
-			"supported_capabilities_new": `[{"name":"SUPPORTED_SDK_VERSIONS","value":"100.0,101.0,102.0,103.0,104.0,105.0,106.0,107.0,108.0,109.0,110.0,111.0,112.0,113.0,114.0,115.0,116.0,117.0"},{"name":"FACE_TRACKER_VERSION","value":"14"},{"name":"segmentation","value":"segmentation_enabled"},{"name":"COMPRESSION","value":"ETC2_COMPRESSION"},{"name":"world_tracker","value":"world_tracker_enabled"},{"name":"gyroscope","value":"gyroscope_enabled"}]`,
-			"reason":                     reason,
-			"timezone_offset":            timeOffset,
-			"tray_session_id":            generateUUID(),
-			"request_id":                 generateUUID(),
-			"_uuid":                      tl.insta.uuid,
+	body, _, err := tl.insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlStories,
+			IsPost:   true,
+			Query: map[string]string{
+				"supported_capabilities_new": `[{"name":"SUPPORTED_SDK_VERSIONS","value":"100.0,101.0,102.0,103.0,104.0,105.0,106.0,107.0,108.0,109.0,110.0,111.0,112.0,113.0,114.0,115.0,116.0,117.0"},{"name":"FACE_TRACKER_VERSION","value":"14"},{"name":"segmentation","value":"segmentation_enabled"},{"name":"COMPRESSION","value":"ETC2_COMPRESSION"},{"name":"world_tracker","value":"world_tracker_enabled"},{"name":"gyroscope","value":"gyroscope_enabled"}]`,
+				"reason":                     reason,
+				"timezone_offset":            timeOffset,
+				"tray_session_id":            generateUUID(),
+				"request_id":                 generateUUID(),
+				"_uuid":                      tl.insta.uuid,
+			},
 		},
-	})
+	)
 	if err != nil {
 		tl.errChan <- err
 		return
@@ -259,7 +261,7 @@ func (tl *Timeline) fetchTray(reason string) {
 		return
 	}
 
-	tray.set(tl.insta, urlStories)
+	tray.set(tl.insta)
 	tl.Tray = tray
 	tl.errChan <- nil
 }
@@ -272,8 +274,8 @@ func (tl *Timeline) Refresh() error {
 	return nil
 }
 
-// helper function to get the stories
-func (tl *Timeline) Stories() []StoryMedia {
+// Stories is a helper function to get the stories
+func (tl *Timeline) Stories() []Reel {
 	return tl.Tray.Stories
 }
 

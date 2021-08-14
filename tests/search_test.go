@@ -11,6 +11,7 @@ func TestSearchUser(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
+	t.Logf("Logged in as %s\n", insta.Account.Username)
 
 	// Search for users
 	result, err := insta.Searchbar.SearchUser("a")
@@ -68,6 +69,7 @@ func TestSearchHashtag(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
+	t.Logf("Logged in as %s\n", insta.Account.Username)
 
 	// Search for hashtags
 	result, err := insta.Searchbar.SearchHashtag("photography")
@@ -126,6 +128,7 @@ func TestSearchLocation(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
+	t.Logf("Logged in as %s\n", insta.Account.Username)
 
 	// Search for hashtags
 	result, err := insta.Searchbar.SearchLocation("New York")
