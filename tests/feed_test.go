@@ -197,5 +197,5 @@ func TestFeedTagNextRecent(t *testing.T) {
 	if gotNextID == initNextID {
 		t.Errorf("NextID must differ after FeedTag.Next() call")
 	}
-	t.Logf("Fetched %d posts", len(hashtag.Recent))
+	t.Logf("Fetched %d posts", len(hashtag.ItemsRecent))
 }

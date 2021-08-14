@@ -57,9 +57,9 @@ type SearchResult struct {
 }
 
 type Place struct {
-	Title    string   `json:"title"`
-	Subtitle string   `json:"subtitle"`
-	Location Location `json:"location"`
+	Title    string    `json:"title"`
+	Subtitle string    `json:"subtitle"`
+	Location *Location `json:"location"`
 }
 
 type TopSearchItem struct {
@@ -332,6 +332,10 @@ func (sr *SearchResult) setValues() {
 		t.insta = sr.insta
 		t.setValues()
 	}
+
+	for _, l := range sr.Places {
+		l.Location.insta = sr.insta
+	}
 }
 
 func (search *Search) user(user string) (*SearchResult, error) {
@@ -420,7 +424,11 @@ func (search *Search) places(location string) (*SearchResult, error) {
 	}
 
 	err = json.Unmarshal(body, res)
-	return res, err
+	if err != nil {
+		return nil, err
+	}
+	res.setValues()
+	return res, nil
 }
 
 func (search *Search) NullState() error {

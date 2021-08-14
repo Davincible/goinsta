@@ -22,10 +22,10 @@ type LayoutSection struct {
 	} `json:"layout_content"`
 	FeedType        string `json:"feed_type"`
 	ExploreItemInfo struct {
-		NumColumns      int  `json:"num_columns"`
-		TotalNumColumns int  `json:"total_num_columns"`
-		AspectRatio     int  `json:"aspect_ratio"`
-		Autoplay        bool `json:"autoplay"`
+		NumColumns      int     `json:"num_columns"`
+		TotalNumColumns int     `json:"total_num_columns"`
+		AspectRatio     float64 `json:"aspect_ratio"`
+		Autoplay        bool    `json:"autoplay"`
 	} `json:"explore_item_info"`
 }
 

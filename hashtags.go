@@ -26,10 +26,10 @@ type Hashtag struct {
 	DebugInfo           interface{} `json:"debug_info"`
 	// All Top Items
 	Items []*Item
-	// All Recent Items
-	Recent     []*Item
-	Story      *StoryMedia
-	NumResults int
+	// All ItemsRecent Items
+	ItemsRecent []*Item
+	Story       *StoryMedia
+	NumResults  int
 
 	// Sections will always contain the last fetched sections, regardless of tab
 	Sections            []hashtagSection `json:"sections"`
@@ -211,7 +211,7 @@ func (h *Hashtag) fillItems(res *Hashtag, tab string) {
 			if tab == "top" {
 				h.Items = append(h.Items, m.Item)
 			} else if tab == "recent" {
-				h.Recent = append(h.Recent, m.Item)
+				h.ItemsRecent = append(h.ItemsRecent, m.Item)
 			}
 		}
 
@@ -220,7 +220,7 @@ func (h *Hashtag) fillItems(res *Hashtag, tab string) {
 			if tab == "top" {
 				h.Items = append(h.Items, m.Item)
 			} else if tab == "recent" {
-				h.Recent = append(h.Recent, m.Item)
+				h.ItemsRecent = append(h.ItemsRecent, m.Item)
 			}
 		}
 	}
