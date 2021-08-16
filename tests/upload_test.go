@@ -168,3 +168,33 @@ func TestUploadCarousel(t *testing.T) {
 	}
 	t.Logf("The ID of the new upload is %s", item.ID)
 }
+
+func TestUploadIGTV(t *testing.T) {
+	insta, err := getRandomAccount()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Logged in as %s\n", insta.Account.Username)
+	insta.SetErrorHandler(t.Log)
+
+	// Get random video
+	video, err := getVideo()
+	if err != nil {
+		t.Fatal(err)
+	}
+	size := float64(len(video)) / 1000000.0
+	t.Logf("Video size: %.2f Mb", size)
+
+	item, err := insta.Upload(
+		&goinsta.UploadOptions{
+			File:    bytes.NewReader(video),
+			IsIGTV:  true,
+			Title:   "IGTV Videos are so cool",
+			Caption: "What a terrific video! #art",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("The ID of the new upload is %s", item.ID)
+}

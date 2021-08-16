@@ -291,7 +291,11 @@ func (o *UploadOptions) configurePost(video bool) (*Item, error) {
 }
 
 func (o *UploadOptions) configureVideo() (*Item, error) {
-	return o.configurePost(true)
+	if o.IsIGTV {
+		return o.configureIGTV()
+	} else {
+		return o.configurePost(true)
+	}
 }
 
 func (o *UploadOptions) configureImage() (*Item, error) {
