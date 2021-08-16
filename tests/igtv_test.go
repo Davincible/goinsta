@@ -9,18 +9,18 @@ import (
 func TestIGTVChannel(t *testing.T) {
 	insta, err := getRandomAccount()
 	if err != nil {
-		Error(t, err)
+		t.Fatal(err)
 	}
 	t.Logf("Logged in as %s\n", insta.Account.Username)
 
 	user, err := insta.Profiles.ByName("f1")
 	if err != nil {
-		Error(t, err)
+		t.Fatal(err)
 	}
 
 	channel, err := user.IGTV()
 	if err != nil {
-		Error(t, err)
+		t.Fatal(err)
 	}
 	t.Logf("Fetched %d IGTV items", len(channel.Items))
 
@@ -61,20 +61,20 @@ func TestIGTVSeries(t *testing.T) {
 func TestIGTVLive(t *testing.T) {
 	insta, err := getRandomAccount()
 	if err != nil {
-		Error(t, err)
+		t.Fatal(err)
 	}
 	t.Logf("Logged in as %s\n", insta.Account.Username)
 
 	broadcasts, err := insta.IGTV.Live()
 	if err != nil {
-		Error(t, err)
+		t.Fatal(err)
 	}
 	t.Logf("Found %d broadcasts. More Available = %v", len(broadcasts.Broadcasts), broadcasts.MoreAvailable)
 
 	if broadcasts.MoreAvailable {
 		broadcasts, err := broadcasts.Live()
 		if err != nil {
-			Error(t, err)
+			t.Fatal(err)
 		}
 		t.Logf("Found %d broadcasts. More Available = %v", len(broadcasts.Broadcasts), broadcasts.MoreAvailable)
 
@@ -84,13 +84,13 @@ func TestIGTVLive(t *testing.T) {
 func TestIGTVDiscover(t *testing.T) {
 	insta, err := getRandomAccount()
 	if err != nil {
-		Error(t, err)
+		t.Fatal(err)
 	}
 	t.Logf("Logged in as %s\n", insta.Account.Username)
 
 	for i := 0; i < 5; i++ {
 		if !insta.IGTV.Next() {
-			Error(t, insta.IGTV.Error())
+			t.Fatal(insta.IGTV.Error())
 		}
 		t.Logf("Fetched %d posts", len(insta.IGTV.Items))
 	}

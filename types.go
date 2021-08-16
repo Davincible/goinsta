@@ -73,11 +73,30 @@ type Error400 struct {
 		ClientContext string `json:"client_context"`
 		Message       string `json:"message"`
 	} `json:"payload"`
+	DebugInfo struct {
+		Message   string `json:"string"`
+		Retriable bool   `json:"retriable"`
+		Type      string `json:"type"`
+	} `json:"debug_info"`
 	Status string `json:"status"`
 }
 
 func (e Error400) Error() string {
-	return fmt.Sprintf("%s: %s", e.Status, e.Payload.Message)
+	var msg string
+	if e.Payload.Message != "" {
+		msg = e.Payload.Message
+	}
+	if e.DebugInfo.Message != "" {
+		msg = e.DebugInfo.Message
+	}
+	if e.ChallengeError.Message != "" {
+		if msg != "" {
+			msg += "; Challenge Msg: " + e.ChallengeError.Message
+		} else {
+			msg = "Challenge Msg: " + e.ChallengeError.Message
+		}
+	}
+	return fmt.Sprintf("Request Status Code 400: %s, %s", e.Status, msg)
 }
 
 // ChallengeError is error returned by HTTP 400 status code.
@@ -96,7 +115,7 @@ type ChallengeError struct {
 }
 
 func (e ChallengeError) Error() string {
-	return fmt.Sprintf("%s: %s", e.Status, e.Message)
+	return fmt.Sprintf("Challenge Required: %s, %s", e.Status, e.Message)
 }
 
 // Nametag is part of the account information.

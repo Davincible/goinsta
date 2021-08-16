@@ -94,6 +94,7 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 	}
 	if o.OmitAPI {
 		nu = baseUrl
+		o.IgnoreHeaders = append(o.IgnoreHeaders, omitAPIHeadersExclude...)
 	}
 
 	u, err := url.Parse(nu + o.Endpoint)
@@ -277,6 +278,7 @@ func (insta *Instagram) extractHeaders(h http.Header) {
 func isError(code int, body []byte) (err error) {
 	switch code {
 	case 200:
+	case 202:
 	case 400:
 		ierr := Error400{}
 		err = json.Unmarshal(body, &ierr)
@@ -285,7 +287,7 @@ func isError(code int, body []byte) (err error) {
 				return ierr.ChallengeError
 			}
 
-			if err == nil && ierr.Message != "" {
+			if err == nil {
 				return ierr
 			}
 		}
@@ -301,6 +303,9 @@ func isError(code int, body []byte) (err error) {
 		err = json.Unmarshal(body, &ierr)
 		if err != nil {
 			return err
+		}
+		if ierr.Message == "Transcode not finished yet." {
+			return nil
 		}
 		return ierr
 	}
@@ -341,6 +346,6 @@ func (insta *Instagram) prepareDataQuery(other ...map[string]interface{}) map[st
 }
 
 func random(min, max int) int {
-	rand.Seed(time.Now().Unix())
+	rand.Seed(time.Now().UnixNano())
 	return rand.Intn(max-min) + min
 }

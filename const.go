@@ -37,6 +37,26 @@ var (
 	defaultHeaderOptions = map[string]string{
 		"X-Ig-Www-Claim": "0",
 	}
+	omitAPIHeadersExclude = []string{
+		"X-Ig-Bandwidth-Speed-Kbps",
+		"Ig-U-Shbts",
+		"X-Ig-Mapped-Locale",
+		"X-Ig-Family-Device-Id",
+		"X-Ig-Android-Id",
+		"X-Ig-Timezone-Offset",
+		"X-Ig-Device-Locale",
+		"X-Ig-Device-Id",
+		"Ig-Intended-User-Id",
+		"X-Ig-App-Locale",
+		"X-Bloks-Is-Layout-Rtl",
+		"X-Pigeon-Rawclienttime",
+		"X-Bloks-Version-Id",
+		"X-Ig-Bandwidth-Totalbytes-B",
+		"X-Ig-Bandwidth-Totaltime-Ms",
+		"X-Ig-App-Startup-Country",
+		"X-Ig-Www-Claim",
+		"X-Bloks-Is-Panorama-Enabled",
+	}
 	// Default Device
 	GalaxyS10 = Device{
 		Manufacturer:     "samsung",
@@ -218,6 +238,7 @@ const (
 	// Upload
 	urlUploadPhoto      = "rupload_igphoto/%s"
 	urlUploadVideo      = "rupload_igvideo/%s"
+	urlUploadFinishVid  = "media/upload_finish/?video=1"
 	urlConfigure        = "media/configure/"
 	urlConfigureSidecar = "media/configure_sidecar/"
 	urlConfigureIGTV    = "media/configure_to_igtv/?video=1"

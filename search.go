@@ -240,6 +240,29 @@ func (sr *SearchResult) RegisterHashtagClick(h *Hashtag) error {
 	return err
 }
 
+// RegisterLocationClick send a register click request
+func (sr *SearchResult) RegisterLocationClick(l *Location) error {
+	present := false
+	for _, x := range sr.Places {
+		if x.Location.ID == l.ID {
+			present = true
+			break
+		}
+	}
+	if !present {
+		return ErrSearchUserNotFound
+	}
+
+	err := sr.insta.sendSearchRegisterRequest(
+		map[string]string{
+			"entity_id":   toString(l.ID),
+			"_uuid":       sr.insta.uuid,
+			"entity_type": "place",
+		},
+	)
+	return err
+}
+
 func (insta *Instagram) sendSearchRegisterRequest(query map[string]string) error {
 	_, _, err := insta.sendRequest(&reqOptions{
 		Endpoint: urlSearchRegisterClick,

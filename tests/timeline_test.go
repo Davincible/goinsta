@@ -10,7 +10,6 @@ func TestTimeline(t *testing.T) {
 	insta, err := getRandomAccount()
 	if err != nil {
 		t.Fatal(err)
-		return
 	}
 	t.Logf("Logged in as %s\n", insta.Account.Username)
 
@@ -20,7 +19,6 @@ outside:
 	for i := 0; tl.Next(); i++ {
 		if tl.NextID == next {
 			t.Fatal("Next ID must be different after each request")
-			return
 		}
 		next = tl.NextID
 		if i == 5 {

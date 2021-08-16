@@ -12,7 +12,6 @@ import (
 	"fmt"
 	_ "image/jpeg"
 	_ "image/png"
-	"io"
 	"strconv"
 	"time"
 )
@@ -86,8 +85,9 @@ func prepareRecipients(cc interface{}) (bb string, err error) {
 }
 
 // getImageSize return image dimension , types is .jpg and .png
-func getImageSize(r io.Reader) (int, int, error) {
-	image, _, err := image.DecodeConfig(r)
+func getImageSize(b []byte) (int, int, error) {
+	buf := bytes.NewReader(b)
+	image, _, err := image.DecodeConfig(buf)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -100,7 +100,7 @@ func getVideoInfo(b []byte) (height, width, duration int, err error) {
 	if err != nil {
 		return
 	}
-	width, err = read16(b, keys, 24)
+	width, err = read16(b, keys, 26)
 	if err != nil {
 		return
 	}

@@ -3,8 +3,12 @@ package tests
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"math/rand"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -13,7 +17,36 @@ import (
 	"github.com/Davincible/goinsta"
 )
 
-var errNoValidLogin = errors.New("No valid login found")
+var (
+	errNoValidLogin = errors.New("No valid login found")
+	errNoAPIKEY     = errors.New("No API Key has been found. Please add one to .env")
+)
+
+type pixaBayRes struct {
+	Total     int `json:"total"`
+	TotalHits int `json:"totalHits"`
+	Hits      []struct {
+		ID        int    `json:"id"`
+		URL       string `json:"page_url"`
+		Type      string `json:"type"`
+		Tags      string `json:"tags"`
+		Duration  int    `json:"duration"`
+		PictureID string `json:"picture_id"`
+		Videos    struct {
+			Large  video `json:"large"`
+			Medium video `json:"medium"`
+			Small  video `json:"small"`
+			Tiny   video `json:"tiny"`
+		} `json:"videos"`
+	} `json:"hits"`
+}
+
+type video struct {
+	URL    string `json:"url"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
+	Size   int    `json:"size"`
+}
 
 func readFromBase64(base64EncodedString string) (*goinsta.Instagram, error) {
 	base64Bytes, err := base64.StdEncoding.DecodeString(base64EncodedString)
@@ -90,7 +123,7 @@ func getLogin() (string, string, error) {
 
 	environ, err := loadEnv()
 	if err != nil {
-		return "", "", nil
+		return "", "", err
 	}
 
 	for _, env := range environ {
@@ -150,4 +183,70 @@ func dotenv() ([]string, error) {
 func Error(t *testing.T, err error) {
 	t.Log(err.Error())
 	t.Fatal(err)
+}
+
+func getPixabayAPIKey() (string, error) {
+	environ, err := loadEnv()
+	if err != nil {
+		return "", err
+	}
+
+	for _, env := range environ {
+		if strings.HasPrefix(env, "PIXABAY_API_KEY") {
+			key := strings.Split(env, "=")[1]
+			if key[0] == '"' {
+				key = key[1 : len(key)-1]
+			}
+			return key, nil
+		}
+	}
+	return "", errNoAPIKEY
+}
+
+func getVideo() ([]byte, error) {
+	key, err := getPixabayAPIKey()
+	if err != nil {
+		return nil, err
+	}
+	url := fmt.Sprintf("https://pixabay.com/api/videos/?key=%s&per_page=200", key)
+
+	// Get video list
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if err := resp.Body.Close(); err != nil {
+		return nil, err
+	}
+
+	var res pixaBayRes
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	// Select random video
+	rand.Seed(time.Now().UnixNano())
+	r := rand.Intn(len(res.Hits))
+	vid := res.Hits[r].Videos.Small
+
+	// Download video
+	resp, err = http.Get(vid.URL)
+	if err != nil {
+		return nil, err
+	}
+
+	video, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if err := resp.Body.Close(); err != nil {
+		return nil, err
+	}
+	return video, nil
 }

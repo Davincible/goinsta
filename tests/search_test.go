@@ -12,7 +12,6 @@ func TestSearchUser(t *testing.T) {
 	insta, err := getRandomAccount()
 	if err != nil {
 		t.Fatal(err)
-		return
 	}
 	t.Logf("Logged in as %s\n", insta.Account.Username)
 
@@ -20,11 +19,9 @@ func TestSearchUser(t *testing.T) {
 	result, err := insta.Searchbar.SearchUser("a")
 	if err != nil {
 		t.Fatal(err)
-		return
 	}
 	if result.Status != "ok" {
 		t.Fatal(result.Status)
-		return
 	}
 	t.Logf("Result length is %d", len(result.Users))
 
@@ -33,14 +30,12 @@ func TestSearchUser(t *testing.T) {
 	err = result.RegisterUserClick(user)
 	if err != nil {
 		t.Fatal(err)
-		return
 	}
 
 	// Get user info
 	err = user.Info()
 	if err != nil {
 		t.Fatal(err)
-		return
 	}
 
 	// Get user feed
@@ -48,7 +43,6 @@ func TestSearchUser(t *testing.T) {
 	s := feed.Next()
 	if !s {
 		t.Fatalf("Failed to get feed: %s", feed.Error())
-		return
 	}
 	t.Logf("Found %d posts", len(feed.Items))
 
@@ -61,7 +55,6 @@ func TestSearchUser(t *testing.T) {
 		err := post.Like()
 		if err != nil {
 			t.Fatal(err)
-			return
 		}
 	}
 }
@@ -70,7 +63,6 @@ func TestSearchHashtag(t *testing.T) {
 	insta, err := getRandomAccount()
 	if err != nil {
 		t.Fatal(err)
-		return
 	}
 	t.Logf("Logged in as %s\n", insta.Account.Username)
 
@@ -79,11 +71,9 @@ func TestSearchHashtag(t *testing.T) {
 	result, err := insta.Searchbar.SearchHashtag(query)
 	if err != nil {
 		t.Fatal(err)
-		return
 	}
 	if result.Status != "ok" {
 		t.Fatal(result.Status)
-		return
 	}
 	if len(result.Tags) == 0 {
 		t.Fatal("No results found")
@@ -101,14 +91,14 @@ func TestSearchHashtag(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		if !hashtag.Next() {
-			Error(t, hashtag.Error())
+			t.Fatal(hashtag.Error())
 		}
 		t.Logf("Fetched %d posts", len(hashtag.Items))
 	}
 
 	for i := 0; i < 5; i++ {
 		if !hashtag.NextRecent() {
-			Error(t, hashtag.Error())
+			t.Log(hashtag.Error())
 		}
 		t.Logf("Fetched %d recent posts", len(hashtag.ItemsRecent))
 	}
@@ -118,26 +108,23 @@ func TestSearchLocation(t *testing.T) {
 	insta, err := getRandomAccount()
 	if err != nil {
 		t.Fatal(err)
-		return
 	}
 	t.Logf("Logged in as %s\n", insta.Account.Username)
 
 	// Search for hashtags
 	result, err := insta.Searchbar.SearchLocation("New York")
 	if err != nil {
-		Error(t, err)
-		return
+		t.Fatal(err)
 	}
 	if result.Status != "ok" {
-		Error(t, errors.New(result.Status))
-		return
+		t.Fatal(errors.New(result.Status))
 	}
 	t.Logf("Result length is %d", len(result.Places))
 
 	location := result.Places[0].Location
 	feed, err := location.Feed()
 	if err != nil {
-		Error(t, err)
+		t.Fatal(err)
 	}
 	t.Logf("Found %d sections", len(feed.Sections))
 }
