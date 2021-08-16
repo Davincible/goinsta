@@ -108,17 +108,22 @@ type Instagram struct {
 
 	c *http.Client
 
-	// Non fatal err handler, which don't get returned
-	// By default they will be printed out, you can e.g. pass them to a logger
-	ErrHandler func(...interface{})
+	// Non-error message handlers.
+	// By default they will be printed out, alternatively you can e.g. pass them to a logger
+	InfoHandler func(...interface{})
+	WarnHandler func(...interface{})
 }
 
-func DefaultErrHandler(args ...interface{}) {
+func defaultHandler(args ...interface{}) {
 	fmt.Println(args...)
 }
 
-func (insta *Instagram) SetErrorHandler(f func(...interface{})) {
-	insta.ErrHandler = f
+func (insta *Instagram) SetInfoHandler(f func(...interface{})) {
+	insta.InfoHandler = f
+}
+
+func (insta *Instagram) SetWarnHandler(f func(...interface{})) {
+	insta.WarnHandler = f
 }
 
 // SetHTTPClient sets http client.  This further allows users to use this functionality
@@ -187,7 +192,8 @@ func New(username, password string) *Instagram {
 			},
 			Jar: jar,
 		},
-		ErrHandler: DefaultErrHandler,
+		InfoHandler: defaultHandler,
+		WarnHandler: defaultHandler,
 	}
 	insta.init()
 
@@ -340,8 +346,9 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 				Proxy: http.ProxyFromEnvironment,
 			},
 		},
-		ErrHandler: DefaultErrHandler,
-		Account:    config.Account,
+		InfoHandler: defaultHandler,
+		WarnHandler: defaultHandler,
+		Account:     config.Account,
 	}
 	insta.userAgent = createUserAgent(insta.device)
 	insta.c.Jar, err = cookiejar.New(nil)
@@ -404,12 +411,12 @@ func (insta *Instagram) Login() (err error) {
 
 	err = insta.getPrefill()
 	if err != nil {
-		insta.ErrHandler("Non fatal error while fetching prefill:", err)
+		insta.WarnHandler("Non fatal error while fetching prefill:", err)
 	}
 
 	err = insta.contactPrefill()
 	if err != nil {
-		insta.ErrHandler("Non fatal error while fetching contact prefill:", err)
+		insta.WarnHandler("Non fatal error while fetching contact prefill:", err)
 	}
 
 	err = insta.sync()
@@ -450,7 +457,7 @@ func (insta *Instagram) OpenApp() (err error) {
 
 	err = insta.getAccountFamily()
 	if err != nil {
-		insta.ErrHandler("Non fatal error while fetching account family:", err)
+		insta.WarnHandler("Non fatal error while fetching account family:", err)
 	}
 
 	err = insta.sync()
@@ -460,7 +467,7 @@ func (insta *Instagram) OpenApp() (err error) {
 
 	err = insta.getNdxSteps()
 	if err != nil {
-		insta.ErrHandler("Non fatal error while fetching ndx steps:", err)
+		insta.WarnHandler("Non fatal error while fetching ndx steps:", err)
 	}
 
 	if !insta.Timeline.Next() {
@@ -470,39 +477,39 @@ func (insta *Instagram) OpenApp() (err error) {
 
 	err = insta.callNotifBadge()
 	if err != nil {
-		insta.ErrHandler("Non fatal error while fetching notify badge", err)
+		insta.WarnHandler("Non fatal error while fetching notify badge", err)
 	}
 
 	err = insta.banyan()
 	if err != nil {
-		insta.ErrHandler("Non fatal error while fetching banyan", err)
+		insta.WarnHandler("Non fatal error while fetching banyan", err)
 	}
 
 	err = insta.callMediaBlocked()
 	if err != nil {
-		insta.ErrHandler("Non fatal error while fetching blocked media", err)
+		insta.WarnHandler("Non fatal error while fetching blocked media", err)
 	}
 
 	// no clue what theses values could be used for
 	_, err = insta.getCooldowns()
 	if err != nil {
-		insta.ErrHandler("Non fatal error while fetching cool downs", err)
+		insta.WarnHandler("Non fatal error while fetching cool downs", err)
 	}
 
 	if !insta.Discover.Next() {
-		insta.ErrHandler("Non fatal error while fetching explore page",
+		insta.WarnHandler("Non fatal error while fetching explore page",
 			insta.Discover.Error())
 	}
 
 	err = insta.getConfig()
 	if err != nil {
-		insta.ErrHandler("Non fatal error while fetching config", err)
+		insta.WarnHandler("Non fatal error while fetching config", err)
 	}
 
 	// no clue what theses values could be used for
 	_, err = insta.getScoresBootstrapUsers()
 	if err != nil {
-		insta.ErrHandler("Non fatal error while fetching bootstrap user scores", err)
+		insta.WarnHandler("Non fatal error while fetching bootstrap user scores", err)
 	}
 
 	if !insta.Activity.Next() {
@@ -512,12 +519,12 @@ func (insta *Instagram) OpenApp() (err error) {
 
 	err = insta.sendAdID()
 	if err != nil {
-		insta.ErrHandler("Non fatal error while sending ad id", err)
+		insta.WarnHandler("Non fatal error while sending ad id", err)
 	}
 
 	err = insta.callStClPushPerm()
 	if err != nil {
-		insta.ErrHandler("Non fatal error while calling store client push permissions", err)
+		insta.WarnHandler("Non fatal error while calling store client push permissions", err)
 	}
 
 	if !insta.Inbox.initialSnapshot() {
@@ -527,7 +534,7 @@ func (insta *Instagram) OpenApp() (err error) {
 
 	err = insta.callContPointSig()
 	if err != nil {
-		insta.ErrHandler("Non fatal error while calling contact point signal:", err)
+		insta.WarnHandler("Non fatal error while calling contact point signal:", err)
 	}
 
 	return nil
@@ -593,7 +600,7 @@ func (insta *Instagram) verifyLogin(body []byte) error {
 				res.ErrorType, res.Message,
 			),
 		)
-		insta.ErrHandler(err)
+		insta.WarnHandler(err)
 
 		switch res.ErrorType {
 		case "bad_password":
@@ -773,7 +780,7 @@ func (insta *Instagram) sync(args ...map[string]string) error {
 
 	id, err := strconv.Atoi(keyID)
 	if err != nil {
-		insta.ErrHandler(fmt.Errorf("Failed to parse public key id: %s", err))
+		insta.WarnHandler(fmt.Errorf("Failed to parse public key id: %s", err))
 	}
 	insta.pubKey = key
 	insta.pubKeyID = id

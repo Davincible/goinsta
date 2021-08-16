@@ -203,7 +203,7 @@ func getPixabayAPIKey() (string, error) {
 	return "", errNoAPIKEY
 }
 
-func getVideo() ([]byte, error) {
+func getVideo(o ...map[string]interface{}) ([]byte, error) {
 	key, err := getPixabayAPIKey()
 	if err != nil {
 		return nil, err
@@ -231,9 +231,22 @@ func getVideo() ([]byte, error) {
 	}
 
 	// Select random video
-	rand.Seed(time.Now().UnixNano())
-	r := rand.Intn(len(res.Hits))
-	vid := res.Hits[r].Videos.Small
+	max_length := 0
+	if len(o) > 0 {
+		options := o[0]
+		max_length, _ = options["max_length"].(int)
+	}
+
+	valid := false
+	var vid video
+	for !valid {
+		rand.Seed(time.Now().UnixNano())
+		r := rand.Intn(len(res.Hits))
+		vid = res.Hits[r].Videos.Small
+		if max_length == 0 || res.Hits[r].Duration < max_length {
+			valid = true
+		}
+	}
 
 	// Download video
 	resp, err = http.Get(vid.URL)

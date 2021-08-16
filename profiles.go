@@ -110,7 +110,7 @@ func (user *User) VisitProfile() (*Profile, error) {
 	// Fetch Featured Accounts
 	_, err = user.GetFeaturedAccounts()
 	if err != nil {
-		user.insta.ErrHandler(err)
+		user.insta.WarnHandler(err)
 	}
 
 	// Fetch IGTV

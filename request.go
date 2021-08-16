@@ -292,6 +292,12 @@ func isError(code int, body []byte) (err error) {
 			}
 		}
 
+	case 403:
+		ierr := Error400{
+			Code: 403,
+		}
+		ierr.Message = string(body)
+		return ierr
 	case 429:
 		return ErrTooManyRequests
 	case 503:

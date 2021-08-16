@@ -78,6 +78,7 @@ type Error400 struct {
 		Retriable bool   `json:"retriable"`
 		Type      string `json:"type"`
 	} `json:"debug_info"`
+	Code   int
 	Status string `json:"status"`
 }
 
@@ -91,12 +92,16 @@ func (e Error400) Error() string {
 	}
 	if e.ChallengeError.Message != "" {
 		if msg != "" {
-			msg += "; Challenge Msg: " + e.ChallengeError.Message
+			msg += "; " + e.ChallengeError.Message
 		} else {
-			msg = "Challenge Msg: " + e.ChallengeError.Message
+			msg = e.ChallengeError.Message
 		}
 	}
-	return fmt.Sprintf("Request Status Code 400: %s, %s", e.Status, msg)
+
+	if e.Code == 0 {
+		e.Code = 400
+	}
+	return fmt.Sprintf("Request Status Code %d: %s, %s", e.Code, e.Status, msg)
 }
 
 // ChallengeError is error returned by HTTP 400 status code.

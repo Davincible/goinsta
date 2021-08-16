@@ -78,7 +78,8 @@ type UploadOptions struct {
 	isThumbnail    bool
 
 	// File buf
-	buf *bytes.Buffer
+	buf      *bytes.Buffer
+	bufAlbum []*bytes.Buffer
 
 	// Formatted UserTags
 	userTags *postTags
@@ -159,7 +160,7 @@ func (insta *Instagram) Upload(o *UploadOptions) (*Item, error) {
 		return o.configureVideo()
 	}
 
-	insta.ErrHandler(fmt.Errorf("Unable to handle file upload with format %s", t))
+	insta.InfoHandler(fmt.Errorf("Unable to handle file upload with format %s", t))
 	return nil, ErrInvalidFormat
 }
 
@@ -293,12 +294,16 @@ func (o *UploadOptions) configurePost(video bool) (*Item, error) {
 func (o *UploadOptions) configureVideo() (*Item, error) {
 	if o.IsIGTV {
 		return o.configureIGTV()
-	} else {
-		return o.configurePost(true)
+	} else if o.IsStory {
+		return o.configureStory(true)
 	}
+	return o.configurePost(true)
 }
 
 func (o *UploadOptions) configureImage() (*Item, error) {
+	if o.IsStory {
+		return o.configureStory(false)
+	}
 	return o.configurePost(false)
 }
 
@@ -571,7 +576,21 @@ func (o *UploadOptions) createPhotoConfig() {
 		config["usertags"] = o.tagsJson
 	}
 	if o.IsStory {
-		// TODO
+		supCap, _ := getSupCap()
+
+		t := time.Now().Unix()
+		config["camera_entry_point"] = "1"
+		config["media_folder"] = "Instagram"
+		config["supported_capabilities_new"] = supCap
+		config["original_media_type"] = "photo"
+		config["configure_mode"] = "1"
+		config["composition_id"] = generateUUID()
+		config["capture_type"] = "normal"
+		config["creation_surface"] = "camera"
+		config["client_timestamp"] = toString(t)
+		config["client_shared_at"] = o.startTime
+		config["imported_taken_at"] = toString(t - 3600)
+		config["camera_session_id"] = generateUUID()
 	}
 	o.config = config
 }
@@ -701,7 +720,7 @@ func (o *UploadOptions) uploadAlbum() (*Item, error) {
 		// Validate file type
 		t := http.DetectContentType(buf.Bytes())
 		if !(t == "image/jpeg" || t == "video/mp4") {
-			insta.ErrHandler(fmt.Errorf("Unable to handle file upload with format %s", t))
+			insta.InfoHandler(fmt.Errorf("Unable to handle file upload with format %s", t))
 			return nil, ErrInvalidFormat
 		}
 
@@ -798,11 +817,11 @@ func (o *UploadOptions) configure() (*Item, error) {
 	if res.Status != "ok" {
 		switch res.Message {
 		case "Transcode not finished yet.":
-			insta.ErrHandler(fmt.Errorf("%s, %s. Please wait.", res.Status, res.Message))
+			insta.InfoHandler(fmt.Errorf("%s, %s. Please wait.", res.Status, res.Message))
 			time.Sleep(6 * time.Second)
 			return o.configure()
 		case "media_needs_reupload":
-			insta.ErrHandler(fmt.Errorf("Instagram asks for the video to be reuploaded, please wait."))
+			insta.InfoHandler(fmt.Errorf("Instagram asks for the video to be reuploaded, please wait."))
 			err := o.postVideo()
 			if err != nil {
 				return nil, err
@@ -826,6 +845,7 @@ func (o *UploadOptions) uploadMultiStory() (*Item, error) {
 		if err != nil {
 			return nil, err
 		}
+		o.bufAlbum = append(o.bufAlbum, buf)
 		t := http.DetectContentType(buf.Bytes())
 		if t != "video/mp4" {
 			return nil, ErrStoryBadMediaType
@@ -838,7 +858,7 @@ func (o *UploadOptions) uploadMultiStory() (*Item, error) {
 		}
 		o.width, o.height, o.duration = width, height, duration
 
-		if duration > 15000 {
+		if duration > 20000 {
 			return nil, ErrStoryMediaTooLong
 		}
 	}
@@ -849,12 +869,8 @@ func (o *UploadOptions) uploadMultiStory() (*Item, error) {
 
 	// Upload Media
 	var item *Item
-	for i, vid := range o.Album {
+	for i, buf := range o.bufAlbum {
 		o.index = i
-		buf, err := readFile(vid)
-		if err != nil {
-			return nil, err
-		}
 		o.buf = buf
 
 		width, height, duration, err := getVideoInfo(o.buf.Bytes())
@@ -863,9 +879,22 @@ func (o *UploadOptions) uploadMultiStory() (*Item, error) {
 		}
 		o.width, o.height, o.duration = width, height, duration
 
+		size := float64(len(o.buf.Bytes())) / 1000000.0
+		o.insta.InfoHandler(
+			fmt.Sprintf(
+				"Uploading story video %d: duration: %ds, Size: %dx%d, %.2f Mb",
+				i+1, duration/1000, width, height, size,
+			),
+		)
+
 		o.newUploadID()
 		o.waterfallID = o.uploadID + suffix
 		o.newSegmentName(buf.Len())
+
+		err = o.createRUploadParams()
+		if err != nil {
+			return nil, err
+		}
 
 		err = o.segmentTransfer(buf.Bytes())
 		if err != nil {
@@ -902,6 +931,14 @@ func (o *UploadOptions) uploadVideo() error {
 		return err
 	}
 	o.width, o.height, o.duration = width, height, duration
+
+	size := float64(len(o.buf.Bytes())) / 1000000.0
+	o.insta.InfoHandler(
+		fmt.Sprintf(
+			"Upload video: duration: %ds, Size: %dx%d, %.2f Mb",
+			duration/1000, width, height, size,
+		),
+	)
 
 	// Create Rupload header params
 	err = o.createRUploadParams()
@@ -975,6 +1012,7 @@ func (o *UploadOptions) segmentVideo(t int) error {
 			return err
 		}
 		o.offset += len(segment)
+		o.insta.InfoHandler(fmt.Sprintf("Uploaded video segment [%d/%d]", i+1, length))
 
 	}
 
