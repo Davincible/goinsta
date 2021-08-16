@@ -129,6 +129,15 @@ func TestUploadCarousel(t *testing.T) {
 		album = append(album, buf)
 	}
 
+	// Add video to album
+	video, err := getVideo()
+	if err != nil {
+		t.Fatal(err)
+	}
+	size := float64(len(video)) / 1000000.0
+	t.Logf("Video size: %.2f Mb", size)
+	album = append(album, bytes.NewReader(video))
+
 	results, err := insta.Searchbar.SearchLocation("New York")
 	if err != nil {
 		t.Fatal(err)
