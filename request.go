@@ -208,6 +208,10 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 
 	resp, err := insta.c.Do(req)
 	if err != nil {
+		return nil, nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
 		return nil, nil, fmt.Errorf(
 			"Status: '%s', Status Code: '%d', Err: '%v'",
 			resp.Status,
@@ -215,7 +219,6 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 			err,
 		)
 	}
-	defer resp.Body.Close()
 
 	body, err = ioutil.ReadAll(resp.Body)
 	if err == nil {
