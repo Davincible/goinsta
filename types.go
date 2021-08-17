@@ -47,6 +47,7 @@ type PicURLInfo struct {
 // ErrorN is general instagram error
 type ErrorN struct {
 	Message   string `json:"message"`
+	Endpoint  string `json:"endpoint"`
 	Status    string `json:"status"`
 	ErrorType string `json:"error_type"`
 }
@@ -61,12 +62,16 @@ func (e Error503) Error() string {
 }
 
 func (e ErrorN) Error() string {
-	return fmt.Sprintf("%s: %s (%s)", e.Status, e.Message, e.ErrorType)
+	return fmt.Sprintf(
+		"Error while calling %s, status code %s: %s (%s)",
+		e.Endpoint, e.Status, e.Message, e.ErrorType,
+	)
 }
 
 // Error400 is error returned by HTTP 400 status code.
 type Error400 struct {
 	ChallengeError
+	Endpoint   string `json:"endpoint"`
 	Action     string `json:"action"`
 	StatusCode string `json:"status_code"`
 	Payload    struct {
@@ -388,11 +393,6 @@ type respLikers struct {
 	Users     []*User `json:"users"`
 	UserCount int64   `json:"user_count"`
 	Status    string  `json:"status"`
-}
-
-type threadResp struct {
-	Conversation Conversation `json:"thread"`
-	Status       string       `json:"status"`
 }
 
 type ErrChallengeProcess struct {

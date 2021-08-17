@@ -263,3 +263,11 @@ func getSupCap() (string, error) {
 	}
 	return string(data), nil
 }
+
+func randNum(l int) string {
+	var num string
+	for i := 0; i < l; i++ {
+		num += toString(random(0, 9))
+	}
+	return num
+}

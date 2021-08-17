@@ -11,7 +11,6 @@ import (
 	"path"
 	"regexp"
 	"strings"
-	"time"
 )
 
 // Media interface defines methods for both StoryMedia and FeedMedia.
@@ -59,6 +58,8 @@ type Item struct {
 	ClientCacheKey        string  `json:"client_cache_key"`
 	FilterType            int     `json:"filter_type"`
 	User                  User    `json:"user"`
+	CanReply              bool    `json:"can_reply"`
+	CanReshare            bool    `json:"can_reshare"` // Used for stories
 	CanViewerReshare      bool    `json:"can_viewer_reshare"`
 	Caption               Caption `json:"caption"`
 	CaptionIsEdited       bool    `json:"caption_is_edited"`
@@ -326,7 +327,7 @@ func (item *Item) Reply(text string) error {
 		return err
 	}
 
-	token := "68" + toString(time.Now().UnixNano)[:17]
+	token := "68" + randNum(17)
 	_, _, err = insta.sendRequest(
 		&reqOptions{
 			Connection: "keep-alive",

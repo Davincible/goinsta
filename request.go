@@ -219,7 +219,7 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 
 	body, err = ioutil.ReadAll(resp.Body)
 	if err == nil {
-		err = isError(resp.StatusCode, body)
+		err = isError(resp.StatusCode, body, resp.Status, o.Endpoint)
 	}
 	insta.extractHeaders(resp.Header)
 
@@ -275,12 +275,12 @@ func (insta *Instagram) extractHeaders(h http.Header) {
 	extract("Ig-Set-Ig-U-Ds-User-Id", "Ig-U-Ds-User-Id")
 }
 
-func isError(code int, body []byte) (err error) {
+func isError(code int, body []byte, status, endpoint string) (err error) {
 	switch code {
 	case 200:
 	case 202:
 	case 400:
-		ierr := Error400{}
+		ierr := Error400{Endpoint: endpoint}
 		err = json.Unmarshal(body, &ierr)
 		if err == nil {
 			if ierr.Message == "challenge_required" {
@@ -294,22 +294,33 @@ func isError(code int, body []byte) (err error) {
 
 	case 403:
 		ierr := Error400{
-			Code: 403,
+			Code:     403,
+			Endpoint: endpoint,
 		}
 		ierr.Message = string(body)
 		return ierr
 	case 429:
 		return ErrTooManyRequests
+	case 500:
+		ierr := ErrorN{
+			Endpoint:  endpoint,
+			Status:    "500",
+			Message:   string(body),
+			ErrorType: status,
+		}
+		return ierr
 	case 503:
 		return Error503{
 			Message: "Instagram API error. Try it later.",
 		}
 	default:
-		ierr := ErrorN{}
-		err = json.Unmarshal(body, &ierr)
-		if err != nil {
-			return err
+		ierr := ErrorN{
+			Endpoint:  endpoint,
+			Status:    strconv.Itoa(code),
+			Message:   string(body),
+			ErrorType: status,
 		}
+		err = json.Unmarshal(body, &ierr)
 		if ierr.Message == "Transcode not finished yet." {
 			return nil
 		}
@@ -340,8 +351,8 @@ func (insta *Instagram) prepareData(other ...map[string]interface{}) (string, er
 
 func (insta *Instagram) prepareDataQuery(other ...map[string]interface{}) map[string]string {
 	data := map[string]string{
-		"_uuid":      insta.uuid,
-		"_csrftoken": insta.token,
+		"_uuid":     insta.uuid,
+		"device_id": insta.dID,
 	}
 	for i := range other {
 		for key, value := range other[i] {

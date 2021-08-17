@@ -221,14 +221,17 @@ const (
 	urlActivityRecent    = "news/inbox/"
 
 	// Inbox
-	urlInbox         = "direct_v2/inbox/"
-	urlInboxPending  = "direct_v2/pending_inbox/"
-	urlInboxSend     = "direct_v2/threads/broadcast/text/"
-	urlInboxSendLike = "direct_v2/threads/broadcast/like/"
-	urlReplyStory    = "direct_v2/threads/broadcast/reel_share/"
-	urlInboxThread   = "direct_v2/threads/%s/"
-	urlInboxMute     = "direct_v2/threads/%s/mute/"
-	urlInboxUnmute   = "direct_v2/threads/%s/unmute/"
+	urlInbox             = "direct_v2/inbox/"
+	urlInboxPending      = "direct_v2/pending_inbox/"
+	urlInboxSend         = "direct_v2/threads/broadcast/text/"
+	urlInboxSendLike     = "direct_v2/threads/broadcast/like/"
+	urlReplyStory        = "direct_v2/threads/broadcast/reel_share/"
+	urlGetByParticipants = "direct_v2/threads/get_by_participants/"
+	urlInboxThread       = "direct_v2/threads/%s/"
+	urlInboxMute         = "direct_v2/threads/%s/mute/"
+	urlInboxUnmute       = "direct_v2/threads/%s/unmute/"
+	urlInboxRefresh      = "direct_v2/threads/%s/get_items/"
+	urlInboxMsgSeen      = "direct_v2/threads/%s/items/%s/seen/"
 
 	// Tags
 	urlTagInfo    = "tags/%s/info/"

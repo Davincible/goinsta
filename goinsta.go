@@ -527,7 +527,7 @@ func (insta *Instagram) OpenApp() (err error) {
 		insta.WarnHandler("Non fatal error while calling store client push permissions", err)
 	}
 
-	if !insta.Inbox.initialSnapshot() {
+	if !insta.Inbox.InitialSnapshot() {
 		return errors.New("Failed to fetch initial messages inbox snapshot: " +
 			insta.Inbox.err.Error())
 	}
