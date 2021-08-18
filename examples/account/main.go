@@ -4,12 +4,10 @@ import (
 	"flag"
 	"log"
 
-	"github.com/Davincible/goinsta/v2"
+	"github.com/Davincible/goinsta"
 )
 
-var (
-	session = flag.String("session", "/tmp/session", "instagram session")
-)
+var session = flag.String("session", "/tmp/session", "instagram session")
 
 func main() {
 	flag.Parse()

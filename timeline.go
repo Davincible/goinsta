@@ -32,7 +32,7 @@ type Timeline struct {
 	SessionID             string
 }
 
-type FeedCache struct {
+type feedCache struct {
 	Items []struct {
 		Media_or_ad *Item `json:"media_or_ad"`
 		EndOfFeed   struct {
@@ -168,7 +168,7 @@ func (tl *Timeline) Next(p ...interface{}) bool {
 		tl.lastRequest = t
 
 		// Decode json
-		tmp := FeedCache{}
+		tmp := feedCache{}
 		d := json.NewDecoder(bytes.NewReader(body))
 		d.UseNumber()
 		err = d.Decode(&tmp)
