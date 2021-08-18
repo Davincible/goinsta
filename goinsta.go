@@ -46,7 +46,7 @@ type Instagram struct {
 
 	// device id: android-1923fjnma8123
 	dID string
-	// family device id: 71cd1aec-e146-4380-8d60-d216127c7b4e
+	// family device id, v4 uuid: 8b13e7b3-28f7-4e05-9474-358c6602e3f8
 	fID string
 	// uuid: 8493-1233-4312312-5123
 	uuid string
@@ -54,9 +54,9 @@ type Instagram struct {
 	rankToken string
 	// token -- I think this is depricated, as I don't see any csrf tokens being used anymore, but not 100% sure
 	token string
-	// phone id
+	// phone id v4 uuid: fbf767a4-260a-490d-bcbb-ee7c9ed7c576
 	pid string
-	// ads id
+	// ads id: 5b23a92b-3228-4cff-b6ab-3199f531f05b
 	adid string
 	// challenge URL
 	challengeURL string
@@ -139,19 +139,36 @@ func (insta *Instagram) SetHTTPTransport(transport http.RoundTripper) {
 	insta.c.Transport = transport
 }
 
-// SetDeviceID sets device id
+// SetDeviceID sets device id | android-1923fjnma8123
 func (insta *Instagram) SetDeviceID(id string) {
 	insta.dID = id
 }
 
-// SetUUID sets uuid
+// SetUUID sets v4 uuid | 71cd1aec-e146-4380-8d60-d216127c7b4e
 func (insta *Instagram) SetUUID(uuid string) {
 	insta.uuid = uuid
 }
 
-// SetPhoneID sets phone id
+// SetPhoneID sets phone id, v4 uuid | fbf767a4-260a-490d-bcbb-ee7c9ed7c576
 func (insta *Instagram) SetPhoneID(id string) {
 	insta.pid = id
+}
+
+// SetPhoneID sets phone family id, v4 uuid | 8b13e7b3-28f7-4e05-9474-358c6602e3f8
+func (insta *Instagram) SetFamilyID(id string) {
+	insta.fID = id
+}
+
+// SetAdID sets the ad id, v4 uuid |  5b23a92b-3228-4cff-b6ab-3199f531f05b
+func (insta *Instagram) SetAdID(id string) {
+	insta.adid = id
+}
+
+// SetDevice allows you to set a custom device. This will also change the
+//   user agent based on the new device.
+func (insta *Instagram) SetDevice(device Device) {
+	insta.device = device
+	insta.userAgent = createUserAgent(device)
 }
 
 // SetCookieJar sets the Cookie Jar. This further allows to use a custom implementation
@@ -275,7 +292,7 @@ func (insta *Instagram) Export(path string) error {
 }
 
 // Export exports selected *Instagram object options to an io.Writer
-func Export(insta *Instagram, writer io.Writer) error {
+func (insta *Instagram) ExportIO(writer io.Writer) error {
 	url, err := neturl.Parse(instaAPIUrl)
 	if err != nil {
 		return err
@@ -936,11 +953,4 @@ func (insta *Instagram) GetMedia(o interface{}) (*FeedMedia, error) {
 		NextID: o,
 	}
 	return media, media.Sync()
-}
-
-// SetDevice allows you to set a custom device. This will also change the
-//   user agent based on the new device.
-func (insta *Instagram) SetDevice(device Device) {
-	insta.device = device
-	insta.userAgent = createUserAgent(device)
 }

@@ -38,10 +38,8 @@ type UploadOptions struct {
 	Title       string
 	IGTVPreview bool
 
-	// Set to true if you want to mute the audio
-	MuteAudio bool
-
 	// Option flags, set to true disable
+	MuteAudio            bool
 	DisableComments      bool
 	DisableLikeViewCount bool
 	DisableSubtitles     bool
