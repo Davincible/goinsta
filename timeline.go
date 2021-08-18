@@ -222,14 +222,19 @@ func (tl *Timeline) Next(p ...interface{}) bool {
 	return false
 }
 
+// SetPullRefresh will set a flag to refresh the timeline on subsequent .Next() call
 func (tl *Timeline) SetPullRefresh() {
 	tl.pullRefresh = true
 }
 
+// UnsetPullRefresh will unset the pull to refresh flag, if you previously manually
+//   set it, and want to unset it.
 func (tl *Timeline) UnsetPullRefresh() {
 	tl.pullRefresh = false
 }
 
+// ClearPosts will unreference the current list of post items. Used when calling
+//   .Refresh()
 func (tl *Timeline) ClearPosts() {
 	tl.Items = []*Item{}
 }
@@ -266,7 +271,10 @@ func (tl *Timeline) fetchTray(reason string) {
 	tl.errChan <- nil
 }
 
+// Refresh will clear the current list of posts, perform a pull to refresh action, 
+//   and refresh the current timeline.
 func (tl *Timeline) Refresh() error {
+	tl.ClearPosts()
 	tl.SetPullRefresh()
 	if !tl.Next() {
 		return tl.err
@@ -288,6 +296,7 @@ func (tl *Timeline) GetNextID() string {
 	return tl.NextID
 }
 
+// Delete is only a placeholder, it does nothing
 func (tl *Timeline) Delete() error {
 	return nil
 }
@@ -296,6 +305,7 @@ func (tl *Timeline) getInsta() *Instagram {
 	return tl.insta
 }
 
+// Error will the error of the Timeline instance if one occured
 func (tl *Timeline) Error() error {
 	return tl.err
 }

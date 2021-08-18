@@ -44,7 +44,7 @@ type Collections struct {
 	Items               []Collection `json:"items"`
 	MoreAvailable       bool         `json:"more_available"`
 	NextID              string       `json:"next_max_id"`
-	LastCount           int
+	NumResults          int
 	Status              string `json:"status"`
 }
 
@@ -128,7 +128,7 @@ func (c *Collections) Next() bool {
 	c.NextID = tmp.NextID
 	c.AutoLoadMoreEnabled = tmp.AutoLoadMoreEnabled
 	c.Status = tmp.Status
-	c.LastCount = len(tmp.Items)
+	c.NumResults = len(tmp.Items)
 
 	for _, i := range tmp.Items {
 		i.insta = insta
@@ -144,7 +144,7 @@ func (c *Collections) Next() bool {
 // Latest will return the last fetched items by indexing with Collections.LastCount.
 // Collections.Next keeps adding to the items, this method only returns the latest items.
 func (c *Collections) Latest() []Collection {
-	return c.Items[len(c.Items)-c.LastCount:]
+	return c.Items[len(c.Items)-c.NumResults:]
 }
 
 // Error returns the error if one occured in Collections.Next()

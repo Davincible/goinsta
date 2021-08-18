@@ -122,7 +122,8 @@ type Item struct {
 	NumberOfQualities int     `json:"number_of_qualities,omitempty"`
 
 	// IGTV
-	IGTVExistsInViewerSeries bool `json:"igtv_exists_in_viewer_series"`
+	Title                    string `json:"title"`
+	IGTVExistsInViewerSeries bool   `json:"igtv_exists_in_viewer_series"`
 	IGTVSeriesInfo           struct {
 		HasCoverPhoto bool `json:"has_cover_photo"`
 		ID            int64
@@ -427,28 +428,12 @@ func getname(name string) string {
 	return name
 }
 
-func download(insta *Instagram, url, dst string) (string, error) {
-	file, err := os.Create(dst)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	resp, err := insta.c.Get(url)
-	if err != nil {
-		return "", err
-	}
-
-	_, err = io.Copy(file, resp.Body)
-	return dst, err
-}
-
 type bestMedia struct {
 	w, h int
 	url  string
 }
 
-// GetBest returns best quality image or video.
+// GetBest returns url to best quality image or video.
 //
 // Arguments can be []Video or []Candidate
 func GetBest(obj interface{}) string {
@@ -639,60 +624,79 @@ func (item *Item) changeLike(endpoint string) error {
 // If file exists it will be saved
 // This function makes folder automatically
 //
-// This function returns an slice of location of downloaded items
-// The returned values are the output path of images and videos.
-//
-// This function does not download CarouselMedia.
-//
 // See example: examples/media/itemDownload.go
-func (item *Item) Download(folder, name string) (imgs, vds string, err error) {
-	var u *neturl.URL
-	var nname string
-	imgFolder := path.Join(folder, "images")
-	vidFolder := path.Join(folder, "videos")
+func (item *Item) Download(folder, name string) (err error) {
 	insta := item.insta
-
 	os.MkdirAll(folder, 0o777)
-	os.MkdirAll(imgFolder, 0o777)
-	os.MkdirAll(vidFolder, 0o777)
 
-	vds = GetBest(item.Videos)
-	if vds != "" {
-		if name == "" {
-			u, err = neturl.Parse(vds)
-			if err != nil {
-				return
-			}
-
-			nname = path.Join(vidFolder, path.Base(u.Path))
-		} else {
-			nname = path.Join(vidFolder, name)
-		}
-		nname = getname(nname)
-
-		vds, err = download(insta, vds, nname)
-		return "", vds, err
+	switch item.MediaType {
+	case 1:
+		return insta.download(folder, name, item.Images.Versions)
+	case 2:
+		return insta.download(folder, name, item.Videos)
+	case 8:
+		return item.downloadCarousel(folder, name)
 	}
 
-	imgs = GetBest(item.Images.Versions)
-	if imgs != "" {
-		if name == "" {
-			u, err = neturl.Parse(imgs)
-			if err != nil {
-				return
-			}
+	insta.WarnHandler(
+		fmt.Sprintf(
+			"Unable to download %s media (media type %d), this has not been implemented",
+			item.MediaToString(),
+			item.MediaType,
+		),
+	)
+	return ErrNoMedia
+}
 
-			nname = path.Join(imgFolder, path.Base(u.Path))
-		} else {
-			nname = path.Join(imgFolder, name)
+func (item *Item) downloadCarousel(folder, name string) error {
+	if name == "" {
+		name = item.ID
+	}
+	for i, media := range item.CarouselMedia {
+		n := fmt.Sprintf("%s_%d", name, i+1)
+		if err := media.Download(folder, n); err != nil {
+			return err
 		}
-		nname = getname(nname)
+	}
+	return nil
+}
 
-		imgs, err = download(insta, imgs, nname)
-		return imgs, "", err
+func (insta *Instagram) download(folder, name string, media interface{}) error {
+	url := GetBest(media)
+	name, err := getDownloadName(url, name)
+	if err != nil {
+		return err
+	}
+	dst := path.Join(folder, name)
+
+	file, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	resp, err := insta.c.Get(url)
+	if err != nil {
+		return err
 	}
 
-	return imgs, vds, fmt.Errorf("cannot find any image or video")
+	_, err = io.Copy(file, resp.Body)
+	return err
+}
+
+func getDownloadName(url, name string) (string, error) {
+	u, err := neturl.Parse(url)
+	if err != nil {
+		return "", err
+	}
+	ext := path.Ext(u.Path)
+	if name == "" {
+		name = path.Base(u.Path)
+	} else if !strings.HasSuffix(name, ext) {
+		name += ext
+	}
+	name = getname(name)
+	return name, nil
 }
 
 // TopLikers returns string slice or single string (inside string slice)

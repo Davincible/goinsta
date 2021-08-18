@@ -282,4 +282,5 @@ var (
 
 	// Misc
 	ErrByteIndexNotFound = errors.New("Failed to index byte slice, delim not found")
+	ErrNoMedia           = errors.New("Failed to download, no media found")
 )

@@ -163,7 +163,7 @@ func createUserAgent(device Device) string {
 // ExportAsBytes exports selected *Instagram object as []byte
 func (insta *Instagram) ExportAsBytes() ([]byte, error) {
 	buffer := &bytes.Buffer{}
-	err := Export(insta, buffer)
+	err := insta.ExportIO(buffer)
 	if err != nil {
 		return nil, err
 	}

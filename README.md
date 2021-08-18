@@ -1,6 +1,13 @@
 ### Fork
 
-This repository has been forked from [ahmdrz/goinsta](https://github.com/ahmdrz/goinsta). As the maintainer of this repositry has been absend the last few months, and the code in the repository was based on a 2 year old instagram app version, since which a lot has changed, I have taken the courtesy to bulid upon his great framework and update the code to be compatible with apk v195.0.0.31.123 (July 6, 2021). Currently, most endpoints have been moved over to the new version, however I have not yet writen tests for all. If you run into problems please open an issue. Documentation is also still on the TODO, as there are a few breaking changes, but nothing a glance at the code can't solve.
+This repository has been forked from [ahmdrz/goinsta](https://github.com/ahmdrz/goinsta). 
+As the maintainer of this repositry has been absend the last few months, and 
+the code in the repository was based on a 2 year old instagram app version, 
+since which a lot has changed, I have taken the courtesy to bulid upon his 
+great framework and update the code to be compatible with apk v195.0.0.31.123 
+(July 6, 2021). After migrating the endpoints and adding new ones, there are 
+are few breaking chnages. You can check the full walkthrough documentation in
+the [wiki](https://github.com/Davincible/goinsta/wiki).
 
 #### Golang + Instagram Private API
 <p align="center"><img width=100% src="https://raw.githubusercontent.com/Davincible/goinsta/v1/resources/goinsta-image.png"></p>

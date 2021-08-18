@@ -77,11 +77,11 @@ type Instagram struct {
 
 	// Instagram objects
 
-	// Timeline allows to receive timeline media.
+	// Timeline provides access to your timeline
 	Timeline *Timeline
 	// Discover provides access to the discover/explore page
 	Discover *Discover
-	// Profiles is the user interaction
+	// Profiles provides methods for interaction with other user's profiles
 	Profiles *Profiles
 	// IGTV allows you to fetch the IGTV Discover page
 	IGTV *IGTV
@@ -89,17 +89,17 @@ type Instagram struct {
 	Account *Account
 	// Collections represents your collections with saved posts
 	Collections *Collections
-	// Searchbar performs searching of multiple things (users, locations...)
+	// Searchbar provides methods to access IG's search functionalities
 	Searchbar *Search
 	// Activity are instagram notifications.
 	Activity *Activity
-	// Inbox are instagram message/chat system.
+	// Inbox provides to Instagram's message/chat system
 	Inbox *Inbox
-	// Feed for search over feeds
+	// Feed provides access to secondary feeds such as user's and hashtag's feeds
 	Feed *Feed
-	// User contacts from mobile address book
+	// Contacts provides address book sync/unsync methods
 	Contacts *Contacts
-	// Location instance
+	// Locations provide feed by location ID. To find location feeds by name use Searchbar
 	Locations *LocationInstance
 	// Challenge stores the challenge info if provided
 	Challenge *Challenge

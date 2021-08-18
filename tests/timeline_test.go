@@ -2,6 +2,7 @@ package tests
 
 import (
 	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -28,4 +29,38 @@ outside:
 	}
 
 	t.Logf("Gathered %d posts, %f on last request\n", len(tl.Items), tl.NumResults)
+}
+
+func TestDownload(t *testing.T) {
+	insta, err := getRandomAccount()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Logged in as %s\n", insta.Account.Username)
+
+	if !insta.Timeline.Next() {
+		t.Fatal(insta.Timeline.Error())
+	}
+	posts := insta.Timeline.Items
+	if len(posts) == 0 {
+		t.Fatal("No posts found")
+	}
+
+	rand.Seed(time.Now().UnixNano())
+	randN := rand.Intn(len(posts))
+	post := posts[randN]
+
+	folder := "downloads/" + strconv.FormatInt(time.Now().Unix(), 10)
+	err = post.Download(folder, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	randN = rand.Intn(len(posts))
+	post = posts[randN]
+	err = post.Download(folder, "testy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Downloaded posts to %s", folder)
 }

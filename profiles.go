@@ -12,7 +12,7 @@ type Profiles struct {
 	insta *Instagram
 }
 
-// Profile represnts an instagram user with their various properties, such as
+// Profile represents an instagram user with their various properties, such as
 //   their account info, stored in Profile.User (a *User struct), feed, stories,
 //   Highlights, IGTV posts, and friendship status.
 //
@@ -114,7 +114,7 @@ func (user *User) VisitProfile() (*Profile, error) {
 	}
 
 	// Fetch IGTV
-	if user.HasIGTVSeries {
+	if user.IGTVCount > 0 {
 		igtv, err := user.IGTV()
 		if err != nil {
 			return nil, err
@@ -148,11 +148,6 @@ func (prof *Profiles) ByName(name string) (*User, error) {
 		}
 	}
 	return nil, err
-}
-
-// GetUserByID is a wrapper for Profiles.ByID(id)
-func (insta *Instagram) GetUserByID(id interface{}) (*User, error) {
-	return insta.Profiles.ByID(id)
 }
 
 // ByID returns a *User structure parsed by user id.

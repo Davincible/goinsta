@@ -6,7 +6,7 @@ type Discover struct {
 	insta      *Instagram
 	sessionId  string
 	err        error
-	AllItems   []DiscoverSectionalItem
+	Items      []DiscoverSectionalItem
 	NumResults int
 
 	AutoLoadMoreEnabled bool `json:"auto_load_more_enabled"`
@@ -117,7 +117,7 @@ func (disc *Discover) Next() bool {
 		return false
 	}
 	disc.setValues()
-	disc.AllItems = append(disc.AllItems, disc.SectionalItems...)
+	disc.Items = append(disc.Items, disc.SectionalItems...)
 	disc.NumResults = len(disc.SectionalItems)
 	return true
 }

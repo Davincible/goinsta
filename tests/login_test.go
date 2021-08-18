@@ -35,7 +35,7 @@ func logPosts(t *testing.T, insta *goinsta.Instagram) {
 	t.Logf("Gathered %d Timeline posts, %d Stories, %d Discover items, %d Notifications",
 		len(insta.Timeline.Items),
 		len(insta.Timeline.Tray.Stories),
-		len(insta.Discover.AllItems),
+		len(insta.Discover.Items),
 		len(insta.Activity.NewStories)+len(insta.Activity.OldStories),
 	)
 }

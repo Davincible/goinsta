@@ -273,7 +273,11 @@ func (insta *Instagram) sendSearchRegisterRequest(query map[string]string) error
 }
 
 func (sb *Search) search(query string, fn func(string) (*SearchResult, error)) (*SearchResult, error) {
-	sb.insta.Discover.Next()
+	insta := sb.insta
+
+	if insta.Discover.NumResults == 0 {
+		sb.insta.Discover.Next()
+	}
 	h, err := sb.history()
 	if err != nil {
 		sb.insta.WarnHandler("Non fatal error while fetcihng recent search results",

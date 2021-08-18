@@ -64,7 +64,7 @@ outside:
 		time.Sleep(time.Duration(rand.Intn(10)) * time.Second)
 	}
 
-	t.Logf("Gathered %d posts, %d on last request\n", len(feed.AllItems), feed.NumResults)
+	t.Logf("Gathered %d posts, %d on last request\n", len(feed.Items), feed.NumResults)
 }
 
 func TestFeedTagLike(t *testing.T) {
