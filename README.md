@@ -6,7 +6,7 @@ the code in the repository was based on a 2 year old instagram app version,
 since which a lot has changed, I have taken the courtesy to bulid upon his 
 great framework and update the code to be compatible with apk v195.0.0.31.123 
 (July 6, 2021). After migrating the endpoints and adding new ones, there are 
-are few breaking chnages. You can check the full walkthrough documentation in
+are few breaking changes. You can check the full walkthrough documentation in
 the [wiki](https://github.com/Davincible/goinsta/wiki).
 
 #### Golang + Instagram Private API
@@ -58,6 +58,8 @@ func main() {
   ...
 }
 ```
+
+For the full documentation, check the [wiki](https://github.com/Davincible/goinsta/wiki), or run `go doc -all`.
 
 ### Legal
 
