@@ -166,6 +166,13 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 			}
 		}
 	}
+	setHeadersAsync := func(key, value interface{}) bool {
+		k, v := key.(string), value.(string)
+		if v != "" && !ignoreHeader(k) {
+			req.Header.Set(k, v)
+		}
+		return true
+	}
 
 	headers := map[string]string{
 		"Accept-Language":             locale,
@@ -207,7 +214,7 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 
 	setHeaders(headers)
 	setHeaders(o.ExtraHeaders)
-	setHeaders(insta.headerOptions)
+	insta.headerOptions.Range(setHeadersAsync)
 
 	resp, err := insta.c.Do(req)
 	if err != nil {
@@ -260,14 +267,18 @@ func (insta *Instagram) extractHeaders(h http.Header) {
 		x := h[in]
 		if len(x) > 0 && x[0] != "" {
 			// prevent from auth being set without token post login
-			if in == "Ig-Set-Authorization" && len(insta.headerOptions[out]) != 0 {
-				current := strings.Split(insta.headerOptions[out], ":")
-				newHeader := strings.Split(x[0], ":")
-				if len(current[2]) > len(newHeader[2]) {
-					return
+			if in == "Ig-Set-Authorization" {
+				old, ok := insta.headerOptions.Load(out)
+				if ok && len(old.(string)) != 0 {
+					current := strings.Split(old.(string), ":")
+					newHeader := strings.Split(x[0], ":")
+					if len(current[2]) > len(newHeader[2]) {
+						return
+					}
+
 				}
 			}
-			insta.headerOptions[out] = x[0]
+			insta.headerOptions.Store(out, x[0])
 		}
 	}
 

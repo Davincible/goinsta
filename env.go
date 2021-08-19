@@ -22,11 +22,53 @@ type encAcc struct {
 	Base64   string
 }
 
+// EnvRandAcc will check the environment variables, and the .env file in
+//   the current working directory (unless another path has been provided),
+//   for either a base64 encoded goinsta config, or plain credentials.
+//
+// To use this function, add one or multiple of the following:
+//   INSTAGRAM_ACT_<name>="username:password"
+//   INSTAGRAM_BASE64_<name>="<base64 encoded config>"
+//
+// INSTAGRAM_ACT_ variables will automatiaclly be converted to INSTAGRAM_BASE64_
+//
+func EnvRandAcc(path ...string) (*Instagram, error) {
+	err := checkEnv(path...)
+	if err != nil {
+		return nil, err
+	}
+	return getRandAcc(path...)
+}
+
+// EnvRandLogin fetches a random login from the env.
+// :param: path (OPTIONAL) - path to a file, by default .env
+//
+// Looks for INSTAGRAM_ACT_<name>="username:password" in env
+//
+func EnvRandLogin(path ...string) (string, string, error) {
+	accs, err := avPlainAcc(path...)
+	if err != nil {
+		return "", "", err
+	}
+
+	for {
+		i := rand.Intn(len(accs))
+		r := accs[i]
+		if r.Username != "" && r.Password != "" {
+			return r.Username, r.Password, nil
+		}
+		accs = append(accs[:i], accs[i+1:]...)
+		if len(accs) == 0 {
+			return "", "", ErrNoValidLogin
+		}
+	}
+}
+
 // ProvisionEnv will check the environment variables for INSTAGRAM_ACT_ and
 //   create a base64 encoded config for the account, and write it to path.
 //
-// :param: path                    - path a file to use as env, commonly a .env, but not required.
-// :param: skipExisting (OPTIONAL) - don't create a config if it already exists
+// :param: path               - path a file to use as env, commonly a .env, but not required.
+// :param: refresh (OPTIONAL) - refresh all plaintext credentials, don't skip already converted accounts
 //
 // This function has been created the use of a .env file in mind.
 //
@@ -36,9 +78,11 @@ type encAcc struct {
 // This function will add to the .env:
 //   INSTAGRAM_BASE64_<name>="..."
 //
-func ProvisionEnv(path string, skipExisting ...bool) error {
+func ProvisionEnv(path string, refresh ...bool) error {
 	skipList := []encAcc{}
-	if len(skipExisting) > 0 && skipExisting[0] {
+
+	// By default, skip exisitng accounts
+	if len(refresh) == 0 || (len(refresh) > 0 && !refresh[0]) {
 		var err error
 		skipList, err = avEncAcc()
 		if err != nil {
@@ -131,24 +175,6 @@ func ProvisionEnv(path string, skipExisting ...bool) error {
 	return nil
 }
 
-// EnvRandAcc will check the environment variables, and the .env file in
-//   the current working directory (unless another path has been provided),
-//   for either a base64 encoded goinsta config, or plain credentials.
-//
-// To use this function, add one or multiple of the following:
-//   INSTAGRAM_ACT_<name>="username:password"
-//   INSTAGRAM_BASE64_<name>="<base64 encoded config>"
-//
-// INSTAGRAM_ACT_ variables will automatiaclly be converted to INSTAGRAM_BASE64_
-//
-func EnvRandAcc(path ...string) (*Instagram, error) {
-	err := checkEnv(path...)
-	if err != nil {
-		return nil, err
-	}
-	return getRandAcc(path...)
-}
-
 // checkEnv will check the env variables for accounts that do have a login,
 //    but no config (INSTAGRAM_BASE64_<...>). If one is found, call ProvisionEnv
 func checkEnv(path ...string) error {
@@ -180,7 +206,7 @@ func checkEnv(path ...string) error {
 			if len(path) > 0 {
 				p = path[0]
 			}
-			ProvisionEnv(p)
+			ProvisionEnv(p, true)
 			break
 		}
 	}
@@ -209,30 +235,6 @@ func getRandAcc(path ...string) (*Instagram, error) {
 		return nil, err
 	}
 	return insta, err
-}
-
-// EnvRandLogin fetches a random login from the env.
-// :param: path (OPTIONAL) - path to a file, by default .env
-//
-// Looks for INSTAGRAM_ACT_<name>="username:password" in env
-//
-func EnvRandLogin(path ...string) (string, string, error) {
-	accs, err := avPlainAcc(path...)
-	if err != nil {
-		return "", "", err
-	}
-
-	for {
-		i := rand.Intn(len(accs))
-		r := accs[i]
-		if r.Username != "" && r.Password != "" {
-			return r.Username, r.Password, nil
-		}
-		accs = append(accs[:i], accs[i+1:]...)
-		if len(accs) == 0 {
-			return "", "", ErrNoValidLogin
-		}
-	}
 }
 
 // avEncAcc gets all available encoded accounts

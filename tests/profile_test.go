@@ -7,7 +7,7 @@ import (
 )
 
 func TestProfileVisit(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +26,7 @@ func TestProfileVisit(t *testing.T) {
 }
 
 func TestProfilesByName(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestProfilesByName(t *testing.T) {
 }
 
 func TestProfilesByID(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestProfilesByID(t *testing.T) {
 }
 
 func TestProfilesBlocked(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}

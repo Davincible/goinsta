@@ -9,7 +9,7 @@ import (
 )
 
 func TestSearchUser(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestSearchUser(t *testing.T) {
 }
 
 func TestSearchHashtag(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestSearchHashtag(t *testing.T) {
 }
 
 func TestSearchLocation(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}

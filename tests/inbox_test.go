@@ -26,7 +26,7 @@ var possibleUsers = []string{
 }
 
 func TestStoryReply(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestStoryReply(t *testing.T) {
 }
 
 func TestInboxSync(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestInboxSync(t *testing.T) {
 }
 
 func TestInboxNew(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -16,10 +16,7 @@ import (
 	"github.com/Davincible/goinsta"
 )
 
-var (
-	errNoValidLogin = errors.New("No valid login found")
-	errNoAPIKEY     = errors.New("No API Key has been found. Please add one to .env")
-)
+var errNoAPIKEY = errors.New("No API Key has been found. Please add one to .env")
 
 type pixaBayRes struct {
 	Total     int `json:"total"`
@@ -49,7 +46,7 @@ type video struct {
 
 func TestGetRandomAccount(t *testing.T) {
 	for i := 0; i < 50; i++ {
-		insta, err := goinsta.GetRandomAcc()
+		insta, err := goinsta.EnvRandAcc()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -59,7 +56,7 @@ func TestGetRandomAccount(t *testing.T) {
 
 func TestGetRandomLogin(t *testing.T) {
 	for i := 0; i < 50; i++ {
-		uname, pw, err := goinsta.GetRandLogin()
+		uname, pw, err := goinsta.EnvRandLogin()
 		if err != nil {
 			t.Fatal(err)
 		}

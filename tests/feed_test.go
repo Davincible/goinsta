@@ -9,7 +9,7 @@ import (
 )
 
 func TestFeedUser(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ outside:
 }
 
 func TestFeedDiscover(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ outside:
 }
 
 func TestFeedTagLike(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestFeedTagLike(t *testing.T) {
 }
 
 func TestFeedTagNextOld(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestFeedTagNextOld(t *testing.T) {
 }
 
 func TestFeedTagNext(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +168,7 @@ func TestFeedTagNext(t *testing.T) {
 }
 
 func TestFeedTagNextRecent(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}

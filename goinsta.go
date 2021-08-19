@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/Davincible/goinsta/utilities"
@@ -63,7 +64,7 @@ type Instagram struct {
 	// pigeonSessionId
 	psID string
 	// contains header options set by Instagram
-	headerOptions map[string]string
+	headerOptions sync.Map
 	// expiry of X-Mid cookie
 	xmidExpiry int64
 	// Public Key
@@ -199,7 +200,7 @@ func New(username, password string) *Instagram {
 		pid:           generateUUID(),
 		fID:           generateUUID(),
 		psID:          "UFS-" + generateUUID() + "-0",
-		headerOptions: defaultHeaderOptions,
+		headerOptions: sync.Map{},
 		xmidExpiry:    -1,
 		device:        GalaxyS10,
 		userAgent:     createUserAgent(GalaxyS10),
@@ -213,6 +214,10 @@ func New(username, password string) *Instagram {
 		WarnHandler: defaultHandler,
 	}
 	insta.init()
+
+	for k, v := range defaultHeaderOptions {
+		insta.headerOptions.Store(k, v)
+	}
 
 	return insta
 }
@@ -278,7 +283,7 @@ func (insta *Instagram) Export(path string) error {
 		Token:         insta.token,
 		PhoneID:       insta.pid,
 		XmidExpiry:    insta.xmidExpiry,
-		HeaderOptions: insta.headerOptions,
+		HeaderOptions: map[string]string{},
 		Cookies:       insta.c.Jar.Cookies(url),
 		Account:       insta.Account,
 		Device:        insta.device,
@@ -287,6 +292,12 @@ func (insta *Instagram) Export(path string) error {
 	if err != nil {
 		return err
 	}
+
+	setHeaders := func(key, value interface{}) bool {
+		config.HeaderOptions[key.(string)] = value.(string)
+		return true
+	}
+	insta.headerOptions.Range(setHeaders)
 
 	return ioutil.WriteFile(path, bytes, 0o644)
 }
@@ -308,11 +319,18 @@ func (insta *Instagram) ExportIO(writer io.Writer) error {
 		Token:         insta.token,
 		PhoneID:       insta.pid,
 		XmidExpiry:    insta.xmidExpiry,
-		HeaderOptions: insta.headerOptions,
+		HeaderOptions: map[string]string{},
 		Cookies:       insta.c.Jar.Cookies(url),
 		Account:       insta.Account,
 		Device:        insta.device,
 	}
+
+	setHeaders := func(key, value interface{}) bool {
+		config.HeaderOptions[key.(string)] = value.(string)
+		return true
+	}
+
+	insta.headerOptions.Range(setHeaders)
 	bytes, err := json.Marshal(config)
 	if err != nil {
 		return err
@@ -356,7 +374,7 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 		token:         config.Token,
 		pid:           config.PhoneID,
 		xmidExpiry:    config.XmidExpiry,
-		headerOptions: config.HeaderOptions,
+		headerOptions: sync.Map{},
 		device:        config.Device,
 		c: &http.Client{
 			Transport: &http.Transport{
@@ -373,6 +391,10 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 		return insta, err
 	}
 	insta.c.Jar.SetCookies(url, config.Cookies)
+
+	for k, v := range config.HeaderOptions {
+		insta.headerOptions.Store(k, v)
+	}
 
 	insta.init()
 

@@ -8,7 +8,7 @@ import (
 
 func TestImportAccount(t *testing.T) {
 	// Test Login
-	user, pass, err := goinsta.GetRandLogin()
+	user, pass, err := goinsta.EnvRandLogin()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,7 +22,7 @@ func TestImportAccount(t *testing.T) {
 	logPosts(t, insta)
 
 	// Test Import
-	insta, err = goinsta.GetRandomAcc()
+	insta, err = goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}

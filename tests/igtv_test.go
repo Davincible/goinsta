@@ -7,7 +7,7 @@ import (
 )
 
 func TestIGTVChannel(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestIGTVChannel(t *testing.T) {
 }
 
 func TestIGTVSeries(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestIGTVSeries(t *testing.T) {
 }
 
 func TestIGTVLive(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestIGTVLive(t *testing.T) {
 }
 
 func TestIGTVDiscover(t *testing.T) {
-	insta, err := goinsta.GetRandomAcc()
+	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
