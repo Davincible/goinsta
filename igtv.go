@@ -66,21 +66,21 @@ type IGTVChannel struct {
 	id    string // user id parameter
 	err   error
 
-	ApproxTotalVideos        interface{} `json:"approx_total_videos"`
-	ApproxVideosFormatted    interface{} `json:"approx_videos_formatted"`
-	CoverPhotoUrl            string      `json:"cover_photo_url"`
-	Description              string      `json:"description"`
-	ID                       string      `json:"id"`
-	Items                    []*Item     `json:"items"`
-	NumResults               int         `json:"num_results"`
-	Broadcasts               []Broadcast `json:"live_items"`
-	Title                    string      `json:"title"`
-	Type                     string      `json:"type"`
-	User                     *User       `json:"user_dict"`
-	DestinationClientConfigs interface{} `json:"destination_client_configs"`
-	NextID                   interface{} `json:"max_id"`
-	MoreAvailable            bool        `json:"more_available"`
-	SeenState                interface{} `json:"seen_state"`
+	ApproxTotalVideos        interface{}  `json:"approx_total_videos"`
+	ApproxVideosFormatted    interface{}  `json:"approx_videos_formatted"`
+	CoverPhotoUrl            string       `json:"cover_photo_url"`
+	Description              string       `json:"description"`
+	ID                       string       `json:"id"`
+	Items                    []*Item      `json:"items"`
+	NumResults               int          `json:"num_results"`
+	Broadcasts               []*Broadcast `json:"live_items"`
+	Title                    string       `json:"title"`
+	Type                     string       `json:"type"`
+	User                     *User        `json:"user_dict"`
+	DestinationClientConfigs interface{}  `json:"destination_client_configs"`
+	NextID                   interface{}  `json:"max_id"`
+	MoreAvailable            bool         `json:"more_available"`
+	SeenState                interface{}  `json:"seen_state"`
 }
 
 func newIGTV(insta *Instagram) *IGTV {
@@ -226,12 +226,12 @@ func (insta *Instagram) callIGTVChannel(id, nextID string) (*IGTVChannel, error)
 	if err != nil {
 		return nil, err
 	}
-	igtv := IGTVChannel{insta: insta, id: id}
+	igtv := &IGTVChannel{insta: insta, id: id}
 	d := json.NewDecoder(bytes.NewReader(body))
 	d.UseNumber()
-	err = d.Decode(&igtv)
+	err = d.Decode(igtv)
 	igtv.setValues()
-	return &igtv, err
+	return igtv, err
 }
 
 func (igtv *IGTVChannel) Delete() error {
@@ -253,6 +253,9 @@ func (igtv *IGTVChannel) setValues() {
 	}
 	for _, i := range igtv.Items {
 		setToItem(i, igtv)
+	}
+	for _, br := range igtv.Broadcasts {
+		br.setValues(insta)
 	}
 }
 

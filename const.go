@@ -191,10 +191,10 @@ const (
 	urlMediaBlocked = "media/blocked/"
 
 	// Broadcasts
-	urlLiveInfo      = "live/%s/info/"
-	urlLiveComments  = "live/%s/get_comment/"
-	urlLiveLikeCount = "live/%s/get_like_count/"
-	urlLiveHeartbeat = "live/%s/heartbeat_and_get_viewer_count/"
+	urlLiveInfo      = "live/%d/info/"
+	urlLiveComments  = "live/%d/get_comment/"
+	urlLiveLikeCount = "live/%d/get_like_count/"
+	urlLiveHeartbeat = "live/%d/heartbeat_and_get_viewer_count/"
 
 	// IGTV
 	urlIGTVDiscover = "igtv/discover/"
@@ -283,4 +283,8 @@ var (
 	// Misc
 	ErrByteIndexNotFound = errors.New("Failed to index byte slice, delim not found")
 	ErrNoMedia           = errors.New("Failed to download, no media found")
+	ErrInstaNotDefined   = errors.New(
+		"Insta has not been defined, this is most likely a bug in the code. Please backtrack which call this error came from, and open an issue detailing exactly how you got to this error.",
+	)
+	ErrNoValidLogin = errors.New("No valid login found")
 )

@@ -67,6 +67,9 @@ func (insta *Instagram) sendSimpleRequest(uri string, a ...interface{}) (body []
 }
 
 func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, err error) {
+	if insta == nil {
+		return nil, nil, fmt.Errorf("Error while calling %s: %s", o.Endpoint, ErrInstaNotDefined)
+	}
 	insta.checkXmidExpiry()
 
 	method := "GET"

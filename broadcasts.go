@@ -2,6 +2,7 @@ package goinsta
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 )
 
@@ -13,9 +14,11 @@ type Broadcast struct {
 	LastCommentFetchTs int64
 	LastCommentTotal   int
 
-	ID                         int64   `json:"id"`
-	MediaID                    string  `json:"media_id"`
-	LivePostID                 int64   `json:"live_post_id"`
+	ID         int64  `json:"id"`
+	MediaID    string `json:"media_id"`
+	LivePostID int64  `json:"live_post_id"`
+
+	// BroadcastStatus is either "active" or "stopped"
 	BroadcastStatus            string  `json:"broadcast_status"`
 	DashPlaybackUrl            string  `json:"dash_playback_url"`
 	DashAbrPlaybackUrl         string  `json:"dash_abr_playback_url"`
@@ -28,7 +31,7 @@ type Broadcast struct {
 	User                       User    `json:"broadcast_owner"`
 	Cobroadcasters             []*User `json:"cobroadcasters"`
 	PublishedTime              int64   `json:"published_time"`
-	BroadcastMessage           string  `json:"broadcast_message"`
+	Message                    string  `json:"broadcast_message"`
 	OrganicTrackingToken       string  `json:"organic_tracking_token"`
 	IsPlayerLiveTrace          int     `json:"is_player_live_trace_enabled"`
 	IsGamingContent            bool    `json:"is_gaming_content"`
@@ -38,6 +41,7 @@ type Broadcast struct {
 	HideFromFeedUnit           bool    `json:"hide_from_feed_unit"`
 	VideoDuration              float64 `json:"video_duration"`
 	Visibility                 int     `json:"visibility"`
+	ViewerCount                float64 `json:"viewer_count"`
 	ResponseTs                 int64   `json:"response_timestamp"`
 	Status                     string  `json:"status"`
 	Dimensions                 struct {
@@ -70,22 +74,22 @@ type Broadcast struct {
 }
 
 type BroadcastComments struct {
-	CommentLikesEnabled        bool      `json:"comment_likes_enabled"`
-	Comments                   []Comment `json:"comments"`
-	PinnedComment              Comment   `json:"pinned_comment"`
-	CommentCount               int       `json:"comment_count"`
-	Caption                    Caption   `json:"caption"`
-	CaptionIsEdited            bool      `json:"caption_is_edited"`
-	HasMoreComments            bool      `json:"has_more_comments"`
-	HasMoreHeadloadComments    bool      `json:"has_more_headload_comments"`
-	MediaHeaderDisplay         string    `json:"media_header_display"`
-	CanViewMorePreviewComments bool      `json:"can_view_more_preview_comments"`
-	LiveSecondsPerComment      int       `json:"live_seconds_per_comment"`
-	IsFirstFetch               string    `json:"is_first_fetch"`
-	SystemComments             []Comment `json:"system_comments"`
-	CommentMuted               int       `json:"comment_muted"`
-	IsViewerCommentAllowed     bool      `json:"is_viewer_comment_allowed"`
-	Status                     string    `json:"status"`
+	CommentLikesEnabled        bool       `json:"comment_likes_enabled"`
+	Comments                   []*Comment `json:"comments"`
+	PinnedComment              *Comment   `json:"pinned_comment"`
+	CommentCount               int        `json:"comment_count"`
+	Caption                    *Caption   `json:"caption"`
+	CaptionIsEdited            bool       `json:"caption_is_edited"`
+	HasMoreComments            bool       `json:"has_more_comments"`
+	HasMoreHeadloadComments    bool       `json:"has_more_headload_comments"`
+	MediaHeaderDisplay         string     `json:"media_header_display"`
+	CanViewMorePreviewComments bool       `json:"can_view_more_preview_comments"`
+	LiveSecondsPerComment      int        `json:"live_seconds_per_comment"`
+	IsFirstFetch               string     `json:"is_first_fetch"`
+	SystemComments             []*Comment `json:"system_comments"`
+	CommentMuted               int        `json:"comment_muted"`
+	IsViewerCommentAllowed     bool       `json:"is_viewer_comment_allowed"`
+	Status                     string     `json:"status"`
 }
 
 type BroadcastLikes struct {
@@ -125,7 +129,7 @@ func (br *Broadcast) Discover() (*IGTVChannel, error) {
 func (br *Broadcast) GetInfo() error {
 	body, _, err := br.insta.sendRequest(
 		&reqOptions{
-			Endpoint: urlLiveComments,
+			Endpoint: fmt.Sprintf(urlLiveInfo, br.ID),
 			Query: map[string]string{
 				"view_expired_broadcast": "false",
 			},
@@ -142,7 +146,7 @@ func (br *Broadcast) GetInfo() error {
 func (br *Broadcast) GetComments() (*BroadcastComments, error) {
 	body, _, err := br.insta.sendRequest(
 		&reqOptions{
-			Endpoint: urlLiveComments,
+			Endpoint: fmt.Sprintf(urlLiveComments, br.ID),
 			Query: map[string]string{
 				"last_comment_ts":               strconv.Itoa(int(br.LastCommentTs)),
 				"join_request_last_seen_ts":     "0",
@@ -170,7 +174,7 @@ func (br *Broadcast) GetComments() (*BroadcastComments, error) {
 func (br *Broadcast) GetLikes() (*BroadcastLikes, error) {
 	body, _, err := br.insta.sendRequest(
 		&reqOptions{
-			Endpoint: urlLiveComments,
+			Endpoint: fmt.Sprintf(urlLiveLikeCount, br.ID),
 			Query: map[string]string{
 				"like_ts": strconv.Itoa(int(br.LastLikeTs)),
 			},
@@ -192,7 +196,7 @@ func (br *Broadcast) GetLikes() (*BroadcastLikes, error) {
 func (br *Broadcast) GetHeartbeat() (*BroadcastHeartbeat, error) {
 	body, _, err := br.insta.sendRequest(
 		&reqOptions{
-			Endpoint: urlLiveComments,
+			Endpoint: fmt.Sprintf(urlLiveHeartbeat, br.ID),
 			IsPost:   true,
 			Query: map[string]string{
 				"_uuid":                 br.insta.uuid,

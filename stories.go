@@ -41,7 +41,7 @@ type StoryCTA struct {
 // StoryMedia is the struct that handles the information from the methods to get info about Stories.
 type StoryMedia struct {
 	Reel       Reel         `json:"reel"`
-	Broadcast  Broadcast    `json:"broadcast"`
+	Broadcast  *Broadcast   `json:"broadcast"`
 	Broadcasts []*Broadcast `json:"broadcasts"`
 	Status     string       `json:"status"`
 }
@@ -139,7 +139,9 @@ func (media *Reel) Delete() error {
 
 func (media *StoryMedia) setValues(insta *Instagram) {
 	media.Reel.setValues(insta)
-	media.Broadcast.setValues(insta)
+	if media.Broadcast != nil {
+		media.Broadcast.setValues(insta)
+	}
 	for _, br := range media.Broadcasts {
 		br.setValues(insta)
 	}

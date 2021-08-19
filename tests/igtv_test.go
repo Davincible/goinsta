@@ -7,7 +7,7 @@ import (
 )
 
 func TestIGTVChannel(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestIGTVChannel(t *testing.T) {
 }
 
 func TestIGTVSeries(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,30 +59,61 @@ func TestIGTVSeries(t *testing.T) {
 }
 
 func TestIGTVLive(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("Logged in as %s\n", insta.Account.Username)
 
-	broadcasts, err := insta.IGTV.Live()
+	igtv, err := insta.IGTV.Live()
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("Found %d broadcasts. More Available = %v", len(broadcasts.Broadcasts), broadcasts.MoreAvailable)
 
-	if broadcasts.MoreAvailable {
-		broadcasts, err := broadcasts.Live()
+	broadcasts := igtv.Broadcasts
+	t.Logf("Found %d broadcasts. More Available = %v\n", len(broadcasts), igtv.MoreAvailable)
+	if len(broadcasts) == 0 {
+		t.Fatal("No broadcasts found")
+	}
+
+	if igtv.MoreAvailable {
+		igtv, err := igtv.Live()
 		if err != nil {
 			t.Fatal(err)
 		}
-		t.Logf("Found %d broadcasts. More Available = %v", len(broadcasts.Broadcasts), broadcasts.MoreAvailable)
-
+		t.Logf("Found %d broadcasts. More Available = %v\n", len(igtv.Broadcasts), igtv.MoreAvailable)
 	}
+
+	for _, br := range broadcasts {
+		t.Logf("Broadcast by %s has %d viewers\n", br.User.Username, int(br.ViewerCount))
+	}
+
+	br := broadcasts[0]
+	if err := br.GetInfo(); err != nil {
+		t.Fatal(err)
+	}
+
+	comments, err := br.GetComments()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Comment Count: %d\n", comments.CommentCount)
+
+	likes, err := br.GetLikes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Like Count: %d\n", likes.Likes)
+
+	heartbeat, err := br.GetHeartbeat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Viewer Count: %d\n", int(heartbeat.ViewerCount))
 }
 
 func TestIGTVDiscover(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}

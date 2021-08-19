@@ -3,7 +3,6 @@ package goinsta
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"math/rand"
 	"time"
 )
@@ -119,7 +118,7 @@ func (tl *Timeline) Next(p ...interface{}) bool {
 		// not the best error handling
 		e := <-tl.errChan
 		if e != nil {
-			fmt.Println("Failed to fetch stories:", e)
+			insta.WarnHandler("Failed to fetch stories:", e)
 			tl.err = e
 		}
 	}
@@ -271,7 +270,7 @@ func (tl *Timeline) fetchTray(reason string) {
 	tl.errChan <- nil
 }
 
-// Refresh will clear the current list of posts, perform a pull to refresh action, 
+// Refresh will clear the current list of posts, perform a pull to refresh action,
 //   and refresh the current timeline.
 func (tl *Timeline) Refresh() error {
 	tl.ClearPosts()

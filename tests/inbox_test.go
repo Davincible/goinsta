@@ -4,6 +4,8 @@ import (
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/Davincible/goinsta"
 )
 
 // Random big accounts used for story reply and DM tests
@@ -24,7 +26,7 @@ var possibleUsers = []string{
 }
 
 func TestStoryReply(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +57,7 @@ func TestStoryReply(t *testing.T) {
 }
 
 func TestInboxSync(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +76,7 @@ func TestInboxSync(t *testing.T) {
 }
 
 func TestInboxNew(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}

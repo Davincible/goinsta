@@ -1,9 +1,13 @@
 package tests
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Davincible/goinsta"
+)
 
 func TestProfileVisit(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,7 +26,7 @@ func TestProfileVisit(t *testing.T) {
 }
 
 func TestProfilesByName(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +39,7 @@ func TestProfilesByName(t *testing.T) {
 }
 
 func TestProfilesByID(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +52,7 @@ func TestProfilesByID(t *testing.T) {
 }
 
 func TestProfilesBlocked(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}

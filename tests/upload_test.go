@@ -12,7 +12,7 @@ import (
 )
 
 func TestUploadPhoto(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestUploadPhoto(t *testing.T) {
 }
 
 func TestUploadThumbVideo(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestUploadThumbVideo(t *testing.T) {
 }
 
 func TestUploadVideo(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestUploadVideo(t *testing.T) {
 }
 
 func TestUploadStoryPhoto(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestUploadStoryPhoto(t *testing.T) {
 }
 
 func TestUploadStoryVideo(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +213,7 @@ func TestUploadStoryVideo(t *testing.T) {
 }
 
 func TestUploadStoryMultiVideo(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +245,7 @@ func TestUploadStoryMultiVideo(t *testing.T) {
 }
 
 func TestUploadCarousel(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -311,7 +311,7 @@ func TestUploadCarousel(t *testing.T) {
 }
 
 func TestUploadIGTV(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}

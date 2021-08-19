@@ -5,10 +5,12 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/Davincible/goinsta"
 )
 
 func TestTimeline(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +34,7 @@ outside:
 }
 
 func TestDownload(t *testing.T) {
-	insta, err := getRandomAccount()
+	insta, err := goinsta.GetRandomAcc()
 	if err != nil {
 		t.Fatal(err)
 	}
