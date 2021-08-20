@@ -18,7 +18,7 @@ type Broadcast struct {
 	MediaID    string `json:"media_id"`
 	LivePostID int64  `json:"live_post_id"`
 
-	// BroadcastStatus is either "active" or "stopped"
+	// BroadcastStatus is either "active", "interrupted", "stopped"
 	BroadcastStatus            string  `json:"broadcast_status"`
 	DashPlaybackUrl            string  `json:"dash_playback_url"`
 	DashAbrPlaybackUrl         string  `json:"dash_abr_playback_url"`

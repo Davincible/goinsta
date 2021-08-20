@@ -42,7 +42,7 @@ func (insta *Instagram) VisitProfile(handle string) (*Profile, error) {
 		return nil, err
 	}
 	for _, r := range sr.Results {
-		if r.User.Username == handle {
+		if r.User != nil && r.User.Username == handle {
 			err = r.RegisterClick()
 			if err != nil {
 				return nil, err
