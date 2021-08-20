@@ -195,6 +195,7 @@ const (
 	urlLiveComments  = "live/%d/get_comment/"
 	urlLiveLikeCount = "live/%d/get_like_count/"
 	urlLiveHeartbeat = "live/%d/heartbeat_and_get_viewer_count/"
+	urlLiveChaining  = "live/get_live_chaining/"
 
 	// IGTV
 	urlIGTVDiscover = "igtv/discover/"

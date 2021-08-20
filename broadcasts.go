@@ -36,6 +36,8 @@ type Broadcast struct {
 	IsPlayerLiveTrace          int     `json:"is_player_live_trace_enabled"`
 	IsGamingContent            bool    `json:"is_gaming_content"`
 	IsViewerCommentAllowed     bool    `json:"is_viewer_comment_allowed"`
+	IsPolicyViolation          bool    `json:"is_policy_violation"`
+	PolicyViolationReason      string  `json:"policy_violation_reason"`
 	LiveCommentMentionEnabled  bool    `json:"is_live_comment_mention_enabled"`
 	LiveCommmentRepliesEnabled bool    `json:"is_live_comment_replies_enabled"`
 	HideFromFeedUnit           bool    `json:"hide_from_feed_unit"`
@@ -213,6 +215,33 @@ func (br *Broadcast) GetHeartbeat() (*BroadcastHeartbeat, error) {
 		return nil, err
 	}
 	return c, nil
+}
+
+// GetLiveChaining traditionally gets called after the live stream has ended, and provides
+//   recommendations of other current live streams, as well as past live streams.
+func (br *Broadcast) GetLiveChaining() ([]*Broadcast, error) {
+	insta := br.insta
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlLiveChaining,
+			Query: map[string]string{
+				"include_post_lives": "true",
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp struct {
+		Broadcasts []*Broadcast `json:"broadcasts"`
+		Status     string       `json:"string"`
+	}
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Broadcasts, nil
 }
 
 func (br *Broadcast) setValues(insta *Instagram) {
