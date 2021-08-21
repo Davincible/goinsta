@@ -93,7 +93,7 @@ func (user *User) Stories() (*StoryMedia, error) {
 }
 
 // Highlights will fetch a user's highlights.
-func (user *User) Highlights() ([]Reel, error) {
+func (user *User) Highlights() ([]*Reel, error) {
 	data, err := getSupCap()
 	if err != nil {
 		return nil, err

@@ -24,7 +24,7 @@ type Profile struct {
 
 	Feed       FeedMedia
 	Stories    StoryMedia
-	Highlights []Reel
+	Highlights []*Reel
 	IGTV       IGTVChannel
 }
 
