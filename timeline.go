@@ -281,6 +281,26 @@ func (tl *Timeline) Refresh() error {
 	return nil
 }
 
+// NewFeedPostsExist will return true if new feed posts are available.
+func (tl *Timeline) NewFeedPostsExist() (bool, error) {
+	insta := tl.insta
+
+	body, err := insta.sendSimpleRequest(urlFeedNewPostsExist)
+	if err != nil {
+		return false, err
+	}
+
+	var resp struct {
+		NewPosts bool   `json:"new_feed_posts_exist"`
+		Status   string `json:"status"`
+	}
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		return false, err
+	}
+	return resp.NewPosts, nil
+}
+
 // Stories is a helper function to get the stories
 func (tl *Timeline) Stories() []Reel {
 	return tl.Tray.Stories

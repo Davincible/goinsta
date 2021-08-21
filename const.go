@@ -175,9 +175,10 @@ const (
 	urlSearchRegisterClick = "fbsearch/register_recent_search_click/"
 
 	// Feeds
-	urlFeedLocationID = "feed/location/%d/"
-	urlFeedLocations  = "locations/%d/sections/"
-	urlFeedTag        = "feed/tag/%s/"
+	urlFeedLocationID    = "feed/location/%d/"
+	urlFeedLocations     = "locations/%d/sections/"
+	urlFeedTag           = "feed/tag/%s/"
+	urlFeedNewPostsExist = "feed/new_feed_posts_exist/"
 
 	// Media
 	urlMediaInfo    = "media/%s/info/"
