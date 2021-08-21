@@ -273,8 +273,8 @@ type Video struct {
 }
 
 type timeStoryResp struct {
-	Status string       `json:"status"`
-	Media  []StoryMedia `json:"tray"`
+	Status string        `json:"status"`
+	Media  []*StoryMedia `json:"tray"`
 }
 
 type trayResp struct {
@@ -284,19 +284,19 @@ type trayResp struct {
 
 // Tray is a set of story media received from timeline calls.
 type Tray struct {
-	Stories []Reel `json:"tray"`
+	Stories []*Reel `json:"tray"`
 	// think this is depricated, and only broadcasts are used
 	Lives struct {
-		LiveItems []LiveItems `json:"post_live_items"`
+		LiveItems []*LiveItems `json:"post_live_items"`
 	} `json:"post_live"`
-	StoryRankingToken    string      `json:"story_ranking_token"`
-	Broadcasts           []Broadcast `json:"broadcasts"`
-	FaceFilterNuxVersion int         `json:"face_filter_nux_version"`
-	HasNewNuxStory       bool        `json:"has_new_nux_story"`
-	NuxElegible          bool        `json:"stories_viewer_gestures_nux_eligible"`
-	StickerVersion       float64     `json:"sticker_version"`
-	ReponseTS            float64     `json:"response_timestamp"`
-	Status               string      `json:"status"`
+	StoryRankingToken    string       `json:"story_ranking_token"`
+	Broadcasts           []*Broadcast `json:"broadcasts"`
+	FaceFilterNuxVersion int          `json:"face_filter_nux_version"`
+	HasNewNuxStory       bool         `json:"has_new_nux_story"`
+	NuxElegible          bool         `json:"stories_viewer_gestures_nux_eligible"`
+	StickerVersion       float64      `json:"sticker_version"`
+	ReponseTS            float64      `json:"response_timestamp"`
+	Status               string       `json:"status"`
 	EmojiReactionsConfig struct {
 		UfiType                        float64 `json:"ufi_type"`
 		DeliveryType                   float64 `json:"delivery_type"`
@@ -328,15 +328,15 @@ func (tray *Tray) set(insta *Instagram) {
 
 // LiveItems are Live media items
 type LiveItems struct {
-	ID                  string      `json:"pk"`
-	User                User        `json:"user"`
-	Broadcasts          []Broadcast `json:"broadcasts"`
-	LastSeenBroadcastTs float64     `json:"last_seen_broadcast_ts"`
-	RankedPosition      int64       `json:"ranked_position"`
-	SeenRankedPosition  int64       `json:"seen_ranked_position"`
-	Muted               bool        `json:"muted"`
-	CanReply            bool        `json:"can_reply"`
-	CanReshare          bool        `json:"can_reshare"`
+	ID                  string       `json:"pk"`
+	User                User         `json:"user"`
+	Broadcasts          []*Broadcast `json:"broadcasts"`
+	LastSeenBroadcastTs float64      `json:"last_seen_broadcast_ts"`
+	RankedPosition      int64        `json:"ranked_position"`
+	SeenRankedPosition  int64        `json:"seen_ranked_position"`
+	Muted               bool         `json:"muted"`
+	CanReply            bool         `json:"can_reply"`
+	CanReshare          bool         `json:"can_reshare"`
 }
 
 // BlockedUser stores information about a used that has been blocked before.

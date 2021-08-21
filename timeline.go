@@ -20,7 +20,7 @@ type Timeline struct {
 
 	endpoint string
 	Items    []*Item
-	Tray     Tray
+	Tray     *Tray
 
 	MoreAvailable         bool
 	NextID                string
@@ -114,32 +114,20 @@ func (tl *Timeline) Next(p ...interface{}) bool {
 		"bloks_versioning_id": bloksVerID,
 	}
 
-	catchErr := func() {
-		// not the best error handling
-		e := <-tl.errChan
-		if e != nil {
-			insta.WarnHandler("Failed to fetch stories:", e)
-			tl.err = e
-		}
-	}
-
 	var tWarm int64 = 10
 	if tl.pullRefresh || (!tl.MoreAvailable && t-tl.lastRequest < tWarm*60) {
 		reason = "pull_to_refresh"
 		isPullToRefresh = "1"
 		tl.sessionID = generateUUID()
 		go tl.fetchTray("pull_to_refresh")
-		defer catchErr()
 	} else if tl.lastRequest == 0 || (tl.fetchExtra && tl.prevReason == "warm_start_fetch") {
 		reason = "cold_start_fetch"
 		tl.sessionID = generateUUID()
 		go tl.fetchTray("cold_start")
-		defer catchErr()
 	} else if t-tl.lastRequest > tWarm*60 { // 10 min
 		reason = "warm_start_fetch"
 		tl.sessionID = generateUUID()
 		go tl.fetchTray("warm_start_with_feed")
-		defer catchErr()
 	} else if tl.fetchExtra || tl.MoreAvailable && tl.NextID != "" {
 		reason = "pagination"
 		query["max_id"] = tl.NextID
@@ -210,6 +198,16 @@ func (tl *Timeline) Next(p ...interface{}) bool {
 				tl.Next()
 			}
 
+			// Check if stories returned an error
+			select {
+			case err := <-tl.errChan:
+				if err != nil {
+					tl.err = err
+					return false
+				}
+			default:
+			}
+
 			return tl.MoreAvailable
 		} else {
 			tl.err = err
@@ -236,6 +234,7 @@ func (tl *Timeline) UnsetPullRefresh() {
 //   .Refresh()
 func (tl *Timeline) ClearPosts() {
 	tl.Items = []*Item{}
+	tl.Tray = &Tray{}
 }
 
 func (tl *Timeline) fetchTray(reason string) {
@@ -258,8 +257,8 @@ func (tl *Timeline) fetchTray(reason string) {
 		return
 	}
 
-	tray := Tray{}
-	err = json.Unmarshal(body, &tray)
+	tray := &Tray{}
+	err = json.Unmarshal(body, tray)
 	if err != nil {
 		tl.errChan <- err
 		return
@@ -302,12 +301,12 @@ func (tl *Timeline) NewFeedPostsExist() (bool, error) {
 }
 
 // Stories is a helper function to get the stories
-func (tl *Timeline) Stories() []Reel {
+func (tl *Timeline) Stories() []*Reel {
 	return tl.Tray.Stories
 }
 
 // helper function to get the Broadcasts
-func (tl *Timeline) Broadcasts() []Broadcast {
+func (tl *Timeline) Broadcasts() []*Broadcast {
 	return tl.Tray.Broadcasts
 }
 
