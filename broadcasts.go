@@ -241,6 +241,9 @@ func (br *Broadcast) GetLiveChaining() ([]*Broadcast, error) {
 	if err != nil {
 		return nil, err
 	}
+	for _, br := range resp.Broadcasts {
+		br.setValues(insta)
+	}
 	return resp.Broadcasts, nil
 }
 

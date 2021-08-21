@@ -221,18 +221,13 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 		return nil, nil, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, nil, fmt.Errorf(
-			"Status: '%s', Status Code: '%d', Err: '%v'",
-			resp.Status,
-			resp.StatusCode,
-			err,
-		)
-	}
 
 	body, err = ioutil.ReadAll(resp.Body)
 	if err == nil {
 		err = isError(resp.StatusCode, body, resp.Status, o.Endpoint)
+	}
+	if err != nil {
+		return nil, nil, err
 	}
 	insta.extractHeaders(resp.Header)
 
@@ -300,11 +295,12 @@ func isError(code int, body []byte, status, endpoint string) (err error) {
 		ierr := Error400{Endpoint: endpoint}
 		err = json.Unmarshal(body, &ierr)
 		if err == nil {
-			if ierr.Message == "challenge_required" {
+			switch ierr.Message {
+			case "Sorry, this media has been deleted":
+				return ErrMediaDeleted
+			case "challenge_required":
 				return ierr.ChallengeError
-			}
-
-			if err == nil {
+			default:
 				return ierr
 			}
 		}

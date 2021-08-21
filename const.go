@@ -280,6 +280,7 @@ var (
 	ErrInvalidTab   = errors.New("Invalid tab, please select top or recent")
 	ErrNoMore       = errors.New("No more posts availible, page end has been reached")
 	ErrNotHighlight = errors.New("Unable to sync, Reel is not of type highlight")
+	ErrMediaDeleted = errors.New("Sorry, this media has been deleted")
 
 	// Misc
 	ErrByteIndexNotFound = errors.New("Failed to index byte slice, delim not found")
