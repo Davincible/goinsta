@@ -4,11 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"sync"
 )
 
 // Broadcast struct represents live video streams.
 type Broadcast struct {
-	insta              *Instagram
+	insta *Instagram
+	// Mutex to keep track of BroadcastStatus
+	mu *sync.RWMutex
+
 	LastLikeTs         int64
 	LastCommentTs      int64
 	LastCommentFetchTs int64
@@ -140,12 +144,20 @@ func (br *Broadcast) GetInfo() error {
 		return err
 	}
 
+	br.mu.RLock()
 	err = json.Unmarshal(body, br)
+	br.mu.RUnlock()
 	return err
 }
 
 // Call every 2 seconds
 func (br *Broadcast) GetComments() (*BroadcastComments, error) {
+	br.mu.RLock()
+	if br.BroadcastStatus == "stopped" {
+		return nil, ErrMediaDeleted
+	}
+	br.mu.RUnlock()
+
 	body, _, err := br.insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlLiveComments, br.ID),
@@ -174,6 +186,12 @@ func (br *Broadcast) GetComments() (*BroadcastComments, error) {
 
 // Call every 6 seconds
 func (br *Broadcast) GetLikes() (*BroadcastLikes, error) {
+	br.mu.RLock()
+	if br.BroadcastStatus == "stopped" {
+		return nil, ErrMediaDeleted
+	}
+	br.mu.RUnlock()
+
 	body, _, err := br.insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlLiveLikeCount, br.ID),
@@ -196,6 +214,12 @@ func (br *Broadcast) GetLikes() (*BroadcastLikes, error) {
 
 // Call every 3 seconds
 func (br *Broadcast) GetHeartbeat() (*BroadcastHeartbeat, error) {
+	br.mu.RLock()
+	if br.BroadcastStatus == "stopped" {
+		return nil, ErrMediaDeleted
+	}
+	br.mu.RUnlock()
+
 	body, _, err := br.insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlLiveHeartbeat, br.ID),
@@ -214,6 +238,11 @@ func (br *Broadcast) GetHeartbeat() (*BroadcastHeartbeat, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	br.mu.RLock()
+	br.BroadcastStatus = c.BroadcastStatus
+	br.mu.RUnlock()
+
 	return c, nil
 }
 
@@ -250,6 +279,7 @@ func (br *Broadcast) GetLiveChaining() ([]*Broadcast, error) {
 func (br *Broadcast) setValues(insta *Instagram) {
 	br.insta = insta
 	br.User.insta = insta
+	br.mu = &sync.RWMutex{}
 	for _, cb := range br.Cobroadcasters {
 		cb.insta = insta
 	}

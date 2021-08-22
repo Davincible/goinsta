@@ -283,3 +283,19 @@ func (info *TwoFactorInfo) Login2FA(code string) error {
 	err = insta.OpenApp()
 	return err
 }
+
+func (c *ChallengeError) Process() ([]byte, error) {
+	insta := c.insta
+
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: c.Challenge.URL,
+			IsPost:   true,
+			Query: map[string]string{
+				"guid":      insta.uuid,
+				"device_id": insta.dID,
+			},
+		},
+	)
+	return body, err
+}

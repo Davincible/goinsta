@@ -149,8 +149,8 @@ type Item struct {
 	AdHeaderStyle       int    `json:"ad_header_style"`
 	AdLinkType          int    `json:"ad_link_type"`
 	AdMetadata          []struct {
-		Type  int    `json:"type"`
-		Value string `json:"value"`
+		Type  int         `json:"type"`
+		Value interface{} `json:"value"`
 	} `json:"ad_metadata"`
 	AndroidLinks []struct {
 		AndroidClass      string `json:"androidClass"`

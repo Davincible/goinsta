@@ -7,15 +7,26 @@ import (
 	"time"
 )
 
+type (
+	fetchReason string
+)
+
+var (
+	PULLTOREFRESH fetchReason = "pull_to_refresh"
+	COLDSTART     fetchReason = "cold_start_fetch"
+	WARMSTART     fetchReason = "warm_start_fetch"
+	PAGINATION    fetchReason = "pagination"
+	AUTOREFRESH   fetchReason = "auto_refresh" // so far unused
+)
+
 // Timeline is the object to represent the main feed on instagram, the first page that shows the latest feeds of my following contacts.
 type Timeline struct {
 	insta       *Instagram
 	err         error
-	errChan     chan error
 	lastRequest int64
 	pullRefresh bool
 	sessionID   string
-	prevReason  string
+	prevReason  fetchReason
 	fetchExtra  bool
 
 	endpoint string
@@ -33,8 +44,8 @@ type Timeline struct {
 
 type feedCache struct {
 	Items []struct {
-		Media_or_ad *Item `json:"media_or_ad"`
-		EndOfFeed   struct {
+		MediaOrAd *Item `json:"media_or_ad"`
+		EndOfFeed struct {
 			Pause    bool   `json:"pause"`
 			Title    string `json:"title"`
 			Subtitle string `json:"subtitle"`
@@ -69,7 +80,6 @@ func newTimeline(insta *Instagram) *Timeline {
 	time := &Timeline{
 		insta:    insta,
 		endpoint: urlTimeline,
-		errChan:  make(chan error, 1),
 	}
 	return time
 }
@@ -103,7 +113,7 @@ func (tl *Timeline) Next(p ...interface{}) bool {
 	}
 	t := time.Now().Unix()
 
-	var reason string
+	var reason fetchReason
 	isPullToRefresh := "0"
 	query := map[string]string{
 		"feed_view_info":      "[]",
@@ -116,24 +126,29 @@ func (tl *Timeline) Next(p ...interface{}) bool {
 
 	var tWarm int64 = 10
 	if tl.pullRefresh || (!tl.MoreAvailable && t-tl.lastRequest < tWarm*60) {
-		reason = "pull_to_refresh"
+		reason = PULLTOREFRESH
 		isPullToRefresh = "1"
-		tl.sessionID = generateUUID()
-		go tl.fetchTray("pull_to_refresh")
 	} else if tl.lastRequest == 0 || (tl.fetchExtra && tl.prevReason == "warm_start_fetch") {
-		reason = "cold_start_fetch"
-		tl.sessionID = generateUUID()
-		go tl.fetchTray("cold_start")
+		reason = COLDSTART
 	} else if t-tl.lastRequest > tWarm*60 { // 10 min
-		reason = "warm_start_fetch"
-		tl.sessionID = generateUUID()
-		go tl.fetchTray("warm_start_with_feed")
+		reason = WARMSTART
 	} else if tl.fetchExtra || tl.MoreAvailable && tl.NextID != "" {
-		reason = "pagination"
+		reason = PAGINATION
 		query["max_id"] = tl.NextID
 	}
 
-	query["reason"] = reason
+	errChan := make(chan error)
+	if reason != PAGINATION {
+		tl.sessionID = generateUUID()
+		go func() {
+			err := tl.FetchTray(reason)
+			if err != nil {
+				errChan <- err
+			}
+		}()
+	}
+
+	query["reason"] = string(reason)
 	query["is_pull_to_refresh"] = isPullToRefresh
 	query["session_id"] = tl.sessionID
 	tl.prevReason = reason
@@ -177,9 +192,9 @@ func (tl *Timeline) Next(p ...interface{}) bool {
 			// copy post items over
 			for _, i := range tmp.Items {
 				// will be nil if end of feed, EndOfFeed will then be set
-				if i.Media_or_ad != nil {
-					setToItem(i.Media_or_ad, tl)
-					tl.Items = append(tl.Items, i.Media_or_ad)
+				if i.MediaOrAd != nil {
+					setToItem(i.MediaOrAd, tl)
+					tl.Items = append(tl.Items, i.MediaOrAd)
 				}
 			}
 
@@ -193,14 +208,14 @@ func (tl *Timeline) Next(p ...interface{}) bool {
 			}
 
 			// fetch more posts if not enough posts were returned, mimick apk behvaior
-			if tmp.NumResults < tmp.PreloadDistance && tmp.MoreAvailable {
+			if reason != PULLTOREFRESH && tmp.NumResults < tmp.PreloadDistance && tmp.MoreAvailable {
 				tl.fetchExtra = true
 				tl.Next()
 			}
 
 			// Check if stories returned an error
 			select {
-			case err := <-tl.errChan:
+			case err := <-errChan:
 				if err != nil {
 					tl.err = err
 					return false
@@ -237,8 +252,23 @@ func (tl *Timeline) ClearPosts() {
 	tl.Tray = &Tray{}
 }
 
-func (tl *Timeline) fetchTray(reason string) {
-	body, _, err := tl.insta.sendRequest(
+// FetchTray fetches the timeline tray with story media.
+// This function should rarely be called manually. If you want to refresh
+//   the timeline call Timeline.Refresh()
+func (tl *Timeline) FetchTray(r fetchReason) error {
+	insta := tl.insta
+
+	var reason string
+	switch r {
+	case PULLTOREFRESH:
+		reason = string(PULLTOREFRESH)
+	case COLDSTART:
+		reason = "cold_start"
+	case WARMSTART:
+		reason = "warm_start_with_feed"
+	}
+
+	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlStories,
 			IsPost:   true,
@@ -253,20 +283,18 @@ func (tl *Timeline) fetchTray(reason string) {
 		},
 	)
 	if err != nil {
-		tl.errChan <- err
-		return
+		return err
 	}
 
 	tray := &Tray{}
 	err = json.Unmarshal(body, tray)
 	if err != nil {
-		tl.errChan <- err
-		return
+		return err
 	}
 
 	tray.set(tl.insta)
 	tl.Tray = tray
-	tl.errChan <- nil
+	return nil
 }
 
 // Refresh will clear the current list of posts, perform a pull to refresh action,

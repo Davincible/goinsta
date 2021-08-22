@@ -111,6 +111,8 @@ func (e Error400) Error() string {
 
 // ChallengeError is error returned by HTTP 400 status code.
 type ChallengeError struct {
+	insta *Instagram
+
 	Message   string `json:"message"`
 	Challenge struct {
 		URL               string `json:"url"`

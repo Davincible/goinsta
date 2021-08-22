@@ -224,7 +224,7 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 
 	body, err = ioutil.ReadAll(resp.Body)
 	if err == nil {
-		err = isError(resp.StatusCode, body, resp.Status, o.Endpoint)
+		err = insta.isError(resp.StatusCode, body, resp.Status, o.Endpoint)
 	}
 	if err != nil {
 		return nil, nil, err
@@ -287,7 +287,7 @@ func (insta *Instagram) extractHeaders(h http.Header) {
 	extract("Ig-Set-Ig-U-Ds-User-Id", "Ig-U-Ds-User-Id")
 }
 
-func isError(code int, body []byte, status, endpoint string) (err error) {
+func (insta *Instagram) isError(code int, body []byte, status, endpoint string) (err error) {
 	switch code {
 	case 200:
 	case 202:
@@ -299,6 +299,13 @@ func isError(code int, body []byte, status, endpoint string) (err error) {
 			case "Sorry, this media has been deleted":
 				return ErrMediaDeleted
 			case "challenge_required":
+
+				// This was a first attempt at auto challenge solving
+				// Haven't figured it out yet
+				// insta.WarnHandler(ierr)
+				// ierr.ChallengeError.insta = insta
+				// ierr.ChallengeError.Process()
+
 				return ierr.ChallengeError
 			default:
 				return ierr
