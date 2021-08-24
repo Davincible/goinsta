@@ -638,7 +638,7 @@ func (item *Item) Download(folder, name string) (err error) {
 		return item.downloadCarousel(folder, name)
 	}
 
-	insta.WarnHandler(
+	insta.warnHandler(
 		fmt.Sprintf(
 			"Unable to download %s media (media type %d), this has not been implemented",
 			item.MediaToString(),

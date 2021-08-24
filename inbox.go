@@ -81,7 +81,7 @@ type Conversation struct {
 	NewestCursor               string                `json:"newest_cursor"`
 	OldestCursor               string                `json:"oldest_cursor"`
 
-	LastPermanentItem Item `json:"last_permanent_item"`
+	LastPermanentItem InboxItem `json:"last_permanent_item"`
 }
 
 // InboxItem is any conversation message.
@@ -94,7 +94,7 @@ type InboxItem struct {
 	TqSeqID       int    `json:"tq_seq_id"`
 
 	// Type there are a few types:
-	// text, like, raven_media, action_log, media_share, reel_share
+	// text, like, raven_media, action_log, media_share, reel_share, link
 	Type string `json:"item_type"`
 
 	// Text is message text.
@@ -108,6 +108,15 @@ type InboxItem struct {
 	Reel      *reelShare `json:"reel_share"`
 	Media     *Item      `json:"media_share"`
 	ActionLog *actionLog `json:"action_log"`
+	Link      struct {
+		Text    string `json:"text"`
+		Context struct {
+			Url      string `json:"link_url"`
+			Title    string `json:"link_title"`
+			Summary  string `json:"link_summary"`
+			ImageUrl string `json:"link_image_url"`
+		} `json:"link_context"`
+	} `json:"link"`
 }
 
 type inboxResp struct {

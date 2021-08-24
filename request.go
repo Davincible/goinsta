@@ -226,6 +226,9 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 	if err == nil {
 		err = insta.isError(resp.StatusCode, body, resp.Status, o.Endpoint)
 	}
+	if insta.Debug {
+		insta.debugHandler(fmt.Errorf("Status code: %d : %s, body: %s,", resp.StatusCode, o.Endpoint, string(body)))
+	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -308,6 +311,8 @@ func (insta *Instagram) isError(code int, body []byte, status, endpoint string) 
 				// ierr.ChallengeError.Process()
 
 				return ierr.ChallengeError
+			case "The password you entered is incorrect. Please try again.":
+				return ErrBadPassword
 			default:
 				return ierr
 			}

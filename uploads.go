@@ -158,7 +158,7 @@ func (insta *Instagram) Upload(o *UploadOptions) (*Item, error) {
 		return o.configureVideo()
 	}
 
-	insta.InfoHandler(fmt.Errorf("Unable to handle file upload with format %s", t))
+	insta.infoHandler(fmt.Errorf("Unable to handle file upload with format %s", t))
 	return nil, ErrInvalidFormat
 }
 
@@ -718,7 +718,7 @@ func (o *UploadOptions) uploadAlbum() (*Item, error) {
 		// Validate file type
 		t := http.DetectContentType(buf.Bytes())
 		if !(t == "image/jpeg" || t == "video/mp4") {
-			insta.InfoHandler(fmt.Errorf("Unable to handle file upload with format %s", t))
+			insta.infoHandler(fmt.Errorf("Unable to handle file upload with format %s", t))
 			return nil, ErrInvalidFormat
 		}
 
@@ -815,11 +815,11 @@ func (o *UploadOptions) configure() (*Item, error) {
 	if res.Status != "ok" {
 		switch res.Message {
 		case "Transcode not finished yet.":
-			insta.InfoHandler(fmt.Errorf("%s, %s. Please wait.", res.Status, res.Message))
+			insta.infoHandler(fmt.Errorf("%s, %s. Please wait.", res.Status, res.Message))
 			time.Sleep(6 * time.Second)
 			return o.configure()
 		case "media_needs_reupload":
-			insta.InfoHandler(fmt.Errorf("Instagram asks for the video to be reuploaded, please wait."))
+			insta.infoHandler(fmt.Errorf("Instagram asks for the video to be reuploaded, please wait."))
 			err := o.postVideo()
 			if err != nil {
 				return nil, err
@@ -878,7 +878,7 @@ func (o *UploadOptions) uploadMultiStory() (*Item, error) {
 		o.width, o.height, o.duration = width, height, duration
 
 		size := float64(len(o.buf.Bytes())) / 1000000.0
-		o.insta.InfoHandler(
+		o.insta.infoHandler(
 			fmt.Sprintf(
 				"Uploading story video %d: duration: %ds, Size: %dx%d, %.2f Mb",
 				i+1, duration/1000, width, height, size,
@@ -931,7 +931,7 @@ func (o *UploadOptions) uploadVideo() error {
 	o.width, o.height, o.duration = width, height, duration
 
 	size := float64(len(o.buf.Bytes())) / 1000000.0
-	o.insta.InfoHandler(
+	o.insta.infoHandler(
 		fmt.Sprintf(
 			"Upload video: duration: %ds, Size: %dx%d, %.2f Mb",
 			duration/1000, width, height, size,
@@ -1010,7 +1010,7 @@ func (o *UploadOptions) segmentVideo(t int) error {
 			return err
 		}
 		o.offset += len(segment)
-		o.insta.InfoHandler(fmt.Sprintf("Uploaded video segment [%d/%d]", i+1, length))
+		o.insta.infoHandler(fmt.Sprintf("Uploaded video segment [%d/%d]", i+1, length))
 
 	}
 

@@ -132,7 +132,7 @@ func (user *User) VisitProfile() (*Profile, error) {
 		defer wg.Done()
 		_, err := user.GetFeaturedAccounts()
 		if err != nil {
-			user.insta.WarnHandler(err)
+			user.insta.warnHandler(err)
 		}
 	}(wg)
 
