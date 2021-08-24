@@ -251,7 +251,8 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 }
 
 func (insta *Instagram) checkXmidExpiry() {
-	if insta.xmidExpiry != -1 && time.Now().Unix() > insta.xmidExpiry-10 {
+	t := time.Now().Unix()
+	if insta.xmidExpiry != -1 && t > insta.xmidExpiry-10 {
 		insta.xmidExpiry = -1
 		insta.zrToken()
 	}

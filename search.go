@@ -274,6 +274,7 @@ func (insta *Instagram) sendSearchRegisterRequest(query map[string]string) error
 
 func (sb *Search) search(query string, fn func(string) (*SearchResult, error)) (*SearchResult, error) {
 	insta := sb.insta
+	result := &SearchResult{}
 
 	if insta.Discover.NumResults == 0 {
 		sb.insta.Discover.Next()
@@ -283,11 +284,11 @@ func (sb *Search) search(query string, fn func(string) (*SearchResult, error)) (
 		sb.insta.WarnHandler("Non fatal error while fetcihng recent search results",
 			err)
 	}
+	result.History = *h
 	if err := sb.NullState(); err != nil {
 		sb.insta.WarnHandler("Non fatal error while setting search null state", err)
 	}
 
-	var result *SearchResult
 	var q string
 	for _, char := range query {
 		q += string(char)
@@ -295,10 +296,18 @@ func (sb *Search) search(query string, fn func(string) (*SearchResult, error)) (
 		if err != nil {
 			return nil, err
 		}
+		// If the query is a username, and in the top 10, return
+		if len(result.Results) >= 10 {
+			for _, r := range result.Results[:10] {
+				if r.User != nil && r.User.Username == query {
+					return result, nil
+				}
+			}
+		}
+
 		s := random(150, 500)
 		time.Sleep(time.Duration(s) * time.Millisecond)
 	}
-	result.History = *h
 	return result, nil
 }
 

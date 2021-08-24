@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
+	"sync"
 )
 
 // Profiles allows user function interactions
@@ -22,10 +22,10 @@ type Profile struct {
 	User       *User
 	Friendship *Friendship
 
-	Feed       FeedMedia
-	Stories    StoryMedia
+	Feed       *FeedMedia
+	Stories    *StoryMedia
 	Highlights []*Reel
-	IGTV       IGTVChannel
+	IGTV       *IGTVChannel
 }
 
 // VisitProfile will perform the same request sequence as if you visited a profile
@@ -65,63 +65,98 @@ func (insta *Instagram) VisitProfile(handle string) (*Profile, error) {
 //   which will perform a search, register the click, and call this method.
 //
 func (user *User) VisitProfile() (*Profile, error) {
-	p := Profile{User: user}
+	p := &Profile{User: user}
 
-	// Fetch Friendship
-	fr, err := user.GetFriendship()
-	if err != nil {
-		return nil, err
-	}
-	p.Friendship = fr
-
-	// Fetch Feed
-	// usually gets called 3 times on profile visit, if enough media available
-	feed := user.Feed()
-	for i := 0; i < 3; i++ {
-		s := feed.Next()
-		err := feed.Error()
-		if !s && err != ErrNoMore {
-			return nil, err
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
-	p.Feed = *feed
-
-	// Fetch Stories
-	stories, err := user.Stories()
-	if err != nil {
-		return nil, err
-	}
-	p.Stories = *stories
-
-	// Fetch Highlights
-	h, err := user.Highlights()
-	if err != nil {
-		return nil, err
-	}
-	p.Highlights = h
+	wg := &sync.WaitGroup{}
+	info := &sync.WaitGroup{}
+	errChan := make(chan error, 10)
 
 	// Fetch Profile Info
-	err = user.Info("entry_point", "profile", "from_module", "blended_search")
-	if err != nil {
-		return nil, err
-	}
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		info.Add(1)
+		defer wg.Done()
+		defer info.Done()
+		if err := user.Info("entry_point", "profile", "from_module", "blended_search"); err != nil {
+			errChan <- err
+		}
+	}(wg)
+
+	// Fetch Friendship
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		defer wg.Done()
+		fr, err := user.GetFriendship()
+		if err != nil {
+			errChan <- err
+		}
+		p.Friendship = fr
+	}(wg)
+
+	// Fetch Feed
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		defer wg.Done()
+		feed := user.Feed()
+		p.Feed = feed
+		if !feed.Next() && feed.Error() != ErrNoMore {
+			errChan <- feed.Error()
+		}
+	}(wg)
+
+	// Fetch Stories
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		defer wg.Done()
+		stories, err := user.Stories()
+		p.Stories = stories
+		if err != nil {
+			errChan <- err
+		}
+	}(wg)
+
+	// Fetch Highlights
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		defer wg.Done()
+		h, err := user.Highlights()
+		p.Highlights = h
+		if err != nil {
+			errChan <- err
+		}
+	}(wg)
 
 	// Fetch Featured Accounts
-	_, err = user.GetFeaturedAccounts()
-	if err != nil {
-		user.insta.WarnHandler(err)
-	}
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		defer wg.Done()
+		_, err := user.GetFeaturedAccounts()
+		if err != nil {
+			user.insta.WarnHandler(err)
+		}
+	}(wg)
 
 	// Fetch IGTV
-	if user.IGTVCount > 0 {
-		igtv, err := user.IGTV()
-		if err != nil {
-			return nil, err
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		defer wg.Done()
+		info.Wait()
+		if user.IGTVCount > 0 {
+			igtv, err := user.IGTV()
+			if err != nil {
+				errChan <- err
+			}
+			p.IGTV = igtv
 		}
-		p.IGTV = *igtv
+	}(wg)
+
+	wg.Wait()
+	select {
+	case err := <-errChan:
+		return p, err
+	default:
+		return p, nil
 	}
-	return &p, nil
 }
 
 func newProfiles(insta *Instagram) *Profiles {
