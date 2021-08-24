@@ -44,6 +44,7 @@ import (
 func main() {  
   insta := goinsta.New("USERNAME", "PASSWORD")
   
+  // Only call Login the first time you login. Next time import your config
   err := insta.Login()
   if err != nil {
           panic(err)
