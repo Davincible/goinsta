@@ -3,11 +3,12 @@
 This repository has been forked from [ahmdrz/goinsta](https://github.com/ahmdrz/goinsta). 
 As the maintainer of this repositry has been absend the last few months, and 
 the code in the repository was based on a 2 year old instagram app version, 
-since which a lot has changed, I have taken the courtesy to bulid upon his 
+since which a lot has changed, I have taken the courtesy to build upon his 
 great framework and update the code to be compatible with apk v195.0.0.31.123 
 (July 6, 2021). After migrating the endpoints and adding new ones, there are 
 are few breaking changes. You can check the full walkthrough documentation in
-the [wiki](https://github.com/Davincible/goinsta/wiki/1.-Getting-Started,-Login,-And-a-Bunch-Of-Fun).
+the [wiki](https://github.com/Davincible/goinsta/wiki/1.-Getting-Started), 
+and looking at the code to further understand how it works is encouraged.
 
 #### Golang + Instagram Private API
 <p align="center"><img width=100% src="https://raw.githubusercontent.com/Davincible/goinsta/v1/resources/goinsta-image.png"></p>
@@ -44,6 +45,7 @@ import (
 func main() {  
   insta := goinsta.New("USERNAME", "PASSWORD")
   
+  // Only call Login the first time you login. Next time import your config
   err := insta.Login()
   if err != nil {
           panic(err)
@@ -59,7 +61,7 @@ func main() {
 }
 ```
 
-For the full documentation, check the [wiki](https://github.com/Davincible/goinsta/wiki/1.-Getting-Started,-Login,-And-a-Bunch-Of-Fun), or run `go doc -all`.
+For the full documentation, check the [wiki](https://github.com/Davincible/goinsta/wiki/1.-Getting-Started), or run `go doc -all`.
 
 ### Legal
 
