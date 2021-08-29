@@ -55,7 +55,9 @@ func main() {
   // after exporting you can use Import function instead of New function.
   // insta, err := goinsta.Import("~/.goinsta")
   // it's useful when you want use goinsta repeatedly.
-  insta.Export("~/.goinsta")
+  // Export is deffered because every run insta should be exported at the end of the run
+  //   as the header cookies change constantly.
+  defer insta.Export("~/.goinsta")
 
   ...
 }
