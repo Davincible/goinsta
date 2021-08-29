@@ -216,14 +216,14 @@ func (inbox *Inbox) next(pending bool, params map[string]string) bool {
 		return false
 	}
 
-	resp := &inboxResp{}
-	err = json.Unmarshal(body, resp)
+	resp := inboxResp{}
+	err = json.Unmarshal(body, &resp)
 	if err != nil {
 		inbox.err = err
 		return false
 	}
 
-	inbox.updateState(resp)
+	inbox.updateState(&resp)
 
 	if inbox.Cursor == "" || !inbox.HasOlder {
 		inbox.err = ErrNoMore

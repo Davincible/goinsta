@@ -500,6 +500,7 @@ func (insta *Instagram) Logout() error {
 }
 
 func (insta *Instagram) OpenApp() (err error) {
+	// First refresh tokens after being logged in
 	err = insta.zrToken()
 	if err != nil {
 		return
@@ -509,6 +510,10 @@ func (insta *Instagram) OpenApp() (err error) {
 		return err
 	}
 
+	// Second start open app routine async
+	// this was first done synchronously, but the IO limitations make it take
+	//   too long. On the offical app these requests also happen withing one
+	//   to two seconds, instad of 10+.
 	wg := &sync.WaitGroup{}
 	errChan := make(chan error, 15)
 
@@ -746,7 +751,8 @@ func (insta *Instagram) getPrefill() error {
 		return err
 	}
 
-	// ignore the error returned by the request, because 429 if often returned
+	// ignore the error returned by the request, because 429 if often returned.
+	// request is non-critical.
 	insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlGetPrefill,
@@ -769,6 +775,7 @@ func (insta *Instagram) contactPrefill() error {
 	}
 
 	// ignore the error returned by the request, because 429 if often returned
+	//   and body is not needed. Request is non-critical.
 	insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlContactPrefill,
@@ -958,14 +965,17 @@ func (insta *Instagram) callContPointSig() error {
 	if err != nil {
 		return err
 	}
-	_, _, err = insta.sendRequest(
+
+	// ignore the error returned by the request, because 429 if often returned.
+	// request is non-critical.
+	insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlProcessContactPointSignals,
 			IsPost:   true,
 			Query:    map[string]string{"signed_body": "SIGNATURE." + string(b)},
 		},
 	)
-	return err
+	return nil
 }
 
 func (insta *Instagram) callMediaBlocked() error {
