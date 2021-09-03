@@ -166,72 +166,73 @@ func (tl *Timeline) Next(p ...interface{}) bool {
 			},
 		},
 	)
-	if err == nil {
-		tl.lastRequest = t
-
-		// Decode json
-		tmp := feedCache{}
-		d := json.NewDecoder(bytes.NewReader(body))
-		d.UseNumber()
-		err = d.Decode(&tmp)
-
-		// Add posts to Timeline object
-		if err == nil {
-			// copy constants over
-			tl.NextID = tmp.NextID
-			tl.MoreAvailable = tmp.MoreAvailable
-			if tl.fetchExtra {
-				tl.NumResults += tmp.NumResults
-			} else {
-				tl.NumResults = tmp.NumResults
-			}
-			tl.PreloadDistance = tmp.PreloadDistance
-			tl.PullToRefreshWindowMs = tmp.PullToRefreshWindowMs
-			tl.fetchExtra = false
-
-			// copy post items over
-			for _, i := range tmp.Items {
-				// will be nil if end of feed, EndOfFeed will then be set
-				if i.MediaOrAd != nil {
-					setToItem(i.MediaOrAd, tl)
-					tl.Items = append(tl.Items, i.MediaOrAd)
-				}
-			}
-
-			// Set index value
-			for i, v := range tl.Items {
-				v.Index = i
-			}
-
-			if !tl.MoreAvailable {
-				err = ErrNoMore
-			}
-
-			// fetch more posts if not enough posts were returned, mimick apk behvaior
-			if reason != PULLTOREFRESH && tmp.NumResults < tmp.PreloadDistance && tmp.MoreAvailable {
-				tl.fetchExtra = true
-				tl.Next()
-			}
-
-			// Check if stories returned an error
-			select {
-			case err := <-errChan:
-				if err != nil {
-					tl.err = err
-					return false
-				}
-			default:
-			}
-
-			return tl.MoreAvailable
-		} else {
-			tl.err = err
-		}
-	} else {
+	if err != nil {
 		tl.err = err
+		return false
 	}
 
-	return false
+	tl.lastRequest = t
+
+	// Decode json
+	tmp := feedCache{}
+	d := json.NewDecoder(bytes.NewReader(body))
+	d.UseNumber()
+	err = d.Decode(&tmp)
+
+	// Add posts to Timeline object
+	if err != nil {
+		tl.err = err
+		return false
+	}
+
+	// copy constants over
+	tl.NextID = tmp.NextID
+	tl.MoreAvailable = tmp.MoreAvailable
+	if tl.fetchExtra {
+		tl.NumResults += tmp.NumResults
+	} else {
+		tl.NumResults = tmp.NumResults
+	}
+	tl.PreloadDistance = tmp.PreloadDistance
+	tl.PullToRefreshWindowMs = tmp.PullToRefreshWindowMs
+	tl.fetchExtra = false
+
+	// copy post items over
+	for _, i := range tmp.Items {
+		// will be nil if end of feed, EndOfFeed will then be set
+		if i.MediaOrAd != nil {
+			setToItem(i.MediaOrAd, tl)
+			tl.Items = append(tl.Items, i.MediaOrAd)
+		}
+	}
+
+	// Set index value
+	for i, v := range tl.Items {
+		v.Index = i
+	}
+
+	// fetch more posts if not enough posts were returned, mimick apk behvaior
+	if reason != PULLTOREFRESH && tmp.NumResults < tmp.PreloadDistance && tmp.MoreAvailable {
+		tl.fetchExtra = true
+		tl.Next()
+	}
+
+	// Check if stories returned an error
+	select {
+	case err := <-errChan:
+		if err != nil {
+			tl.err = err
+			return false
+		}
+	default:
+	}
+
+	if !tl.MoreAvailable {
+		tl.err = ErrNoMore
+		return false
+	}
+
+	return true
 }
 
 // SetPullRefresh will set a flag to refresh the timeline on subsequent .Next() call

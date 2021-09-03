@@ -609,8 +609,11 @@ func (insta *Instagram) OpenApp() (err error) {
 	go func() {
 		defer wg.Done()
 		if !insta.Activity.Next() {
-			errChan <- errors.New("Failed to fetch recent activity: " +
-				insta.Activity.err.Error())
+			err := insta.Activity.Error()
+			if err != ErrNoMore {
+				errChan <- errors.New("Failed to fetch recent activity: " +
+					err.Error())
+			}
 		}
 	}()
 
