@@ -90,6 +90,7 @@ func TestFeedTagLike(t *testing.T) {
 		t.Logf("%+v", hashtag.Sections)
 		t.Fatalf("Items length is 0, section length is %d\n", len(hashtag.Sections))
 	}
+	t.Logf("Found %d posts", len(hashtag.Items))
 
 	for i, item := range hashtag.Items {
 		err = item.Like()
@@ -98,6 +99,7 @@ func TestFeedTagLike(t *testing.T) {
 		}
 		t.Logf("media %s liked by goinsta", item.ID)
 		if i == 5 {
+			break
 		}
 		time.Sleep(3 * time.Second)
 	}

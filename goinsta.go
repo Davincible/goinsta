@@ -297,16 +297,17 @@ func (insta *Instagram) Export(path string) error {
 		Account:       insta.Account,
 		Device:        insta.device,
 	}
-	bytes, err := json.Marshal(config)
-	if err != nil {
-		return err
-	}
 
 	setHeaders := func(key, value interface{}) bool {
 		config.HeaderOptions[key.(string)] = value.(string)
 		return true
 	}
 	insta.headerOptions.Range(setHeaders)
+
+	bytes, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
 
 	return ioutil.WriteFile(path, bytes, 0o644)
 }
