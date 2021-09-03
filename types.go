@@ -432,8 +432,10 @@ type ScoresBootstrapUsers struct {
 }
 
 type CommentOffensive struct {
-	BullyClassifier int    `json:"bully_classifier"`
-	IsOffensive     bool   `json:"is_offensive"`
-	Status          string `json:"IsOffensive"`
-	TextLanguage    string `json:"text_language"`
+	BullyClassifier  float64 `json:"bully_classifier"`
+	SexualClassifier float64 `json:"sexual_classifier"`
+	HateClassifier   float64 `json:"hate_classifier"`
+	IsOffensive      bool    `json:"is_offensive"`
+	Status           string  `json:"status"`
+	TextLanguage     string  `json:"text_language"`
 }
