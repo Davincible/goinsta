@@ -539,8 +539,11 @@ func (insta *Instagram) OpenApp() (err error) {
 	go func() {
 		defer wg.Done()
 		if !insta.Timeline.Next() {
-			errChan <- errors.New("Failed to fetch timeline: " +
-				insta.Timeline.err.Error())
+			err := insta.Timeline.Error()
+			if err != ErrNoMore {
+				errChan <- errors.New("Failed to fetch timeline: " +
+					err.Error())
+			}
 		}
 	}()
 
