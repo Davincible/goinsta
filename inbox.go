@@ -15,6 +15,7 @@ type Inbox struct {
 	err   error
 
 	Conversations []*Conversation `json:"threads"`
+	Pending       []*Conversation `json:"pending"`
 
 	HasNewer            bool   `json:"has_newer"` // TODO
 	HasOlder            bool   `json:"has_older"`
@@ -40,9 +41,10 @@ type Inbox struct {
 
 // Conversation is the representation of an instagram already established conversation through direct messages.
 type Conversation struct {
-	insta    *Instagram
-	err      error
-	firstRun bool
+	insta     *Instagram
+	err       error
+	firstRun  bool
+	isPending bool
 
 	ID   string `json:"thread_id"`
 	V2ID string `json:"thread_v2_id"`
@@ -72,7 +74,7 @@ type Conversation struct {
 	ThreadType                 string                `json:"thread_type"`
 	ExpiringMediaSendCount     int                   `json:"expiring_media_send_count"`
 	ExpiringMediaReceiveCount  int                   `json:"expiring_media_receive_count"`
-	Inviter                    User                  `json:"inviter"`
+	Inviter                    *User                 `json:"inviter"`
 	HasOlder                   bool                  `json:"has_older"`
 	HasNewer                   bool                  `json:"has_newer"`
 	HasRestrictedUser          bool                  `json:"has_restricted_user"`
@@ -120,6 +122,8 @@ type InboxItem struct {
 }
 
 type inboxResp struct {
+	isPending bool
+
 	Inbox                 Inbox  `json:"inbox"`
 	MostRecentInviter     *User  `json:"most_recent_inviter"`
 	SeqID                 int64  `json:"seq_id"`
@@ -186,13 +190,13 @@ func (inbox *Inbox) sync(pending bool, params map[string]string) error {
 		return err
 	}
 
-	resp := &inboxResp{}
-	err = json.Unmarshal(body, resp)
+	resp := inboxResp{isPending: pending}
+	err = json.Unmarshal(body, &resp)
 	if err != nil {
 		return err
 	}
 
-	inbox.updateState(resp)
+	inbox.updateState(&resp)
 	return nil
 }
 
@@ -216,7 +220,7 @@ func (inbox *Inbox) next(pending bool, params map[string]string) bool {
 		return false
 	}
 
-	resp := inboxResp{}
+	resp := inboxResp{isPending: pending}
 	err = json.Unmarshal(body, &resp)
 	if err != nil {
 		inbox.err = err
@@ -352,6 +356,95 @@ func (inbox *Inbox) NextPending() bool {
 	return inbox.next(true, map[string]string{
 		"cursor": inbox.Cursor,
 	})
+}
+
+// Approve a pending direct message.
+func (c *Conversation) Approve() error {
+	insta := c.insta
+
+	if err := c.approve(); err != nil {
+		return err
+	}
+
+	c.isPending = false
+
+	// Remove from pending list
+	l := len(insta.Inbox.Pending)
+	for i, pending := range insta.Inbox.Pending {
+		if pending.ID == c.ID {
+			upper := i
+			if i != l {
+				upper = +1
+			}
+			insta.Inbox.Pending = append(insta.Inbox.Pending[:i], insta.Inbox.Pending[upper:]...)
+		}
+	}
+
+	// Add to conv list
+	insta.Inbox.updateConv(c)
+
+	c.GetItems()
+	c.MarkAsSeen(*c.Items[len(c.Items)-1])
+	return nil
+}
+
+func (conv *Conversation) approve() error {
+	insta := conv.insta
+	if !conv.isPending {
+		return ErrConvNotPending
+	}
+
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: fmt.Sprintf(urlInboxApprove, conv.ID),
+			IsPost:   true,
+			Query: map[string]string{
+				"filter": "DEFAULT",
+				"_uuid":  insta.uuid,
+			},
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	var resp struct {
+		Status string `json:"status"`
+	}
+	err = json.Unmarshal(body, &resp)
+	if resp.Status != "ok" {
+		return fmt.Errorf("Failed to approve conversation with status: %s", resp.Status)
+	}
+	return nil
+}
+
+func (conv *Conversation) Hide() error {
+	insta := conv.insta
+	if !conv.isPending {
+		return ErrConvNotPending
+	}
+
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: fmt.Sprintf(urlInboxHide, conv.ID),
+			IsPost:   true,
+			Query: map[string]string{
+				"_uuid": insta.uuid,
+			},
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	var resp struct {
+		Status string `json:"status"`
+	}
+	err = json.Unmarshal(body, &resp)
+	if resp.Status != "ok" {
+		return fmt.Errorf("Failed to hide conversation with status: %s", resp.Status)
+	}
+	return nil
 }
 
 func (inbox *Inbox) getUserThread(user *User) (*Conversation, error) {
@@ -580,12 +673,80 @@ func (c *Conversation) callThread(extras ...map[string]string) error {
 	return nil
 }
 
+// GetItems is an alternative way to get conversation messages, e.g. refresh.
+// The app calls this when approving a DM request, for example.
+func (c *Conversation) GetItems() error {
+	insta := c.insta
+
+	var ctxs []string
+	var itemIDs []string
+	for _, v := range c.Items {
+		ctxs = append(ctxs, v.ClientContext)
+		itemIDs = append(itemIDs, v.ID)
+	}
+
+	origCtxs, err := json.Marshal(ctxs)
+	if err != nil {
+		return err
+	}
+
+	x := itemIDs[0]
+	for _, id := range itemIDs[1:] {
+		x += "," + id
+	}
+
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: fmt.Sprintf(urlInboxThread, c.ID),
+			Query: map[string]string{
+				"visual_message_return_type":       "unseen",
+				"_uuid":                            insta.uuid,
+				"original_message_client_contexts": string(origCtxs),
+				"item_ids":                         fmt.Sprintf("[%s]", x),
+			},
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	var resp struct {
+		Items  []*InboxItem `json:"items"`
+		Status string       `json:"status"`
+	}
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		return err
+	}
+
+	for _, msg := range resp.Items {
+		c.addMessage(msg)
+	}
+
+	return nil
+}
+
 func (inbox *Inbox) updateState(resp *inboxResp) {
 	insta := inbox.insta
-	oldConv := inbox.Conversations
 
-	*inbox = resp.Inbox
-	inbox.insta = insta
+	if resp.isPending {
+		oldConv := inbox.Pending
+		*inbox = resp.Inbox
+		inbox.insta = insta
+		inbox.Pending = oldConv
+		for _, conv := range resp.Inbox.Conversations {
+			inbox.updatePending(conv)
+		}
+	} else {
+		oldConv := inbox.Conversations
+		*inbox = resp.Inbox
+		inbox.insta = insta
+		inbox.Conversations = oldConv
+		for _, conv := range resp.Inbox.Conversations {
+			inbox.updateConv(conv)
+		}
+	}
+
 	if resp.MostRecentInviter != nil {
 		inbox.MostRecentInviter = *resp.MostRecentInviter
 		inbox.MostRecentInviter.insta = insta
@@ -594,10 +755,6 @@ func (inbox *Inbox) updateState(resp *inboxResp) {
 	inbox.PendingRequestsTotal = resp.PendingRequestsTotal
 	inbox.HasPendingTopRequests = resp.HasPendingTopRequests
 	inbox.SnapshotAtMs = resp.SnapshotAtMs
-	inbox.Conversations = oldConv
-	for _, conv := range resp.Inbox.Conversations {
-		inbox.updateConv(conv)
-	}
 }
 
 func (inbox *Inbox) updateConv(c *Conversation) {
@@ -611,6 +768,20 @@ func (inbox *Inbox) updateConv(c *Conversation) {
 		}
 	}
 	inbox.Conversations = append([]*Conversation{c}, inbox.Conversations...)
+}
+
+func (inbox *Inbox) updatePending(c *Conversation) {
+	insta := inbox.insta
+	c.setValues(insta)
+	c.isPending = true
+
+	for _, old := range inbox.Pending {
+		if old.ID == c.ID {
+			old.update(c)
+			return
+		}
+	}
+	inbox.Pending = append([]*Conversation{c}, inbox.Pending...)
 }
 
 func (c *Conversation) update(newConv *Conversation) {
@@ -629,6 +800,7 @@ func (c *Conversation) update(newConv *Conversation) {
 func (c *Conversation) addMessage(msg *InboxItem) {
 	msg.setValues(c.insta)
 	for _, m := range c.Items {
+		// return if msg already present
 		if msg.ID == m.ID {
 			*m = *msg
 			return
@@ -662,7 +834,9 @@ func (c *Conversation) setValues(insta *Instagram) {
 		msg.setValues(insta)
 	}
 
-	c.Inviter.insta = insta
+	if c.Inviter != nil {
+		c.Inviter.insta = insta
+	}
 	for _, u := range c.Users {
 		u.insta = insta
 	}

@@ -232,8 +232,10 @@ const (
 	urlInboxThread       = "direct_v2/threads/%s/"
 	urlInboxMute         = "direct_v2/threads/%s/mute/"
 	urlInboxUnmute       = "direct_v2/threads/%s/unmute/"
-	urlInboxRefresh      = "direct_v2/threads/%s/get_items/"
+	urlInboxGetItems      = "direct_v2/threads/%s/get_items/"
 	urlInboxMsgSeen      = "direct_v2/threads/%s/items/%s/seen/"
+	urlInboxApprove      = "direct_v2/threads/%s/approve/"
+	urlInboxHide         = "direct_v2/threads/%s/hide/"
 
 	// Tags
 	urlTagInfo    = "tags/%s/info/"
@@ -282,6 +284,9 @@ var (
 	ErrNoMore       = errors.New("No more posts availible, page end has been reached")
 	ErrNotHighlight = errors.New("Unable to sync, Reel is not of type highlight")
 	ErrMediaDeleted = errors.New("Sorry, this media has been deleted")
+
+	// Inbox
+	ErrConvNotPending = errors.New("Unable to perform action, conversation is not pending")
 
 	// Misc
 	ErrByteIndexNotFound = errors.New("Failed to index byte slice, delim not found")
