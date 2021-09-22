@@ -61,10 +61,10 @@ type RecentItems struct {
 	Args      struct {
 		Text  string `json:"text"`
 		Links []struct {
-			Start int    `json:"start"`
-			End   int    `json:"end"`
-			Type  string `json:"type"`
-			ID    string `json:"id"`
+			Start int         `json:"start"`
+			End   int         `json:"end"`
+			Type  string      `json:"type"`
+			ID    interface{} `json:"id"`
 		} `json:"links"`
 		InlineFollow struct {
 			UserInfo        User `json:"user_info"`

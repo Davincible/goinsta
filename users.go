@@ -314,6 +314,24 @@ func (user *User) Sync(params ...interface{}) error {
 //
 // See example: examples/user/following.go
 func (user *User) Following() *Users {
+	/*
+		TODO: call friendships/show_many/
+
+		returns:
+		{
+		  "friendship_statuses": {
+			"xxxxxxx": {
+			  "following": true,
+			  "incoming_request": false,
+			  "is_bestie": false,
+			  "is_private": true,
+			  "is_restricted": false,
+			  "outgoing_request": false,
+			  "is_feed_favorite": false
+			},
+			...
+		}
+	*/
 	users := &Users{}
 	users.insta = user.insta
 	users.endpoint = fmt.Sprintf(urlFollowing, user.ID)
