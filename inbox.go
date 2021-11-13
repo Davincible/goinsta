@@ -107,10 +107,11 @@ type InboxItem struct {
 
 	Like string `json:"like"`
 
-	Reel      *reelShare `json:"reel_share"`
-	Media     *Item      `json:"media_share"`
-	ActionLog *actionLog `json:"action_log"`
-	Link      struct {
+	Reel       *reelShare `json:"reel_share"`
+	Media      *Item      `json:"media"`
+	MediaShare *Item      `json:"media_share"`
+	ActionLog  *actionLog `json:"action_log"`
+	Link       struct {
 		Text    string `json:"text"`
 		Context struct {
 			Url      string `json:"link_url"`

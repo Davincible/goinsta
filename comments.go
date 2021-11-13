@@ -31,7 +31,6 @@ type Comments struct {
 	CommentLikesEnabled            bool            `json:"comment_likes_enabled"`
 	DisplayRealtimeTypingIndicator bool            `json:"display_realtime_typing_indicator"`
 	Status                         string          `json:"status"`
-	// PreviewComments                []Comment `json:"preview_comments"`
 }
 
 func (comments *Comments) setValues() {
@@ -235,30 +234,30 @@ type Comment struct {
 	idstr string
 	item  *Item
 
-	ID                             int64     `json:"pk"`
-	Text                           string    `json:"text"`
-	Type                           int       `json:"type"`
-	User                           User      `json:"user"`
-	UserID                         int64     `json:"user_id"`
-	BitFlags                       int       `json:"bit_flags"`
-	ChildCommentCount              int       `json:"child_comment_count"`
-	CommentIndex                   int       `json:"comment_index"`
-	CommentLikeCount               int       `json:"comment_like_count"`
-	ContentType                    string    `json:"content_type"`
-	CreatedAt                      int64     `json:"created_at"`
-	CreatedAtUtc                   int64     `json:"created_at_utc"`
-	DidReportAsSpam                bool      `json:"did_report_as_spam"`
-	HasLikedComment                bool      `json:"has_liked_comment"`
-	InlineComposerDisplayCondition string    `json:"inline_composer_display_condition"`
-	OtherPreviewUsers              []*User   `json:"other_preview_users"`
-	PreviewChildComments           []Comment `json:"preview_child_comments"`
-	NextMaxChildCursor             string    `json:"next_max_child_cursor,omitempty"`
-	HasMoreTailChildComments       bool      `json:"has_more_tail_child_comments,omitempty"`
-	NextMinChildCursor             string    `json:"next_min_child_cursor,omitempty"`
-	HasMoreHeadChildComments       bool      `json:"has_more_head_child_comments,omitempty"`
-	NumTailChildComments           int       `json:"num_tail_child_comments,omitempty"`
-	NumHeadChildComments           int       `json:"num_head_child_comments,omitempty"`
-	Status                         string    `json:"status"`
+	ID                             interface{} `json:"pk"`
+	Text                           string      `json:"text"`
+	Type                           interface{} `json:"type"`
+	User                           User        `json:"user"`
+	UserID                         int64       `json:"user_id"`
+	BitFlags                       int         `json:"bit_flags"`
+	ChildCommentCount              int         `json:"child_comment_count"`
+	CommentIndex                   int         `json:"comment_index"`
+	CommentLikeCount               int         `json:"comment_like_count"`
+	ContentType                    string      `json:"content_type"`
+	CreatedAt                      int64       `json:"created_at"`
+	CreatedAtUtc                   int64       `json:"created_at_utc"`
+	DidReportAsSpam                bool        `json:"did_report_as_spam"`
+	HasLikedComment                bool        `json:"has_liked_comment"`
+	InlineComposerDisplayCondition string      `json:"inline_composer_display_condition"`
+	OtherPreviewUsers              []*User     `json:"other_preview_users"`
+	PreviewChildComments           []Comment   `json:"preview_child_comments"`
+	NextMaxChildCursor             string      `json:"next_max_child_cursor,omitempty"`
+	HasMoreTailChildComments       bool        `json:"has_more_tail_child_comments,omitempty"`
+	NextMinChildCursor             string      `json:"next_min_child_cursor,omitempty"`
+	HasMoreHeadChildComments       bool        `json:"has_more_head_child_comments,omitempty"`
+	NumTailChildComments           int         `json:"num_tail_child_comments,omitempty"`
+	NumHeadChildComments           int         `json:"num_head_child_comments,omitempty"`
+	Status                         string      `json:"status"`
 }
 
 func (c *Comment) setValues(insta *Instagram) {
@@ -272,13 +271,7 @@ func (c *Comment) setValues(insta *Instagram) {
 }
 
 func (c Comment) getid() string {
-	switch {
-	case c.ID == 0:
-		return c.idstr
-	case c.idstr == "":
-		return strconv.FormatInt(c.ID, 10)
-	}
-	return ""
+	return toString(c.ID)
 }
 
 // Like likes comment.

@@ -2,6 +2,7 @@ package tests
 
 import (
 	"math/rand"
+	"path"
 	"strconv"
 	"testing"
 	"time"
@@ -53,16 +54,21 @@ func TestDownload(t *testing.T) {
 	post := posts[randN]
 
 	folder := "downloads/" + strconv.FormatInt(time.Now().Unix(), 10)
-	err = post.Download(folder, "")
+	err = post.DownloadTo(path.Join(folder, ""))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	randN = rand.Intn(len(posts))
 	post = posts[randN]
-	err = post.Download(folder, "testy")
+	err = post.DownloadTo(path.Join(folder, "testy"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("Downloaded posts to %s", folder)
+
+	err = post.User.DownloadProfilePicTo(path.Join(folder, "profilepic"))
+	if err != nil {
+		t.Fatal(err)
+	}
 }

@@ -232,7 +232,7 @@ const (
 	urlInboxThread       = "direct_v2/threads/%s/"
 	urlInboxMute         = "direct_v2/threads/%s/mute/"
 	urlInboxUnmute       = "direct_v2/threads/%s/unmute/"
-	urlInboxGetItems      = "direct_v2/threads/%s/get_items/"
+	urlInboxGetItems     = "direct_v2/threads/%s/get_items/"
 	urlInboxMsgSeen      = "direct_v2/threads/%s/items/%s/seen/"
 	urlInboxApprove      = "direct_v2/threads/%s/approve/"
 	urlInboxHide         = "direct_v2/threads/%s/hide/"
@@ -294,5 +294,6 @@ var (
 	ErrInstaNotDefined   = errors.New(
 		"Insta has not been defined, this is most likely a bug in the code. Please backtrack which call this error came from, and open an issue detailing exactly how you got to this error.",
 	)
-	ErrNoValidLogin = errors.New("No valid login found")
+	ErrNoValidLogin    = errors.New("No valid login found")
+	ErrNoProfilePicUrl = errors.New("No profile picture url was found. Please fetch the profile first")
 )

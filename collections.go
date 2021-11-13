@@ -165,7 +165,7 @@ func (c *Collections) Create(name string, items ...Item) (*Collection, error) {
 
 	ids := []string{}
 	for _, i := range items {
-		ids = append(ids, i.ID)
+		ids = append(ids, i.GetID())
 	}
 	mediaIDs, err := json.Marshal(ids)
 	if err != nil {
@@ -234,7 +234,7 @@ func (c *Collection) ChangeCover(item Item) error {
 
 	data, err := json.Marshal(
 		map[string]string{
-			"cover_media_id":         item.ID,
+			"cover_media_id":         item.GetID(),
 			"_uid":                   toString(insta.Account.ID),
 			"name":                   c.Name,
 			"_uuid":                  insta.uuid,
@@ -334,7 +334,7 @@ func (c *Collection) RemoveMedia(items ...Item) error {
 
 	ids := []string{}
 	for _, u := range items {
-		ids = append(ids, u.ID)
+		ids = append(ids, u.GetID())
 	}
 	itemIDs, err := json.Marshal(ids)
 	if err != nil {

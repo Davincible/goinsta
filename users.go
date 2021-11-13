@@ -3,6 +3,7 @@ package goinsta
 import (
 	"encoding/json"
 	"fmt"
+	"path"
 	"strconv"
 	"time"
 )
@@ -264,6 +265,9 @@ type User struct {
 	ExistingUserAgeCollectionEnabled           bool          `json:"existing_user_age_collection_enabled"`
 	AboutYourAccountBloksEntrypointEnabled     bool          `json:"about_your_account_bloks_entrypoint_enabled"`
 	OpenExternalUrlWithInAppBrowser            bool          `json:"open_external_url_with_in_app_browser"`
+
+	// Profile picture as raw bytes, to populate call User.DownloadProfilePic()
+	ProfilePic []byte
 }
 
 // SetInstagram will update instagram instance for selected User.
@@ -683,4 +687,36 @@ func (user *User) Tags(minTimestamp []byte) (*FeedMedia, error) {
 	}
 	media.setValues()
 	return media, nil
+}
+
+// DownloadProfilePic will download a user's profile picture if available, and
+//   return it as a byte slice.
+func (user *User) DownloadProfilePic() ([]byte, error) {
+	if user.ProfilePicURL == "" {
+		return nil, ErrNoProfilePicUrl
+	}
+	insta := user.insta
+	b, err := insta.download(user.ProfilePicURL)
+	if err != nil {
+		return nil, err
+	}
+	user.ProfilePic = b
+	return b, nil
+}
+
+// DownloadProfilePicTo will download the user profile picture to the provided
+//   path. If path does not include a file name, one will be extracted automatically.
+// File extention does not need to be set, and will be set automatically.
+func (user *User) DownloadProfilePicTo(dst string) error {
+	folder, fn := path.Split(dst)
+	b, err := user.DownloadProfilePic()
+	if err != nil {
+		return nil
+	}
+	fn, err = getDownloadName(user.ProfilePicURL, fn)
+	if err != nil {
+		return err
+	}
+	err = saveToFolder(folder, fn, b)
+	return err
 }

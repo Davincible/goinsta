@@ -29,7 +29,7 @@ type Media interface {
 // Item represents media items
 //
 // All Item has Images or Videos objects which contains the url(s).
-// You can use Download function to get the best quality Image or Video from Item.
+// You can use the Download function to get the best quality Image or Video from Item.
 type Item struct {
 	insta    *Instagram
 	media    Media
@@ -37,12 +37,12 @@ type Item struct {
 	Comments *Comments `json:"-"`
 
 	// Post Info
-	TakenAt           int64  `json:"taken_at"`
-	Pk                int64  `json:"pk"`
-	ID                string `json:"id"`
-	Index             int    // position in feed
-	CommentsDisabled  bool   `json:"comments_disabled"`
-	DeviceTimestamp   int64  `json:"device_timestamp"`
+	TakenAt           int64       `json:"taken_at"`
+	Pk                int64       `json:"pk"`
+	ID                interface{} `json:"id"` // Most of the times a string
+	Index             int         // position in feed
+	CommentsDisabled  bool        `json:"comments_disabled"`
+	DeviceTimestamp   int64       `json:"device_timestamp"`
 	FacepileTopLikers []struct {
 		FollowFrictionType float64 `json:"follow_friction_type"`
 		FullNeme           string  `json:"ful_name"`
@@ -292,7 +292,7 @@ func (item *Item) comment(text string) error {
 func (item *Item) CommentCheckOffensive(comment string) (*CommentOffensive, error) {
 	insta := item.insta
 	data, err := json.Marshal(map[string]string{
-		"media_id":           item.ID,
+		"media_id":           item.GetID(),
 		"_uid":               toString(insta.Account.ID),
 		"comment_session_id": generateUUID(),
 		"_uuid":              insta.uuid,
@@ -340,7 +340,7 @@ func (item *Item) Reply(text string) error {
 				"is_shh_mode":          "0", // not sure when this would be 1/true
 				"send_attribution":     "reel",
 				"client_context":       token,
-				"media_id":             item.ID,
+				"media_id":             item.GetID(),
 				"text":                 text,
 				"device_id":            insta.dID,
 				"mutation_token":       token,
@@ -618,24 +618,31 @@ func (item *Item) changeLike(endpoint string) error {
 
 // Download downloads media item (video or image) with the best quality.
 //
-// Input parameters are folder and filename. If filename is "" will be saved with
-// the default value name.
+// Input parameter is a path to either a directory or a file. If no file is
+//   specified it will try to extract a file name from the image and use that.
+// If file extentions will automatically be appended to the file name, and do
+//   not need to be set manually.
 //
 // If file exists it will be saved
 // This function makes folder automatically
 //
 // See example: examples/media/itemDownload.go
-func (item *Item) Download(folder, name string) (err error) {
+
+// func (item *Item) Download(folder, name string) (m []byte, err error) {
+// 	return nil, nil
+// }
+func (item *Item) DownloadTo(dst string) error {
 	insta := item.insta
+	folder, file := path.Split(dst)
 	os.MkdirAll(folder, 0o777)
 
 	switch item.MediaType {
 	case 1:
-		return insta.download(folder, name, item.Images.Versions)
+		return insta.downloadTo(folder, file, item.Images.Versions)
 	case 2:
-		return insta.download(folder, name, item.Videos)
+		return insta.downloadTo(folder, file, item.Videos)
 	case 8:
-		return item.downloadCarousel(folder, name)
+		return item.downloadCarousel(folder, file)
 	}
 
 	insta.warnHandler(
@@ -646,28 +653,68 @@ func (item *Item) Download(folder, name string) (err error) {
 		),
 	)
 	return ErrNoMedia
+
 }
 
-func (item *Item) downloadCarousel(folder, name string) error {
-	if name == "" {
-		name = item.ID
+// Download will download a media item and directly return it as a byte slice.
+// If you wish to download a picture to a folder, use item.DownloadTo(path)
+func (item *Item) Download() ([]byte, error) {
+	insta := item.insta
+
+	switch item.MediaType {
+	case 1:
+		url := GetBest(item.Images.Versions)
+		return insta.download(url)
+	case 2:
+		url := GetBest(item.Videos)
+		return insta.download(url)
+	case 8:
+		return nil, fmt.Errorf("Unable to download a carousel with this method, use DownloadTo instead to save it to a file. If this is a feature you wish to use please let me know.")
+	}
+	return nil, ErrNoMedia
+}
+
+func (item *Item) downloadCarousel(folder, fn string) error {
+	if fn == "" {
+		fn = item.GetID()
 	}
 	for i, media := range item.CarouselMedia {
-		n := fmt.Sprintf("%s_%d", name, i+1)
-		if err := media.Download(folder, n); err != nil {
+		n := fmt.Sprintf("%s_%d", fn, i+1)
+		if err := media.DownloadTo(path.Join(folder, n)); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (insta *Instagram) download(folder, name string, media interface{}) error {
+// downloadTo saves a media item to folder/file
+func (insta *Instagram) downloadTo(folder, fn string, media interface{}) error {
 	url := GetBest(media)
-	name, err := getDownloadName(url, name)
+	fn, err := getDownloadName(url, fn)
 	if err != nil {
 		return err
 	}
-	dst := path.Join(folder, name)
+	b, err := insta.download(url)
+	if err != nil {
+		return err
+	}
+	err = saveToFolder(folder, fn, b)
+	return err
+}
+
+// download the media from a url and return the bytes
+func (insta *Instagram) download(url string) ([]byte, error) {
+	resp, err := insta.c.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	media, err := io.ReadAll(resp.Body)
+	return media, err
+}
+
+// saveToFolder writes bytes to a file
+func saveToFolder(folder, fn string, media []byte) error {
+	dst := path.Join(folder, fn)
 
 	file, err := os.Create(dst)
 	if err != nil {
@@ -675,13 +722,10 @@ func (insta *Instagram) download(folder, name string, media interface{}) error {
 	}
 	defer file.Close()
 
-	resp, err := insta.c.Get(url)
-	if err != nil {
-		return err
-	}
-
-	_, err = io.Copy(file, resp.Body)
+	b := bytes.NewBuffer(media)
+	_, err = io.Copy(file, b)
 	return err
+
 }
 
 func getDownloadName(url, name string) (string, error) {
@@ -762,6 +806,10 @@ func (item *Item) PreviewComments() []Comment {
 // If the returned value is true the story was published only for close friends
 func (item *Item) StoryIsCloseFriends() bool {
 	return item.Audience == "besties"
+}
+
+func (item *Item) GetID() string {
+	return toString(item.ID)
 }
 
 // FeedMedia represent a set of media items

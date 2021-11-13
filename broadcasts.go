@@ -24,8 +24,8 @@ type Broadcast struct {
 
 	// BroadcastStatus is either "active", "interrupted", "stopped"
 	BroadcastStatus            string  `json:"broadcast_status"`
-	DashPlaybackUrl            string  `json:"dash_playback_url"`
-	DashAbrPlaybackUrl         string  `json:"dash_abr_playback_url"`
+	DashPlaybackURL            string  `json:"dash_playback_url"`
+	DashAbrPlaybackURL         string  `json:"dash_abr_playback_url"`
 	DashManifest               string  `json:"dash_manifest"`
 	ExpireAt                   int64   `json:"expire_at"`
 	EncodingTag                string  `json:"encoding_tag"`
@@ -95,23 +95,36 @@ type BroadcastComments struct {
 	SystemComments             []*Comment `json:"system_comments"`
 	CommentMuted               int        `json:"comment_muted"`
 	IsViewerCommentAllowed     bool       `json:"is_viewer_comment_allowed"`
-	Status                     string     `json:"status"`
+	UserPaySupportersInfo      struct {
+		SupportersInComments   map[string]string `json:"supporters_in_comments"`
+		SupportersInCommentsV2 map[string]struct {
+			SupportTier string `json:"support_tier"`
+			BadgesCount int    `json:"badges_count"`
+		} `json:"supporters_in_comments_v2"`
+		// Never actually seen this filled
+		NewSupporters map[string]interface{} `json:"new_supporters"`
+	} `json:"user_pay_supporter_info"`
+	Status string `json:"status"`
 }
 
 type BroadcastLikes struct {
-	Likes            int     `json:"likes"`
-	BurstLikes       int     `json:"burst_likes"`
-	Likers           []*User `json:"likers"`
-	LikeTs           int64   `json:"like_ts"`
-	Status           string  `json:"status"`
+	Likes      int `json:"likes"`
+	BurstLikes int `json:"burst_likes"`
+	Likers     []struct {
+		UserID        int64  `json:"user_id"`
+		ProfilePicUrl string `json:"profile_pic_url"`
+		Count         string `json:"count"`
+	} `json:"likers"`
+	LikeTs           int64  `json:"like_ts"`
+	Status           string `json:"status"`
 	PaySupporterInfo struct {
 		LikeCountByTier []struct {
-			BurstLikes  int         `json:"burst_likes"`
-			Likers      interface{} `json:"likers"`
-			Likes       int         `json:"likes"`
-			SupportTier string      `json:"support_tier"`
+			BurstLikes  int                    `json:"burst_likes"`
+			Likers      map[string]interface{} `json:"likers"`
+			Likes       int                    `json:"likes"`
+			SupportTier string                 `json:"support_tier"`
 		} `json:"like_count_by_support_tier"`
-		BurskLikes int `json:"supporter_tier_burst_likes"`
+		BurstLikes int `json:"supporter_tier_burst_likes"`
 		Likes      int `json:"supporter_tier_likes"`
 	} `json:"user_pay_supporter_info"`
 }
