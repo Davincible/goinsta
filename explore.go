@@ -15,7 +15,7 @@ type Discover struct {
 		Context     string      `json:"context"`
 		DebugInfo   string      `json:"debug_info"`
 		Description string      `json:"description"`
-		ID          string      `json:"id"`
+		ID          interface{} `json:"id"`
 		IsMuted     bool        `json:"is_muted"`
 		Labels      interface{} `json:"labels"`
 		Name        string      `json:"name"`
