@@ -11,8 +11,9 @@ import (
 // Inbox contains Conversations. Each conversation has InboxItems.
 // InboxItems are the message of the chat.
 type Inbox struct {
-	insta *Instagram
-	err   error
+	insta   *Instagram
+	err     error
+	initial bool
 
 	Conversations []*Conversation `json:"threads"`
 	Pending       []*Conversation `json:"pending"`
@@ -239,11 +240,20 @@ func (inbox *Inbox) next(pending bool, params map[string]string) bool {
 
 // Sync updates inbox messages.
 func (inbox *Inbox) Sync() error {
-	return inbox.sync(false, map[string]string{
-		"visual_message_return_type": "unseen",
-		"persistentBadging":          "true",
-		"limit":                      "0",
-	})
+	if inbox.initial {
+		return inbox.sync(false, map[string]string{
+			"visual_message_return_type": "unseen",
+			"persistentBadging":          "true",
+			"limit":                      "0",
+		})
+	} else {
+		if inbox.InitialSnapshot() == false {
+			if inbox.err != ErrNoMore {
+				return inbox.err
+			}
+		}
+		return nil
+	}
 }
 
 // SyncPending updates inbox pending messages.
@@ -343,6 +353,7 @@ func (inbox *Inbox) Next() bool {
 // InitialSnapshot fetches the initial messages on app open, and is called
 //   from Instagram.OpenApp() automatically.
 func (inbox *Inbox) InitialSnapshot() bool {
+	inbox.initial = true
 	return inbox.next(false, map[string]string{
 		"visual_message_return_type": "unseen",
 		"thread_message_limit":       "10",
