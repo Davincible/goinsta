@@ -113,6 +113,7 @@ type InboxItem struct {
 	MediaShare    *Item          `json:"media_share"`
 	AnimatedMedia *AnimatedMedia `json:"animated_media"`
 	VoiceMedia    *VoiceMedia    `json:"voice_media"`
+	VisualMedia   *VisualMedia   `json:"visual_media"`
 	ActionLog     *actionLog     `json:"action_log"`
 	Link          struct {
 		Text    string `json:"text"`
@@ -214,6 +215,22 @@ type VoiceMedia struct {
 	ViewMode           string  `json:"view_mode"`
 	SeenCount          int     `json:"seen_count"`
 	ReplayExpiringAtUs int64   `json:"replay_expiring_at_us"`
+}
+
+// used for raven_media type
+type VisualMedia struct {
+	Media struct {
+		MediaType int `json:"media_type"`
+	} `json:"media"`
+	ExpiringMediaActionSummary struct {
+		Type      string `json:"type"`
+		Timestamp int64  `json:"timestamp"`
+		Count     int    `json:"count"`
+	} `json:"expiring_media_action_summary"`
+	SeenUserIds        []string `json:"seen_user_ids"`
+	ViewMode           string   `json:"view_mode"`
+	SeenCount          int      `json:"seen_count"`
+	ReplayExpiringAtUs int64    `json:"replay_expiring_at_us"`
 }
 
 func (inbox *Inbox) sync(pending bool, params map[string]string) error {
