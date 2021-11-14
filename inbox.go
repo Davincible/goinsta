@@ -108,11 +108,13 @@ type InboxItem struct {
 
 	Like string `json:"like"`
 
-	Reel       *reelShare `json:"reel_share"`
-	Media      *Item      `json:"media"`
-	MediaShare *Item      `json:"media_share"`
-	ActionLog  *actionLog `json:"action_log"`
-	Link       struct {
+	Reel          *reelShare     `json:"reel_share"`
+	Media         *Item          `json:"media"`
+	MediaShare    *Item          `json:"media_share"`
+	AnimatedMedia *AnimatedMedia `json:"animated_media"`
+	VoiceMedia    *VoiceMedia    `json:"voice_media"`
+	ActionLog     *actionLog     `json:"action_log"`
+	Link          struct {
 		Text    string `json:"text"`
 		Context struct {
 			Url      string `json:"link_url"`
@@ -173,6 +175,45 @@ func newInbox(insta *Instagram) *Inbox {
 type lastSeenAt struct {
 	Timestamp string `json:"timestamp"`
 	ItemID    string `json:"item_id"`
+}
+
+type AnimatedMedia struct {
+	ID     string `json:"id"`
+	Images struct {
+		FixedHeight struct {
+			Height   string `json:"height"`
+			Mp4      string `json:"mp4"`
+			Mp4Size  string `json:"mp4_size"`
+			Size     string `json:"size"`
+			URL      string `json:"url"`
+			Webp     string `json:"webp"`
+			WebpSize string `json:"webp_size"`
+			Width    string `json:"width"`
+		} `json:"fixed_height"`
+	} `json:"images"`
+	IsRandom  bool `json:"is_random"`
+	IsSticker bool `json:"is_sticker"`
+}
+
+type VoiceMedia struct {
+	Media struct {
+		ID          string `json:"id"`
+		MediaType   int    `json:"media_type"`
+		ProductType string `json:"product_type"`
+		Audio       struct {
+			AudioSrc                    string    `json:"audio_src"`
+			Duration                    int       `json:"duration"`
+			WaveformData                []float64 `json:"waveform_data"`
+			WaveformSamplingFrequencyHz int       `json:"waveform_sampling_frequency_hz"`
+		} `json:"audio"`
+		OrganicTrackingToken string `json:"organic_tracking_token"`
+		User                 *User  `json:"user"`
+	} `json:"media"`
+	IsShhMode          bool    `json:"is_shh_mode"`
+	SeenUserIds        []int64 `json:"seen_user_ids"`
+	ViewMode           string  `json:"view_mode"`
+	SeenCount          int     `json:"seen_count"`
+	ReplayExpiringAtUs int64   `json:"replay_expiring_at_us"`
 }
 
 func (inbox *Inbox) sync(pending bool, params map[string]string) error {
