@@ -219,9 +219,7 @@ type VoiceMedia struct {
 
 // used for raven_media type
 type VisualMedia struct {
-	Media struct {
-		MediaType int `json:"media_type"`
-	} `json:"media"`
+	Media                      *Item `json:"media"`
 	ExpiringMediaActionSummary struct {
 		Type      string `json:"type"`
 		Timestamp int64  `json:"timestamp"`
