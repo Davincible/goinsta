@@ -226,7 +226,22 @@ func getRandAcc(path ...string) (*Instagram, error) {
 // EnvLoadAccs loads all the environment variables.
 // By default, the OS environment variables as well as .env are loaded
 // To load a custom file, instead of .env, pass the filepath as an argument.
-func EnvLoadAccs(p ...string) ([]*EnvAcc, error) {
+func EnvLoadAccs(p ...string) ([]*Instagram, error) {
+	instas := []*Instagram{}
+	accs, _, err := envLoadAccs(p...)
+
+	for _, acc := range accs {
+		insta, err := ImportFromBase64String(acc.Enc.Base64, true)
+		if err != nil {
+			return nil, err
+		}
+		instas = append(instas, insta)
+	}
+
+	return instas, err
+}
+
+func EnvReadAccs(p ...string) ([]*EnvAcc, error) {
 	accs, _, err := envLoadAccs(p...)
 	return accs, err
 }
