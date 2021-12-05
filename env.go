@@ -56,7 +56,7 @@ func EnvRandAcc(path ...string) (*Instagram, error) {
 // Looks for INSTAGRAM_ACT_<name>="username:password" in env
 //
 func EnvRandLogin(path ...string) (string, string, error) {
-	allAccs, err := EnvLoadAccs(path...)
+	allAccs, err := EnvReadAccs(path...)
 	if err != nil {
 		return "", "", err
 	}
