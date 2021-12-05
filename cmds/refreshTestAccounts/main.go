@@ -16,7 +16,7 @@ import (
 func main() {
 	// Open File
 	path := "../../tests/.env"
-	err := goinsta.ProvisionEnv(path)
+	err := goinsta.EnvProvision(path)
 	if err != nil {
 		panic(err)
 	}

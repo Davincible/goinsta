@@ -64,6 +64,18 @@ func TestGetRandomLogin(t *testing.T) {
 	}
 }
 
+func TestEnvLoadAccs(t *testing.T) {
+	accs, err := goinsta.EnvLoadAccs()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(accs) == 0 {
+		t.Fatalf("No accounts found")
+	}
+	t.Logf("Found %d accounts", len(accs))
+}
+
 func loadEnv() ([]string, error) {
 	environ := os.Environ()
 	env, err := dotenv()
