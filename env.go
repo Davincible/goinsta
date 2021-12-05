@@ -172,7 +172,7 @@ func envUpdateAccs(path string, newAccs interface{}) error {
 // checkEnv will check the env variables for accounts that do have a login,
 //    but no config (INSTAGRAM_BASE64_<...>). If one is found, call ProvisionEnv
 func checkEnv(path ...string) error {
-	accs, err := EnvLoadAccs(path...)
+	accs, err := EnvReadAccs(path...)
 	if err != nil {
 		return err
 	}
@@ -193,7 +193,7 @@ func checkEnv(path ...string) error {
 
 // getRandAcc returns a random insta instance from env
 func getRandAcc(path ...string) (*Instagram, error) {
-	allAccs, err := EnvLoadAccs(path...)
+	allAccs, err := EnvReadAccs(path...)
 	if err != nil {
 		return nil, err
 	}
