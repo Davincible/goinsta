@@ -1,6 +1,6 @@
 ### Fork
 
-This repository has been forked from [ahmdrz/goinsta](https://github.com/ahmdrz/goinsta). 
+!This repository has been forked from [ahmdrz/goinsta](https://github.com/ahmdrz/goinsta). 
 As the maintainer of this repositry has been absend the last few months, and 
 the code in the repository was based on a 2 year old instagram app version, 
 since which a lot has changed, I have taken the courtesy to build upon his 
