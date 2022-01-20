@@ -869,7 +869,7 @@ func (insta *Instagram) sync(args ...map[string]string) error {
 	} else {
 		// if logged in
 		query = map[string]string{
-			"id":                      toString(insta.Account.ID),
+			"id":                      insta.uuid,
 			"_id":                     toString(insta.Account.ID),
 			"_uuid":                   insta.uuid,
 			"server_config_retrieval": "1",
