@@ -103,20 +103,25 @@ func EnvProvision(path string, refresh ...bool) error {
 	if len(refresh) == 0 || (len(refresh) > 0 && !refresh[0]) {
 		refreshFlag = true
 	}
+	fmt.Printf("Force refresh is set to %v\n", refreshFlag)
 
 	accs, other, err := envLoadAccs(path)
 	if err != nil {
 		return err
 	}
 
+	fmt.Printf("Found %d accounts\n", len(accs))
+
 	for _, acc := range accs {
 		if acc.Enc != nil && !refreshFlag {
+			fmt.Printf("Skipping account %s\n", acc.Plain.Name)
 			continue
 		}
 		username := acc.Plain.Username
 		password := acc.Plain.Password
 		fmt.Println("Processing", username)
 		insta := New(username, password)
+		insta.SetProxy("http://127.0.0.1:9090", false, true)
 		err := insta.Login()
 		if err != nil {
 			return err
@@ -127,6 +132,8 @@ func EnvProvision(path string, refresh ...bool) error {
 			return err
 		}
 		acc.Enc.Base64 = enc
+		fmt.Println("Sleeping...")
+		time.Sleep(00020 * time.Second)
 	}
 	err = accsToFile(path, accs, other)
 	if err != nil {
@@ -221,6 +228,22 @@ func getRandAcc(path ...string) (*Instagram, error) {
 		return nil, err
 	}
 	return insta, err
+}
+
+func EnvLoadPlain(path ...string) ([]*EnvPlainAcc, error) {
+	allAccs, err := EnvReadAccs(path...)
+	if err != nil {
+		return nil, err
+	}
+
+	// extract plain accounts from all accounts
+	accs := []*EnvPlainAcc{}
+	for _, acc := range allAccs {
+		if acc.Plain != nil {
+			accs = append(accs, acc.Plain)
+		}
+	}
+	return accs, nil
 }
 
 // EnvLoadAccs loads all the environment variables.
@@ -363,9 +386,16 @@ func addOrUpdateAcc(accs []*EnvAcc, toAdd interface{}) []*EnvAcc {
 			if (acc.Enc != nil && newAcc.Plain.Username == acc.Enc.Username) ||
 				(acc.Plain != nil && newAcc.Enc.Username == acc.Plain.Username) {
 				if newAcc.Plain != nil {
+					if newAcc.Plain.Name == "" {
+						newAcc.Plain.Name = acc.Plain.Name
+					}
+
 					acc.Plain = newAcc.Plain
 				}
 				if newAcc.Enc != nil {
+					if newAcc.Enc.Name == "" {
+						newAcc.Enc.Name = acc.Enc.Name
+					}
 					acc.Enc = newAcc.Enc
 				}
 				return accs
@@ -375,6 +405,9 @@ func addOrUpdateAcc(accs []*EnvAcc, toAdd interface{}) []*EnvAcc {
 		for _, acc := range accs {
 			if (acc.Enc != nil && newAcc.Username == acc.Enc.Username) ||
 				(acc.Plain != nil && newAcc.Username == acc.Plain.Username) {
+				if newAcc.Name == "" {
+					newAcc.Name = acc.Plain.Name
+				}
 				acc.Plain = newAcc
 				return accs
 			}
@@ -384,6 +417,9 @@ func addOrUpdateAcc(accs []*EnvAcc, toAdd interface{}) []*EnvAcc {
 		for _, acc := range accs {
 			if (acc.Plain != nil && newAcc.Username == acc.Plain.Username) ||
 				(acc.Enc != nil && newAcc.Username == acc.Enc.Username) {
+				if newAcc.Name == "" {
+					newAcc.Name = acc.Enc.Name
+				}
 				acc.Enc = newAcc
 				return accs
 			}
@@ -418,4 +454,12 @@ func accsToFile(path string, accs []*EnvAcc, other []string) error {
 		return err
 	}
 	return nil
+}
+
+func (acc *Account) GetEnvEncAcc() (*EnvEncAcc, error) {
+	b, err := acc.insta.ExportAsBase64String()
+	return &EnvEncAcc{
+		Username: acc.Username,
+		Base64:   b,
+	}, err
 }

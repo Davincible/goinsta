@@ -77,7 +77,7 @@ Or
 If you have `GO111MODULE=on`
 
 ```
-$ go get -u github.com/Davincible/goinsta/v2
+$ go get -u github.com/Davincible/goinsta
 ```
 
 ### Donate

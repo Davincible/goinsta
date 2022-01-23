@@ -11,7 +11,7 @@ the [wiki](https://github.com/Davincible/goinsta/wiki/1.-Getting-Started),
 and looking at the code to further understand how it works is encouraged.
 
 #### Golang + Instagram Private API
-<p align="center"><img width=100% src="https://raw.githubusercontent.com/Davincible/goinsta/v1/resources/goinsta-image.png"></p>
+![goinsta logo](https://raw.githubusercontent.com/Davincible/goinsta/v1/resources/goinsta-image.png)
 
 > Unofficial Instagram API for Golang
 
@@ -23,9 +23,9 @@ and looking at the code to further understand how it works is encouraged.
 * **Object independency. Can handle multiple instagram accounts.**
 * **Like Instagram mobile application**. Goinsta is very similar to Instagram official application.
 * **Simple**. Goinsta is made by lazy programmers!
-* **Backup methods**. You can use `Export` and `Import` functions.
+* **Backup methods**. You can use Export`and Import`functions.
 * **Security**. Your password is only required to login. After login your password is deleted.
-* **No External Dependencies**. GoInsta will not use any Go packages outside of the standard library.
+* ~~**No External Dependencies**. GoInsta will not use any Go packages outside of the standard library.~~ goinsta now uses [chromedp](https://github.com/chromedp/chromedp) as headless browser driver to solve challanges and checkpoints.
 
 ### Package installation 
 

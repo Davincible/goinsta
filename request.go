@@ -3,7 +3,9 @@ package goinsta
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -70,6 +72,14 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 	if insta == nil {
 		return nil, nil, fmt.Errorf("Error while calling %s: %s", o.Endpoint, ErrInstaNotDefined)
 	}
+
+	// Check if a challenge is in progress, if so wait for it to complete (with timeout)
+	if insta.privacyRequested.Get() && !insta.privacyCalled.Get() {
+		if !insta.checkPrivacy() {
+			return nil, nil, errors.New("Privacy check timedout")
+		}
+	}
+
 	insta.checkXmidExpiry()
 
 	method := "GET"
@@ -100,7 +110,8 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 		o.IgnoreHeaders = append(o.IgnoreHeaders, omitAPIHeadersExclude...)
 	}
 
-	u, err := url.Parse(nu + o.Endpoint)
+	nu = nu + o.Endpoint
+	u, err := url.Parse(nu)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -222,6 +233,7 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 	}
 	defer resp.Body.Close()
 
+	insta.extractHeaders(resp.Header)
 	body, err = ioutil.ReadAll(resp.Body)
 	if err == nil {
 		err = insta.isError(resp.StatusCode, body, resp.Status, o.Endpoint)
@@ -232,7 +244,6 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 	if err != nil {
 		return nil, nil, err
 	}
-	insta.extractHeaders(resp.Header)
 
 	// Decode gzip encoded responses
 	encoding := resp.Header.Get("Content-Encoding")
@@ -250,6 +261,7 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 			return nil, nil, err
 		}
 	}
+
 	return body, resp.Header.Clone(), err
 }
 
@@ -291,6 +303,23 @@ func (insta *Instagram) extractHeaders(h http.Header) {
 	extract("Ig-Set-Ig-U-Ds-User-Id", "Ig-U-Ds-User-Id")
 }
 
+func (insta *Instagram) checkPrivacy() bool {
+	d := time.Now().Add(5 * time.Minute)
+	ctx, cancel := context.WithDeadline(context.Background(), d)
+	defer cancel()
+
+	for {
+		select {
+		case <-time.After(3 * time.Second):
+			if insta.privacyRequested.Get() {
+				return true
+			}
+		case <-ctx.Done():
+			return false
+		}
+	}
+}
+
 func (insta *Instagram) isError(code int, body []byte, status, endpoint string) (err error) {
 	switch code {
 	case 200:
@@ -299,16 +328,39 @@ func (insta *Instagram) isError(code int, body []byte, status, endpoint string) 
 		ierr := Error400{Endpoint: endpoint}
 		err = json.Unmarshal(body, &ierr)
 		if err == nil {
+			fmt.Printf("Got 400 error: %s\n", ierr.Message)
 			switch ierr.Message {
 			case "Sorry, this media has been deleted":
 				return ErrMediaDeleted
-			case "challenge_required":
+			case "checkpoint_required":
+				// Usually a request to accept cookies
+				insta.warnHandler(ierr)
+				ierr.Checkpoint.insta = insta
+				err := ierr.Checkpoint.Process()
 
-				// This was a first attempt at auto challenge solving
-				// Haven't figured it out yet
-				// insta.WarnHandler(ierr)
-				// ierr.ChallengeError.insta = insta
-				// ierr.ChallengeError.Process()
+				if err != nil {
+					insta.warnHandler(
+						fmt.Errorf(
+							"Failed to automatically process status code 400 'checkpoint_required' with checkpoint url '%s', please report this on github. Error provided: %w",
+							ierr.Checkpoint.URL,
+							err,
+						))
+				} else {
+					insta.infoHandler(
+						fmt.Sprintf("Auto solving of checkpoint with url '%s' seems to have gone successful. This is an experimental feature, please let me know if it works! :)\n",
+							ierr.Checkpoint.URL,
+						))
+				}
+
+				return ierr
+			case "challenge_required":
+				insta.warnHandler(ierr)
+				insta.warnHandler("Encountered a captcha challenge, goinsta will attempt to open the challenge in a headless chromium browser, and take a screenshot. Please report the details in a github issue.")
+				ierr.ChallengeError.insta = insta
+				err := ierr.ChallengeError.Process()
+				if err != nil {
+					insta.warnHandler(err)
+				}
 
 				return ierr.ChallengeError
 			case "The password you entered is incorrect. Please try again.":

@@ -296,4 +296,7 @@ var (
 	)
 	ErrNoValidLogin    = errors.New("No valid login found")
 	ErrNoProfilePicUrl = errors.New("No profile picture url was found. Please fetch the profile first")
+
+	// Headless
+	ErrChromeNotFound = errors.New("To solve challenges a (headless) Chrome browser is used, but none was found. Please install Chromium or Google Chrome, and try again.")
 )

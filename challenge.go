@@ -3,6 +3,7 @@ package goinsta
 import (
 	"encoding/json"
 	"errors"
+	"regexp"
 	"strings"
 )
 
@@ -18,6 +19,8 @@ type ChallengeStepData struct {
 	FormType         string      `json:"form_type"`
 }
 
+// Challenge is a status code 400 error, usually prompting the user to perform
+//   some action.
 type Challenge struct {
 	insta *Instagram
 
@@ -36,6 +39,16 @@ type Challenge struct {
 
 	TwoFactorRequired bool
 	TwoFactorInfo     TwoFactorInfo
+}
+
+// Checkpoint is just like challenge, a status code 400 error.
+// Usually used to prompt the user to accept cookies.
+type Checkpoint struct {
+	insta *Instagram
+
+	URL            string `json:"checkpoint_url"`
+	Lock           bool   `json:"lock"`
+	FlowRenderType int    `json:"flow_render_type"`
 }
 
 type ChallengeContext struct {
@@ -284,18 +297,35 @@ func (info *TwoFactorInfo) Login2FA(code string) error {
 	return err
 }
 
-func (c *ChallengeError) Process() ([]byte, error) {
+// Process will open up the challenge url in a headless chromeium browser
+func (c *ChallengeError) Process() error {
 	insta := c.insta
+	err := insta.openChallenge(c.Challenge.URL)
 
-	body, _, err := insta.sendRequest(
-		&reqOptions{
-			Endpoint: c.Challenge.URL,
-			IsPost:   true,
-			Query: map[string]string{
-				"guid":      insta.uuid,
-				"device_id": insta.dID,
-			},
-		},
-	)
-	return body, err
+	return err
+}
+
+// Process will open up the url passed as a checkpoint response (not a challenge)
+//   in a headless browser. This method is experimental, please report if you still
+//   get a /privacy/checks/ checkpoint error.
+func (c *Checkpoint) Process() error {
+	insta := c.insta
+	if insta.privacyRequested.Get() {
+		panic("Privacy request again, it hus failed, panicing")
+	}
+
+	insta.privacyRequested.Set(true)
+	err := insta.acceptPrivacyCookies(c.URL)
+
+	// Check if err = Chrome not found
+	if matched, reErr := regexp.Match("executable file not found", []byte(err.Error())); reErr != nil {
+		return reErr
+	} else if matched {
+		return ErrChromeNotFound
+	} else if err != nil {
+		return err
+	}
+
+	insta.privacyCalled.Set(true)
+	return nil
 }

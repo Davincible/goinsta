@@ -70,6 +70,7 @@ func (e ErrorN) Error() string {
 
 // Error400 is error returned by HTTP 400 status code.
 type Error400 struct {
+	Checkpoint
 	ChallengeError
 	Endpoint   string `json:"endpoint"`
 	Action     string `json:"action"`

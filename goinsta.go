@@ -100,7 +100,7 @@ type Instagram struct {
 	Feed *Feed
 	// Contacts provides address book sync/unsync methods
 	Contacts *Contacts
-	// Locations provide feed by location ID. To find location feeds by name use Searchbar
+	// Locations provde feed by location ID. To find location feeds by name use Searchbar
 	Locations *LocationInstance
 	// Challenge stores the challenge info if provided
 	Challenge *Challenge
@@ -117,6 +117,11 @@ type Instagram struct {
 	infoHandler  func(...interface{})
 	warnHandler  func(...interface{})
 	debugHandler func(...interface{})
+
+	// Keep track of a challenge response requesting to accept cookies
+	privacyCalled *utilities.ABool
+	// Keep track of whether an attempt has been made to accept the cookies
+	privacyRequested *utilities.ABool
 }
 
 func defaultHandler(args ...interface{}) {
@@ -218,9 +223,11 @@ func New(username, password string) *Instagram {
 			},
 			Jar: jar,
 		},
-		infoHandler:  defaultHandler,
-		warnHandler:  defaultHandler,
-		debugHandler: defaultHandler,
+		infoHandler:      defaultHandler,
+		warnHandler:      defaultHandler,
+		debugHandler:     defaultHandler,
+		privacyCalled:    utilities.NewABool(),
+		privacyRequested: utilities.NewABool(),
 	}
 	insta.init()
 
@@ -393,9 +400,11 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 		},
 		Account: config.Account,
 
-		infoHandler:  defaultHandler,
-		warnHandler:  defaultHandler,
-		debugHandler: defaultHandler,
+		infoHandler:      defaultHandler,
+		warnHandler:      defaultHandler,
+		debugHandler:     defaultHandler,
+		privacyCalled:    utilities.NewABool(),
+		privacyRequested: utilities.NewABool(),
 	}
 	insta.userAgent = createUserAgent(insta.device)
 	insta.c.Jar, err = cookiejar.New(nil)
@@ -811,6 +820,8 @@ func (insta *Instagram) zrToken() error {
 				"X-Ig-Device-Locale",
 				"X-Ig-Mapped-Locale",
 				"X-Ig-App-Startup-Country",
+				"Ig-U-Shbts",
+				"Ig-U-Shbid",
 			},
 		},
 	)
@@ -869,7 +880,7 @@ func (insta *Instagram) sync(args ...map[string]string) error {
 	} else {
 		// if logged in
 		query = map[string]string{
-			"id":                      toString(insta.Account.ID),
+			"id":                      insta.uuid,
 			"_id":                     toString(insta.Account.ID),
 			"_uuid":                   insta.uuid,
 			"server_config_retrieval": "1",

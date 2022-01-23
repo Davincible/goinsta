@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/Davincible/goinsta/v2"
+	"github.com/Davincible/goinsta"
 	"github.com/tcnksm/go-input"
 )
 
