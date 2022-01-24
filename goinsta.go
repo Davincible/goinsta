@@ -728,6 +728,17 @@ func (insta *Instagram) verifyLogin(body []byte) error {
 	}
 
 	if res.Status != "ok" {
+		switch res.ErrorType {
+		case "bad_password":
+			return ErrBadPassword
+		case "two_factor_required":
+			insta.TwoFactorInfo = res.TwoFactorInfo
+			insta.TwoFactorInfo.insta = insta
+			return Err2FARequired
+		case "checkpoint_challenge_required":
+			insta.Challenge = res.Challenge
+			insta.Challenge.insta = insta
+		}
 		err := errors.New(
 			fmt.Sprintf(
 				"Failed to login: %s, %s",
@@ -735,17 +746,6 @@ func (insta *Instagram) verifyLogin(body []byte) error {
 			),
 		)
 		insta.warnHandler(err)
-
-		switch res.ErrorType {
-		case "bad_password":
-			return ErrBadPassword
-		case "two_factor_required":
-			insta.TwoFactorInfo = res.TwoFactorInfo
-			insta.TwoFactorInfo.insta = insta
-		case "checkpoint_challenge_required":
-			insta.Challenge = res.Challenge
-			insta.Challenge.insta = insta
-		}
 		return err
 	}
 

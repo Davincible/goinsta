@@ -297,7 +297,7 @@ func (info *TwoFactorInfo) Login2FA(code string) error {
 	return err
 }
 
-// Process will open up the challenge url in a chromeium browser and
+// Process will open up the challenge url in a chromium browser and
 //   take a screenshot. Please report the screenshot and printed out struct so challenge
 //   automation can be build in.
 func (c *ChallengeError) Process() error {

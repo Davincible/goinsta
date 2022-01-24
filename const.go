@@ -268,6 +268,7 @@ var (
 	// Account & Login Errors
 	ErrBadPassword     = errors.New("Password is incorrect")
 	ErrTooManyRequests = errors.New("Too many requests, please wait a few minutes before you try again")
+	Err2FARequired     = errors.New("Two Factor Autentication required. Please call insta.TwoFactorInfo.Login2FA(code)")
 
 	// Upload Errors
 	ErrInvalidFormat      = errors.New("Invalid file type, please use one of jpeg, jpg, mp4")
