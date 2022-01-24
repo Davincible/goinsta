@@ -340,8 +340,12 @@ func (insta *Instagram) isError(code int, body []byte, status, endpoint string) 
 		ierr := Error400{Endpoint: endpoint}
 		err = json.Unmarshal(body, &ierr)
 		if err == nil {
-			fmt.Printf("Got 400 error: %s\n", ierr.Message)
 			switch ierr.Message {
+			case "login_required":
+				if ierr.ErrorTitle == "You've Been Logged Out" {
+					return ErrLoggedOut
+				}
+				return ErrLoginRequired
 			case "Sorry, this media has been deleted":
 				return ErrMediaDeleted
 			case "checkpoint_required":
@@ -387,8 +391,18 @@ func (insta *Instagram) isError(code int, body []byte, status, endpoint string) 
 			Code:     403,
 			Endpoint: endpoint,
 		}
-		ierr.Message = string(body)
-		return ierr
+		err = json.Unmarshal(body, &ierr)
+		if err == nil {
+			switch ierr.Message {
+			case "login_required":
+				if ierr.ErrorTitle == "You've Been Logged Out" {
+					return ErrLoggedOut
+				}
+				return ErrLoginRequired
+			}
+			return ierr
+		}
+		return err
 	case 429:
 		return ErrTooManyRequests
 	case 500:

@@ -473,11 +473,17 @@ func (insta *Instagram) Login() (err error) {
 
 	err = insta.getPrefill()
 	if err != nil {
+		if errIsFatal(err) {
+			return err
+		}
 		insta.warnHandler("Non fatal error while fetching prefill:", err)
 	}
 
 	err = insta.contactPrefill()
 	if err != nil {
+		if errIsFatal(err) {
+			return err
+		}
 		insta.warnHandler("Non fatal error while fetching contact prefill:", err)
 	}
 
@@ -534,6 +540,10 @@ func (insta *Instagram) OpenApp() (err error) {
 		defer wg.Done()
 		err := insta.getAccountFamily()
 		if err != nil {
+			if errIsFatal(err) {
+				errChan <- err
+				return
+			}
 			insta.warnHandler("Non fatal error while fetching account family:", err)
 		}
 	}()
@@ -542,6 +552,10 @@ func (insta *Instagram) OpenApp() (err error) {
 	go func() {
 		defer wg.Done()
 		if err := insta.getNdxSteps(); err != nil {
+			if errIsFatal(err) {
+				errChan <- err
+				return
+			}
 			insta.warnHandler("Non fatal error while fetching ndx steps:", err)
 		}
 	}()
@@ -562,6 +576,10 @@ func (insta *Instagram) OpenApp() (err error) {
 	go func() {
 		defer wg.Done()
 		if err := insta.callNotifBadge(); err != nil {
+			if errIsFatal(err) {
+				errChan <- err
+				return
+			}
 			insta.warnHandler("Non fatal error while fetching notify badge", err)
 		}
 	}()
@@ -570,6 +588,10 @@ func (insta *Instagram) OpenApp() (err error) {
 	go func() {
 		defer wg.Done()
 		if err := insta.banyan(); err != nil {
+			if errIsFatal(err) {
+				errChan <- err
+				return
+			}
 			insta.warnHandler("Non fatal error while fetching banyan", err)
 		}
 	}()
@@ -578,6 +600,10 @@ func (insta *Instagram) OpenApp() (err error) {
 	go func() {
 		defer wg.Done()
 		if err = insta.callMediaBlocked(); err != nil {
+			if errIsFatal(err) {
+				errChan <- err
+				return
+			}
 			insta.warnHandler("Non fatal error while fetching blocked media", err)
 		}
 	}()
@@ -588,6 +614,10 @@ func (insta *Instagram) OpenApp() (err error) {
 		// no clue what theses values could be used for
 		_, err = insta.getCooldowns()
 		if err != nil {
+			if errIsFatal(err) {
+				errChan <- err
+				return
+			}
 			insta.warnHandler("Non fatal error while fetching cool downs", err)
 		}
 	}()
@@ -596,6 +626,10 @@ func (insta *Instagram) OpenApp() (err error) {
 	go func() {
 		defer wg.Done()
 		if !insta.Discover.Next() {
+			if errIsFatal(err) {
+				errChan <- err
+				return
+			}
 			insta.warnHandler("Non fatal error while fetching explore page",
 				insta.Discover.Error())
 		}
@@ -605,6 +639,10 @@ func (insta *Instagram) OpenApp() (err error) {
 	go func() {
 		defer wg.Done()
 		if err := insta.getConfig(); err != nil {
+			if errIsFatal(err) {
+				errChan <- err
+				return
+			}
 			insta.warnHandler("Non fatal error while fetching config", err)
 		}
 	}()
@@ -615,6 +653,10 @@ func (insta *Instagram) OpenApp() (err error) {
 		// no clue what theses values could be used for
 		_, err = insta.getScoresBootstrapUsers()
 		if err != nil {
+			if errIsFatal(err) {
+				errChan <- err
+				return
+			}
 			insta.warnHandler("Non fatal error while fetching bootstrap user scores", err)
 		}
 	}()
@@ -635,6 +677,10 @@ func (insta *Instagram) OpenApp() (err error) {
 	go func() {
 		defer wg.Done()
 		if err := insta.sendAdID(); err != nil {
+			if errIsFatal(err) {
+				errChan <- err
+				return
+			}
 			insta.warnHandler("Non fatal error while sending ad id", err)
 		}
 	}()
@@ -643,6 +689,10 @@ func (insta *Instagram) OpenApp() (err error) {
 	go func() {
 		defer wg.Done()
 		if err := insta.callStClPushPerm(); err != nil {
+			if errIsFatal(err) {
+				errChan <- err
+				return
+			}
 			insta.warnHandler("Non fatal error while calling store client push permissions", err)
 		}
 	}()
@@ -663,6 +713,10 @@ func (insta *Instagram) OpenApp() (err error) {
 	go func() {
 		defer wg.Done()
 		if err := insta.callContPointSig(); err != nil {
+			if errIsFatal(err) {
+				errChan <- err
+				return
+			}
 			insta.warnHandler("Non fatal error while calling contact point signal:", err)
 		}
 	}()

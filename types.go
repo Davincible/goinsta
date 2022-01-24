@@ -84,8 +84,10 @@ type Error400 struct {
 		Retriable bool   `json:"retriable"`
 		Type      string `json:"type"`
 	} `json:"debug_info"`
-	Code   int
-	Status string `json:"status"`
+	Code       int
+	ErrorBody  string `json:"error_body"`
+	ErrorTitle string `json:"error_title`
+	Status     string `json:"status"`
 }
 
 func (e Error400) Error() string {

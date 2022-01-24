@@ -284,3 +284,19 @@ func checkHeadlessErr(err error) error {
 	}
 	return err
 }
+
+func errIsFatal(err error) bool {
+	switch err {
+	case ErrBadPassword:
+		fallthrough
+	case Err2FARequired:
+		fallthrough
+	case ErrLoggedOut:
+		fallthrough
+	case ErrLoginRequired:
+		return true
+	default:
+		fmt.Printf("using default method for %v\n", err)
+		return false
+	}
+}

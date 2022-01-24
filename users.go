@@ -62,35 +62,38 @@ func (users *Users) Next() bool {
 			},
 		},
 	)
-	if err == nil {
-		usrs := Users{}
-		err = json.Unmarshal(body, &usrs)
-		if err == nil {
-			if len(usrs.RawNextID) > 0 && usrs.RawNextID[0] == '"' && usrs.RawNextID[len(usrs.RawNextID)-1] == '"' {
-				if err := json.Unmarshal(usrs.RawNextID, &usrs.NextID); err != nil {
-					users.err = err
-					return false
-				}
-			} else if usrs.RawNextID != nil {
-				var nextID int64
-				if err := json.Unmarshal(usrs.RawNextID, &nextID); err != nil {
-					users.err = err
-					return false
-				}
-				usrs.NextID = strconv.FormatInt(nextID, 10)
-			}
-			*users = usrs
-			if !usrs.BigList || usrs.NextID == "" {
-				users.err = ErrNoMore
-			}
-			users.insta = insta
-			users.endpoint = endpoint
-			users.setValues()
-			return true
-		}
+	if err != nil {
+		users.err = err
+		return false
 	}
-	users.err = err
-	return false
+	usrs := Users{}
+	err = json.Unmarshal(body, &usrs)
+	if err != nil {
+		users.err = err
+		return false
+	}
+
+	if len(usrs.RawNextID) > 0 && usrs.RawNextID[0] == '"' && usrs.RawNextID[len(usrs.RawNextID)-1] == '"' {
+		if err := json.Unmarshal(usrs.RawNextID, &usrs.NextID); err != nil {
+			users.err = err
+			return false
+		}
+	} else if usrs.RawNextID != nil {
+		var nextID int64
+		if err := json.Unmarshal(usrs.RawNextID, &nextID); err != nil {
+			users.err = err
+			return false
+		}
+		usrs.NextID = strconv.FormatInt(nextID, 10)
+	}
+	*users = usrs
+	if usrs.NextID == "" {
+		users.err = ErrNoMore
+	}
+	users.insta = insta
+	users.endpoint = endpoint
+	users.setValues()
+	return true
 }
 
 // Error returns users error
@@ -302,8 +305,14 @@ func (user *User) Info(params ...interface{}) error {
 	if err != nil {
 		return err
 	}
+	result := struct {
+		User   *User  `json:"user"`
+		Status string `json:"status"`
+	}{
+		User: user,
+	}
 
-	err = json.Unmarshal(body, user)
+	err = json.Unmarshal(body, &result)
 	return err
 }
 
@@ -318,24 +327,6 @@ func (user *User) Sync(params ...interface{}) error {
 //
 // See example: examples/user/following.go
 func (user *User) Following() *Users {
-	/*
-		TODO: call friendships/show_many/
-
-		returns:
-		{
-		  "friendship_statuses": {
-			"xxxxxxx": {
-			  "following": true,
-			  "incoming_request": false,
-			  "is_bestie": false,
-			  "is_private": true,
-			  "is_restricted": false,
-			  "outgoing_request": false,
-			  "is_feed_favorite": false
-			},
-			...
-		}
-	*/
 	users := &Users{}
 	users.insta = user.insta
 	users.endpoint = fmt.Sprintf(urlFollowing, user.ID)

@@ -509,6 +509,9 @@ func (item *Item) SaveTo(c *Collection) error {
 	// Call genereral save method first, as in the app this will always happen
 	err := item.Save()
 	if err != nil {
+		if errIsFatal(err) {
+			return err
+		}
 		insta.warnHandler(errors.New("Non fatal error, failed to save post to all"))
 	}
 

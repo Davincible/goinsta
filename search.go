@@ -158,6 +158,9 @@ func (sb *Search) History() (*[]SearchHistory, error) {
 		return nil, err
 	}
 	if err := sb.NullState(); err != nil {
+		if errIsFatal(err) {
+			return nil, err
+		}
 		sb.insta.warnHandler("Non fatal error while setting search null state", err)
 	}
 	return h, nil
@@ -281,12 +284,18 @@ func (sb *Search) search(query string, fn func(string) (*SearchResult, error)) (
 	}
 	h, err := sb.history()
 	if err != nil {
-		sb.insta.warnHandler("Non fatal error while fetcihng recent search results",
+		if errIsFatal(err) {
+			return nil, err
+		}
+		insta.warnHandler("Non fatal error while fetcihng recent search results",
 			err)
 	}
 	result.History = *h
 	if err := sb.NullState(); err != nil {
-		sb.insta.warnHandler("Non fatal error while setting search null state", err)
+		if errIsFatal(err) {
+			return nil, err
+		}
+		insta.warnHandler("Non fatal error while setting search null state", err)
 	}
 
 	var q string
