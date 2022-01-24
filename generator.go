@@ -42,6 +42,7 @@ func generateUserBreadcrumb(text string) string {
 	return hmac + "\n" + enc + "\n"
 }
 
+// generateSignature takes a string of byte slice as argument, and prepents the signature
 func generateSignature(d interface{}, extra ...map[string]string) map[string]string {
 	var data string
 	switch x := d.(type) {

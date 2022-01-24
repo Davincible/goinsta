@@ -3,7 +3,7 @@ package goinsta
 import (
 	"encoding/json"
 	"errors"
-	"regexp"
+	"fmt"
 	"strings"
 )
 
@@ -297,10 +297,14 @@ func (info *TwoFactorInfo) Login2FA(code string) error {
 	return err
 }
 
-// Process will open up the challenge url in a headless chromeium browser
+// Process will open up the challenge url in a chromeium browser and
+//   take a screenshot. Please report the screenshot and printed out struct so challenge
+//   automation can be build in.
 func (c *ChallengeError) Process() error {
 	insta := c.insta
+	insta.infoHandler(fmt.Sprintf("Challenge struct:\n%+v\n", c))
 	err := insta.openChallenge(c.Challenge.URL)
+	err = checkHeadlessErr(err)
 
 	return err
 }
@@ -316,13 +320,8 @@ func (c *Checkpoint) Process() error {
 
 	insta.privacyRequested.Set(true)
 	err := insta.acceptPrivacyCookies(c.URL)
-
-	// Check if err = Chrome not found
-	if matched, reErr := regexp.Match("executable file not found", []byte(err.Error())); reErr != nil {
-		return reErr
-	} else if matched {
-		return ErrChromeNotFound
-	} else if err != nil {
+	err = checkHeadlessErr(err)
+	if err != nil {
 		return err
 	}
 

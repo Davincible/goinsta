@@ -720,3 +720,54 @@ func (user *User) DownloadProfilePicTo(dst string) error {
 	err = saveToFolder(folder, fn, b)
 	return err
 }
+
+func (user *User) ApprovePending() error {
+	return user.changePending(urlFriendshipApprove)
+}
+
+func (user *User) IgnorePending() error {
+	return user.changePending(urlFriendshipIgnore)
+}
+
+func (user *User) changePending(endpoint string) error {
+	insta := user.insta
+	if !user.Friendship.IncomingRequest {
+		return ErrNoPendingFriendship
+	}
+
+	query := map[string]string{
+		"user_id":          toString(user.ID),
+		"radio_type":       "wifi-none",
+		"_uid":             toString(insta.Account.ID),
+		"_uuid":            insta.uuid,
+		"nav_chain":        "EAS:newsfeed_you:52,DmK:follow_requests:61",
+		"container_module": "follow_requests",
+	}
+
+	data, err := json.Marshal(query)
+	if err != nil {
+		return err
+	}
+	resp, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: fmt.Sprintf(endpoint, user.ID),
+			IsPost:   true,
+			Query:    generateSignature(data),
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	var result friendResp
+	err = json.Unmarshal(resp, &result)
+	if err != nil {
+		return err
+	}
+
+	if result.Status != "ok" {
+		return fmt.Errorf("bad status: %s", result.Status)
+	}
+	user.Friendship = result.Friendship
+	return nil
+}

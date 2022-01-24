@@ -54,13 +54,14 @@ type Activity struct {
 	Status string `json:"status"`
 }
 
-// TODO: Needs to be updated
 type RecentItems struct {
 	Type      int `json:"type"`
 	StoryType int `json:"story_type"`
 	Args      struct {
-		Text  string `json:"text"`
-		Links []struct {
+		Text     string `json:"text"`
+		RichText string `json:"rich_text"`
+		IconUrl  string `json:"icon_url"`
+		Links    []struct {
 			Start int         `json:"start"`
 			End   int         `json:"end"`
 			Type  string      `json:"type"`
@@ -71,14 +72,17 @@ type RecentItems struct {
 			Following       bool `json:"following"`
 			OutgoingRequest bool `json:"outgoing_request"`
 		} `json:"inline_follow"`
-		Actions         []string `json:"actions"`
-		ProfileID       int64    `json:"profile_id"`
-		ProfileImage    string   `json:"profile_image"`
-		Timestamp       float64  `json:"timestamp"`
-		Tuuid           string   `json:"tuuid"`
-		Clicked         bool     `json:"clicked"`
-		ProfileName     string   `json:"profile_name"`
-		LatestReelMedia int64    `json:"latest_reel_media"`
+		Actions         []string    `json:"actions"`
+		AfCandidateId   int         `json:"af_candidate_id"`
+		ProfileID       int64       `json:"profile_id"`
+		ProfileImage    string      `json:"profile_image"`
+		Timestamp       float64     `json:"timestamp"`
+		Tuuid           string      `json:"tuuid"`
+		Clicked         bool        `json:"clicked"`
+		ProfileName     string      `json:"profile_name"`
+		LatestReelMedia int64       `json:"latest_reel_media"`
+		Destination     string      `json:"destination"`
+		Extra           interface{} `json:"extra"`
 	} `json:"args"`
 	Counts struct{} `json:"counts"`
 	Pk     string   `json:"pk"`
@@ -94,6 +98,10 @@ func (act *Activity) Error() error {
 func (act *Activity) Next() bool {
 	if act.err != nil {
 		return false
+	}
+	var first bool
+	if act.Status == "" {
+		first = true
 	}
 
 	query := map[string]string{
@@ -111,23 +119,45 @@ func (act *Activity) Next() bool {
 		&reqOptions{
 			Endpoint: urlActivityRecent,
 			Query:    query,
-			IsPost:   false,
 		},
 	)
+	if err != nil {
+		act.err = err
+		return false
+	}
+
+	act2 := Activity{}
+	err = json.Unmarshal(body, &act2)
 	if err == nil {
-		act2 := Activity{}
-		err = json.Unmarshal(body, &act2)
-		if err == nil {
-			*act = act2
-			act.insta = insta
-			if len(act.NewStories) == 0 || act.NextID == "" {
-				act.err = ErrNoMore
-			}
-			return true
+		*act = act2
+		act.insta = insta
+		if first {
+			act.MarkAsSeen()
 		}
+
+		if act.NextID == "" {
+			act.err = ErrNoMore
+			return false
+		}
+		return true
 	}
 	act.err = err
 	return false
+}
+
+// MarkAsSeen will let instagram know you visited the activity page, and mark
+//   current items as seen.
+func (act *Activity) MarkAsSeen() error {
+	insta := act.insta
+	_, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlActivitySeen,
+			Query: map[string]string{
+				"_uuid": insta.uuid,
+			},
+		},
+	)
+	return err
 }
 
 func newActivity(insta *Instagram) *Activity {

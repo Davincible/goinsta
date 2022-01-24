@@ -238,9 +238,6 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 	if err == nil {
 		err = insta.isError(resp.StatusCode, body, resp.Status, o.Endpoint)
 	}
-	if insta.Debug {
-		insta.debugHandler(fmt.Errorf("Status code: %d : %s, body: %s,", resp.StatusCode, o.Endpoint, string(body)))
-	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -260,6 +257,21 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 		if err := zr.Close(); err != nil {
 			return nil, nil, err
 		}
+	}
+
+	// Log complete response body
+	if insta.Debug {
+		r := map[string]interface{}{
+			"status":   resp.StatusCode,
+			"endpoint": o.Endpoint,
+			"body":     string(body),
+		}
+
+		b, err := json.MarshalIndent(r, "", "  ")
+		if err != nil {
+			return nil, nil, err
+		}
+		insta.debugHandler(string(b))
 	}
 
 	return body, resp.Header.Clone(), err

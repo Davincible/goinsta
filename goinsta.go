@@ -226,6 +226,7 @@ func New(username, password string) *Instagram {
 		infoHandler:      defaultHandler,
 		warnHandler:      defaultHandler,
 		debugHandler:     defaultHandler,
+		Debug:            os.Getenv("GOINSTA_DEBUG") != "",
 		privacyCalled:    utilities.NewABool(),
 		privacyRequested: utilities.NewABool(),
 	}
@@ -403,6 +404,7 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 		infoHandler:      defaultHandler,
 		warnHandler:      defaultHandler,
 		debugHandler:     defaultHandler,
+		Debug:            os.Getenv("GOINSTA_DEBUG") != "",
 		privacyCalled:    utilities.NewABool(),
 		privacyRequested: utilities.NewABool(),
 	}

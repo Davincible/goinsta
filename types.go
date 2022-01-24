@@ -169,8 +169,8 @@ type SuggestedUsers struct {
 		Icon            string        `json:"icon"`
 		Caption         string        `json:"caption"`
 		MediaIds        []interface{} `json:"media_ids"`
-		ThumbnailUrls   []interface{} `json:"thumbnail_urls"`
-		LargeUrls       []interface{} `json:"large_urls"`
+		ThumbnailUrls   []string      `json:"thumbnail_urls"`
+		LargeUrls       []string      `json:"large_urls"`
 		MediaInfos      []interface{} `json:"media_infos"`
 		Value           float64       `json:"value"`
 		IsNewSuggestion bool          `json:"is_new_suggestion"`
@@ -184,6 +184,18 @@ type SuggestedUsers struct {
 	AutoDvance       string `json:"auto_dvance"`
 	ID               string `json:"id"`
 	TrackingToken    string `json:"tracking_token"`
+}
+type PendingRequests struct {
+	Users []*User `json:"users"`
+	// TODO: pagination
+	BigList                      bool           `json:"big_list"`
+	GlobalBlacklistSample        interface{}    `json:"global_blacklist_sample"`
+	NextMaxID                    string         `json:"next_max_id"`
+	PageSize                     int            `json:"page_size"`
+	TruncateFollowRequestAtIndex int            `json:"truncate_follow_requests_at_index"`
+	Sections                     interface{}    `json:"sections"`
+	SuggestedUsers               SuggestedUsers `json:"suggested_users`
+	Status                       string         `json:"status"`
 }
 
 // Friendship stores the details of the relationship between two users.

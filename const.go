@@ -142,23 +142,27 @@ const (
 	urlFollowing = "friendships/%d/following/"
 
 	// Users
-	urlUserArchived      = "feed/only_me_feed/"
-	urlUserByName        = "users/%s/usernameinfo/"
-	urlUserByID          = "users/%s/info/"
-	urlUserBlock         = "friendships/block/%d/"
-	urlUserUnblock       = "friendships/unblock/%d/"
-	urlUserMute          = "friendships/mute_posts_or_story_from_follow/"
-	urlUserUnmute        = "friendships/unmute_posts_or_story_from_follow/"
-	urlUserFollow        = "friendships/create/%d/"
-	urlUserUnfollow      = "friendships/destroy/%d/"
-	urlUserFeed          = "feed/user/%d/"
-	urlFriendship        = "friendships/show/%d/"
-	urlFriendshipPending = "friendships/pending/"
-	urlUserStories       = "feed/user/%d/story/"
-	urlUserTags          = "usertags/%d/feed/"
-	urlBlockedList       = "users/blocked_list/"
-	urlUserInfo          = "users/%d/info/"
-	urlUserHighlights    = "highlights/%d/highlights_tray/"
+	urlUserArchived           = "feed/only_me_feed/"
+	urlUserByName             = "users/%s/usernameinfo/"
+	urlUserByID               = "users/%s/info/"
+	urlUserBlock              = "friendships/block/%d/"
+	urlUserUnblock            = "friendships/unblock/%d/"
+	urlUserMute               = "friendships/mute_posts_or_story_from_follow/"
+	urlUserUnmute             = "friendships/unmute_posts_or_story_from_follow/"
+	urlUserFollow             = "friendships/create/%d/"
+	urlUserUnfollow           = "friendships/destroy/%d/"
+	urlUserFeed               = "feed/user/%d/"
+	urlFriendship             = "friendships/show/%d/"
+	urlFriendshipShowMany     = "friendships/show_many/"
+	urlFriendshipPending      = "friendships/pending/"
+	urlFriendshipPendingCount = "friendships/pending_follow_requests_count/"
+	urlFriendshipApprove      = "friendships/approve/%d/"
+	urlFriendshipIgnore       = "friendships/ignore/%d/"
+	urlUserStories            = "feed/user/%d/story/"
+	urlUserTags               = "usertags/%d/feed/"
+	urlBlockedList            = "users/blocked_list/"
+	urlUserInfo               = "users/%d/info/"
+	urlUserHighlights         = "highlights/%d/highlights_tray/"
 
 	// Timeline
 	urlTimeline  = "feed/timeline/"
@@ -221,6 +225,7 @@ const (
 	// Activity
 	urlActivityFollowing = "news/"
 	urlActivityRecent    = "news/inbox/"
+	urlActivitySeen      = "news/inbox_seen/"
 
 	// Inbox
 	urlInbox             = "direct_v2/inbox/"
@@ -296,6 +301,9 @@ var (
 	)
 	ErrNoValidLogin    = errors.New("No valid login found")
 	ErrNoProfilePicUrl = errors.New("No profile picture url was found. Please fetch the profile first")
+
+	// Users
+	ErrNoPendingFriendship = errors.New("Unable to approve or ignore friendship for user, as there is no pending friendship request")
 
 	// Headless
 	ErrChromeNotFound = errors.New("To solve challenges a (headless) Chrome browser is used, but none was found. Please install Chromium or Google Chrome, and try again.")
