@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -18,14 +17,12 @@ import (
 func RSADecodePublicKeyFromBase64(pubKeyBase64 string) (*rsa.PublicKey, error) {
 	pubKey, err := base64.StdEncoding.DecodeString(pubKeyBase64)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 
 	block, _ := pem.Decode(pubKey)
 	pKey, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 	return pKey.(*rsa.PublicKey), nil
@@ -38,16 +35,14 @@ func AESGCMEncrypt(key, data, additionalData []byte) (iv, encrypted, tag []byte,
 	var block cipher.Block
 	block, err = aes.NewCipher(key)
 	if err != nil {
-		err = errors.New(fmt.Sprintf("error when creating cipher: %s", err))
-		fmt.Println(err)
+		err = fmt.Errorf("error when creating cipher: %w", err)
 		return
 	}
 
 	var aesgcm cipher.AEAD
 	aesgcm, err = cipher.NewGCM(block)
 	if err != nil {
-		err = errors.New(fmt.Sprintf("error when creating gcm: %s", err))
-		fmt.Println(err)
+		err = fmt.Errorf("error when creating gcm: %w", err)
 		return
 	}
 

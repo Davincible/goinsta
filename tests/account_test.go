@@ -34,7 +34,7 @@ func TestPendingFriendships(t *testing.T) {
 	}
 	t.Logf("Approved request for %s\n", pending[0].Username)
 
-	if len(pending) > 2 {
+	if len(pending) >= 2 {
 		err = pending[1].IgnorePending()
 		if err != nil {
 			t.Fatal(err)

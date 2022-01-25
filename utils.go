@@ -296,7 +296,6 @@ func errIsFatal(err error) bool {
 	case ErrLoginRequired:
 		return true
 	default:
-		fmt.Printf("using default method for %v\n", err)
 		return false
 	}
 }

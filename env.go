@@ -121,7 +121,6 @@ func EnvProvision(path string, refresh ...bool) error {
 		password := acc.Plain.Password
 		fmt.Println("Processing", username)
 		insta := New(username, password)
-		insta.SetProxy("http://127.0.0.1:9090", false, true)
 		err := insta.Login()
 		if err != nil {
 			return err
@@ -133,7 +132,7 @@ func EnvProvision(path string, refresh ...bool) error {
 		}
 		acc.Enc.Base64 = enc
 		fmt.Println("Sleeping...")
-		time.Sleep(00020 * time.Second)
+		time.Sleep(20 * time.Second)
 	}
 	err = accsToFile(path, accs, other)
 	if err != nil {
