@@ -255,7 +255,7 @@ func (media *Reel) Sync() error {
 			Query:    generateSignature(data),
 		},
 	)
-	if err == nil {
+	if err != nil {
 		return err
 	}
 

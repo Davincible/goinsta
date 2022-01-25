@@ -221,6 +221,24 @@ type Item struct {
 			ShouldMuteAudioReason    string `json:"should_mute_audio_reason"`
 			OverlapDurationInMs      int    `json:"overlap_duration_in_ms"`
 			AudioAssetStartTimeInMs  int    `json:"audio_asset_start_time_in_ms"`
+			StoryLinkStickers        []struct {
+				X           float64 `json:"x"`
+				Y           float64 `json:"y"`
+				Z           int     `json:"z"`
+				Width       float64 `json:"width"`
+				Height      float64 `json:"height"`
+				Rotation    int     `json:"rotation"`
+				IsPinned    int     `json:"is_pinned"`
+				IsHidden    int     `json:"is_hidden"`
+				IsSticker   int     `json:"is_sticker"`
+				IsFbSticker int     `json:"is_fb_sticker"`
+				StoryLink   struct {
+					LinkType   string `json:"link_type"`
+					URL        string `json:"url"`
+					LinkTitle  string `json:"link_title"`
+					DisplayURL string `json:"display_url"`
+				} `json:"story_link"`
+			} `json:"story_link_stickers"`
 		} `json:"music_asset_info"`
 	} `json:"story_music_stickers,omitempty"`
 }
