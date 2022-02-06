@@ -229,6 +229,7 @@ func New(username, password string) *Instagram {
 		Debug:            os.Getenv("GOINSTA_DEBUG") != "",
 		privacyCalled:    utilities.NewABool(),
 		privacyRequested: utilities.NewABool(),
+		pubKeyID:         -1,
 	}
 	insta.init()
 
@@ -396,6 +397,7 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 		Debug:            os.Getenv("GOINSTA_DEBUG") != "",
 		privacyCalled:    utilities.NewABool(),
 		privacyRequested: utilities.NewABool(),
+		pubKeyID:         -1,
 	}
 	insta.userAgent = createUserAgent(insta.device)
 	insta.c.Jar, err = cookiejar.New(nil)
@@ -480,7 +482,7 @@ func (insta *Instagram) Login() (err error) {
 	if err != nil {
 		return
 	}
-	if insta.pubKey == "" || insta.pubKeyID == 0 {
+	if insta.pubKey == "" || insta.pubKeyID == -1 {
 		return errors.New("Sync returned empty public key and/or public key id")
 	}
 
@@ -721,7 +723,7 @@ func (insta *Instagram) OpenApp() (err error) {
 
 func (insta *Instagram) login() error {
 	timestamp := strconv.Itoa(int(time.Now().Unix()))
-	if insta.pubKey == "" || insta.pubKeyID == 0 {
+	if insta.pubKey == "" || insta.pubKeyID == -1 {
 		return errors.New(
 			"No public key or public key ID set. Please call Instagram.Sync() and verify that it works correctly",
 		)
