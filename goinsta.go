@@ -363,6 +363,8 @@ func ImportReader(r io.Reader, args ...interface{}) (*Instagram, error) {
 
 // ImportConfig imports instagram configuration from a configuration object.
 //
+// Add optional bool:true parameter to prevent account sync on import (do not make any http calls)
+//
 // This function does not set proxy automatically. Use SetProxy after this call.
 func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 	url, err := neturl.Parse(baseUrl)

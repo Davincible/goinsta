@@ -11,18 +11,29 @@ import (
 	"time"
 )
 
+// EnvPlainAcc represents the plain account details stored in the env variable:
+//
+//   INSTAGRAM_ACT_<name>="username:password"
 type EnvPlainAcc struct {
 	Name     string
 	Username string
 	Password string
 }
 
+// EnvEncAcc represents the encoded account details stored in the env variable:
+//
+//   INSTAGRAM_BASE64_<name>="<base64 encoded config>"
 type EnvEncAcc struct {
 	Name     string
 	Username string
 	Base64   string
 }
 
+// EnvAcc represents the pair of plain and base64 encoded account pairs as
+//   stored in EnvPlainAcc and EnvEncAcc, with env variables:
+//
+//   INSTAGRAM_ACT_<name>="username:password"
+//   INSTAGRAM_BASE64_<name>="<base64 encoded config>"
 type EnvAcc struct {
 	Plain *EnvPlainAcc
 	Enc   *EnvEncAcc
@@ -142,14 +153,36 @@ func EnvProvision(path string, refresh ...bool) error {
 	return nil
 }
 
+// EnvUpdateAccs will update the plain and encoded account variables stored in
+//  the .env file:
+//
+//   INSTAGRAM_ACT_<name>="username:password"
+//   INSTAGRAM_BASE64_<name>="<base64 encoded config>"
+//
+// :param: string:path -- file path of the .env file, typically ".env"
+// :param: []*EncAcc:newAccs -- list of updated versions of the accounts
 func EnvUpdateAccs(path string, newAccs []*EnvAcc) error {
 	return envUpdateAccs(path, newAccs)
 }
 
+// EnvUpdateEnc will update the encoded account variables stored in
+//  the .env file:
+//
+//   INSTAGRAM_BASE64_<name>="<base64 encoded config>"
+//
+// :param: string:path -- file path of the .env file, typically ".env"
+// :param: []*EnvEncAcc:newAccs -- list of updated encoded accounts
 func EnvUpdateEnc(path string, newAccs []*EnvEncAcc) error {
 	return envUpdateAccs(path, newAccs)
 }
 
+// EnvPlainAccs will update the plain account variables stored in
+//  the .env file:
+//
+//   INSTAGRAM_ACT_<name>="username:password"
+//
+// :param: string:path -- file path of the .env file, typically ".env"
+// :param: []*EnvPlainAcc:newAccs -- list of updated plain accounts
 func EnvUpdatePlain(path string, newAccs []*EnvPlainAcc) error {
 	return envUpdateAccs(path, newAccs)
 }
@@ -229,6 +262,11 @@ func getRandAcc(path ...string) (*Instagram, error) {
 	return insta, err
 }
 
+// EnvLoadPlain will load all plain accounts stored in the env variables:
+//
+//   INSTAGRAM_ACT_<name>="username:password"
+//
+// :param: path (OPTIONAL) -- .env file to load, default to ".env"
 func EnvLoadPlain(path ...string) ([]*EnvPlainAcc, error) {
 	allAccs, err := EnvReadAccs(path...)
 	if err != nil {
@@ -246,8 +284,11 @@ func EnvLoadPlain(path ...string) ([]*EnvPlainAcc, error) {
 }
 
 // EnvLoadAccs loads all the environment variables.
+//
 // By default, the OS environment variables as well as .env are loaded
 // To load a custom file, instead of .env, pass the filepath as an argument.
+//
+// Don't Sync param is set to true to prevent any http calls on import by default
 func EnvLoadAccs(p ...string) ([]*Instagram, error) {
 	instas := []*Instagram{}
 	accs, _, err := envLoadAccs(p...)
@@ -263,6 +304,13 @@ func EnvLoadAccs(p ...string) ([]*Instagram, error) {
 	return instas, err
 }
 
+// EnvReadAccs loads both all plain and base64 encoded accounts
+//
+// Set in a .env file or export to your environment variables:
+//   INSTAGRAM_ACT_<name>="user:pass"
+//   INSTAGRAM_BASE64_<name>="..."
+//
+// :param: p (OPTIONAL) -- env file path, ".env" by default
 func EnvReadAccs(p ...string) ([]*EnvAcc, error) {
 	accs, _, err := envLoadAccs(p...)
 	return accs, err
