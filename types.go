@@ -86,7 +86,7 @@ type Error400 struct {
 	} `json:"debug_info"`
 	Code       int
 	ErrorBody  string `json:"error_body"`
-	ErrorTitle string `json:"error_title`
+	ErrorTitle string `json:"error_title"`
 	Status     string `json:"status"`
 }
 
@@ -196,7 +196,7 @@ type PendingRequests struct {
 	PageSize                     int            `json:"page_size"`
 	TruncateFollowRequestAtIndex int            `json:"truncate_follow_requests_at_index"`
 	Sections                     interface{}    `json:"sections"`
-	SuggestedUsers               SuggestedUsers `json:"suggested_users`
+	SuggestedUsers               SuggestedUsers `json:"suggested_users"`
 	Status                       string         `json:"status"`
 }
 

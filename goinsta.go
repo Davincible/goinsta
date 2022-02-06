@@ -283,11 +283,10 @@ func (insta *Instagram) Save() error {
 	return insta.Export(filepath.Join(home, ".goinsta"))
 }
 
-// Export exports *Instagram object options
-func (insta *Instagram) Export(path string) error {
+func (insta *Instagram) ExportConfig() (ConfigFile, error) {
 	url, err := neturl.Parse(instaAPIUrl)
 	if err != nil {
-		return err
+		return ConfigFile{}, err
 	}
 
 	config := ConfigFile{
@@ -311,6 +310,16 @@ func (insta *Instagram) Export(path string) error {
 		return true
 	}
 	insta.headerOptions.Range(setHeaders)
+
+	return config, nil
+}
+
+// Export exports *Instagram object options
+func (insta *Instagram) Export(path string) error {
+	config, err := insta.ExportConfig()
+	if err != nil {
+		return err
+	}
 
 	bytes, err := json.Marshal(config)
 	if err != nil {
@@ -322,33 +331,11 @@ func (insta *Instagram) Export(path string) error {
 
 // Export exports selected *Instagram object options to an io.Writer
 func (insta *Instagram) ExportIO(writer io.Writer) error {
-	url, err := neturl.Parse(instaAPIUrl)
+	config, err := insta.ExportConfig()
 	if err != nil {
 		return err
 	}
 
-	config := ConfigFile{
-		ID:            insta.Account.ID,
-		User:          insta.user,
-		DeviceID:      insta.dID,
-		FamilyID:      insta.fID,
-		UUID:          insta.uuid,
-		RankToken:     insta.rankToken,
-		Token:         insta.token,
-		PhoneID:       insta.pid,
-		XmidExpiry:    insta.xmidExpiry,
-		HeaderOptions: map[string]string{},
-		Cookies:       insta.c.Jar.Cookies(url),
-		Account:       insta.Account,
-		Device:        insta.device,
-	}
-
-	setHeaders := func(key, value interface{}) bool {
-		config.HeaderOptions[key.(string)] = value.(string)
-		return true
-	}
-
-	insta.headerOptions.Range(setHeaders)
 	bytes, err := json.Marshal(config)
 	if err != nil {
 		return err
