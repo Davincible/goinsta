@@ -284,12 +284,7 @@ func (insta *Instagram) Save() error {
 	return insta.Export(filepath.Join(home, ".goinsta"))
 }
 
-func (insta *Instagram) ExportConfig() (ConfigFile, error) {
-	url, err := neturl.Parse(instaAPIUrl)
-	if err != nil {
-		return ConfigFile{}, err
-	}
-
+func (insta *Instagram) ExportConfig() ConfigFile {
 	config := ConfigFile{
 		ID:            insta.Account.ID,
 		User:          insta.user,
@@ -301,7 +296,6 @@ func (insta *Instagram) ExportConfig() (ConfigFile, error) {
 		PhoneID:       insta.pid,
 		XmidExpiry:    insta.xmidExpiry,
 		HeaderOptions: map[string]string{},
-		Cookies:       insta.c.Jar.Cookies(url),
 		Account:       insta.Account,
 		Device:        insta.device,
 	}
@@ -312,15 +306,12 @@ func (insta *Instagram) ExportConfig() (ConfigFile, error) {
 	}
 	insta.headerOptions.Range(setHeaders)
 
-	return config, nil
+	return config
 }
 
 // Export exports *Instagram object options
 func (insta *Instagram) Export(path string) error {
-	config, err := insta.ExportConfig()
-	if err != nil {
-		return err
-	}
+	config := insta.ExportConfig()
 
 	bytes, err := json.Marshal(config)
 	if err != nil {
@@ -332,10 +323,7 @@ func (insta *Instagram) Export(path string) error {
 
 // Export exports selected *Instagram object options to an io.Writer
 func (insta *Instagram) ExportIO(writer io.Writer) error {
-	config, err := insta.ExportConfig()
-	if err != nil {
-		return err
-	}
+	config := insta.ExportConfig()
 
 	bytes, err := json.Marshal(config)
 	if err != nil {
@@ -368,11 +356,6 @@ func ImportReader(r io.Reader, args ...interface{}) (*Instagram, error) {
 //
 // This function does not set proxy automatically. Use SetProxy after this call.
 func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
-	url, err := neturl.Parse(baseUrl)
-	if err != nil {
-		return nil, err
-	}
-
 	insta := &Instagram{
 		user:          config.User,
 		dID:           config.DeviceID,
@@ -400,11 +383,6 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 		pubKeyID:         -1,
 	}
 	insta.userAgent = createUserAgent(insta.device)
-	insta.c.Jar, err = cookiejar.New(nil)
-	if err != nil {
-		return insta, err
-	}
-	insta.c.Jar.SetCookies(url, config.Cookies)
 
 	for k, v := range config.HeaderOptions {
 		insta.headerOptions.Store(k, v)
@@ -427,7 +405,7 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 			insta: insta,
 			ID:    config.ID,
 		}
-		err = insta.Account.Sync()
+		err := insta.Account.Sync()
 		if err != nil {
 			return nil, err
 		}

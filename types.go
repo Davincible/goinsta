@@ -3,7 +3,6 @@ package goinsta
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 )
 
 // ConfigFile is a structure to store the session information so that can be exported or imported.
@@ -18,7 +17,6 @@ type ConfigFile struct {
 	PhoneID       string            `json:"phone_id"`
 	XmidExpiry    int64             `json:"xmid_expiry"`
 	HeaderOptions map[string]string `json:"header_options"`
-	Cookies       []*http.Cookie    `json:"cookies"`
 	Account       *Account          `json:"account"`
 	Device        Device            `json:"device"`
 }
