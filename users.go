@@ -258,6 +258,7 @@ type User struct {
 	IsElegibleForAffiliateShopOnboarding       bool          `json:"is_eligible_for_affiliate_shop_onboarding"`
 	ElegibleShoppingFormats                    []interface{} `json:"eligible_shopping_formats"`
 	NeedsToAcceptShoppingSellerOnboardingTerms bool          `json:"needs_to_accept_shopping_seller_onboarding_terms"`
+	SellerShoppableFeedType                    string        `json:"seller_shoppable_feed_type"`
 	IsShoppingCatalogSettingsEnabled           bool          `json:"is_shopping_settings_enabled"`
 	IsShoppingCommunityContentEnabled          bool          `json:"is_shopping_community_content_enabled"`
 	IsShoppingAutoHighlightEnabled             bool          `json:"is_shopping_auto_highlight_eligible"`
