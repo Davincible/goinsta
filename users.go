@@ -168,35 +168,36 @@ type User struct {
 		RawText  string        `json:"raw_text"`
 		Entities []interface{} `json:"entities"`
 	} `json:"biography_with_entities"`
-	Nametag                        Nametag `json:"nametag"`
-	HasChaining                    bool    `json:"has_chaining"`
-	HasPlacedOrders                bool    `json:"has_placed_orders"`
-	IsFavorite                     bool    `json:"is_favorite"`
-	IsFavoriteForStories           bool    `json:"is_favorite_for_stories"`
-	IsFavoriteForHighlights        bool    `json:"is_favorite_for_highlights"`
-	IsProfileActionNeeded          bool    `json:"is_profile_action_needed"`
-	CanBeReportedAsFraud           bool    `json:"can_be_reported_as_fraud"`
-	CanBoostPosts                  bool    `json:"can_boost_posts"`
-	CanSeeOrganicInsights          bool    `json:"can_see_organic_insights"`
-	CanConvertToBusiness           bool    `json:"can_convert_to_business"`
-	CanCreateSponsorTags           bool    `json:"can_create_sponsor_tags"`
-	CanCreateNewFundraiser         bool    `json:"can_create_new_standalone_fundraiser"`
-	CanCreateNewPersonalFundraiser bool    `json:"can_create_new_standalone_personal_fundraiser"`
-	CanBeTaggedAsSponsor           bool    `json:"can_be_tagged_as_sponsor"`
-	CanSeeSupportInbox             bool    `json:"can_see_support_inbox"`
-	CanSeeSupportInboxV1           bool    `json:"can_see_support_inbox_v1"`
-	CanTagProductsFromMerchants    bool    `json:"can_tag_products_from_merchants"`
-	CanSeePrimaryCountryInsettings bool    `json:"can_see_primary_country_in_settings"`
-	CanFollowHashtag               bool    `json:"can_follow_hashtag"`
-	PersonalAccountAdsPageName     string  `json:"personal_account_ads_page_name"`
-	PersonalAccountAdsId           string  `json:"personal_account_ads_page_id"`
-	ShowShoppableFeed              bool    `json:"show_shoppable_feed"`
-	ShowInsightTerms               bool    `json:"show_insights_terms"`
-	ShowConversionEditEntry        bool    `json:"show_conversion_edit_entry"`
-	ShowPostsInsightEntryPoint     bool    `json:"show_post_insights_entry_point"`
-	ShoppablePostsCount            int     `json:"shoppable_posts_count"`
-	RequestContactEnabled          bool    `json:"request_contact_enabled"`
-	FeedPostReshareDisabled        bool    `json:"feed_post_reshare_disabled"`
+	BiographyProductMentions       []interface{} `json:"biography_products_mentions"`
+	Nametag                        Nametag       `json:"nametag"`
+	HasChaining                    bool          `json:"has_chaining"`
+	HasPlacedOrders                bool          `json:"has_placed_orders"`
+	IsFavorite                     bool          `json:"is_favorite"`
+	IsFavoriteForStories           bool          `json:"is_favorite_for_stories"`
+	IsFavoriteForHighlights        bool          `json:"is_favorite_for_highlights"`
+	IsProfileActionNeeded          bool          `json:"is_profile_action_needed"`
+	CanBeReportedAsFraud           bool          `json:"can_be_reported_as_fraud"`
+	CanBoostPosts                  bool          `json:"can_boost_posts"`
+	CanSeeOrganicInsights          bool          `json:"can_see_organic_insights"`
+	CanConvertToBusiness           bool          `json:"can_convert_to_business"`
+	CanCreateSponsorTags           bool          `json:"can_create_sponsor_tags"`
+	CanCreateNewFundraiser         bool          `json:"can_create_new_standalone_fundraiser"`
+	CanCreateNewPersonalFundraiser bool          `json:"can_create_new_standalone_personal_fundraiser"`
+	CanBeTaggedAsSponsor           bool          `json:"can_be_tagged_as_sponsor"`
+	CanSeeSupportInbox             bool          `json:"can_see_support_inbox"`
+	CanSeeSupportInboxV1           bool          `json:"can_see_support_inbox_v1"`
+	CanTagProductsFromMerchants    bool          `json:"can_tag_products_from_merchants"`
+	CanSeePrimaryCountryInsettings bool          `json:"can_see_primary_country_in_settings"`
+	CanFollowHashtag               bool          `json:"can_follow_hashtag"`
+	PersonalAccountAdsPageName     string        `json:"personal_account_ads_page_name"`
+	PersonalAccountAdsId           string        `json:"personal_account_ads_page_id"`
+	ShowShoppableFeed              bool          `json:"show_shoppable_feed"`
+	ShowInsightTerms               bool          `json:"show_insights_terms"`
+	ShowConversionEditEntry        bool          `json:"show_conversion_edit_entry"`
+	ShowPostsInsightEntryPoint     bool          `json:"show_post_insights_entry_point"`
+	ShoppablePostsCount            int           `json:"shoppable_posts_count"`
+	RequestContactEnabled          bool          `json:"request_contact_enabled"`
+	FeedPostReshareDisabled        bool          `json:"feed_post_reshare_disabled"`
 	CreatorShoppingInfo            struct {
 		LinkedMerchantAccounts []interface{} `json:"linked_merchant_accounts"`
 	} `json:"creator_shopping_info"`
