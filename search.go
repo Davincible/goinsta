@@ -85,23 +85,82 @@ func newSearch(insta *Instagram) *Search {
 }
 
 // Search is a wrapper for insta.Searchbar.Search()
-func (insta *Instagram) Search(query string) (*SearchResult, error) {
-	return insta.Searchbar.Search(query)
+// Search will perform a topsearch query returning users, locations and tags,
+//  just like the app would.
+//
+// By default search behavior will be mimicked by sending a search request per
+//  added letter, and waiting a few millis in between, just as if you were to
+//  type anything into the search bar. However, if you only want to make one
+//  search request passing in the full query immediately, you can turn on quick
+//  search by passing in one bool:true parameter, like so:
+//
+//  Search("myquery", true)  // this will perform a quick search
+func (insta *Instagram) Search(query string, p ...bool) (*SearchResult, error) {
+	return insta.Searchbar.Search(query, p...)
 }
 
-func (sb *Search) Search(query string) (*SearchResult, error) {
+// Search will perform a topsearch query returning users, locations and tags,
+//  just like the app would.
+//
+// By default search behavior will be mimicked by sending a search request per
+//  added letter, and waiting a few millis in between, just as if you were to
+//  type anything into the search bar. However, if you only want to make one
+//  search request passing in the full query immediately, you can turn on quick
+//  search by passing in one bool:true parameter, like so:
+//
+//  Search("myquery", true)  // this will perform a quick search
+func (sb *Search) Search(query string, p ...bool) (*SearchResult, error) {
+	if isQuickSearch(p) {
+		return sb.topsearch(query)
+	}
 	return sb.search(query, sb.topsearch)
 }
 
-func (sb *Search) SearchUser(query string) (*SearchResult, error) {
+// SearchUser will perorm a user search with the provided query.
+//
+// By default search behavior will be mimicked by sending a search request per
+//  added letter, and waiting a few millis in between, just as if you were to
+//  type anything into the search bar. However, if you only want to make one
+//  search request passing in the full query immediately, you can turn on quick
+//  search by passing in one bool:true parameter, like so:
+//
+//  SearchUser("myquery", true)  // this will perform a quick search
+func (sb *Search) SearchUser(query string, p ...bool) (*SearchResult, error) {
+	if isQuickSearch(p) {
+		return sb.user(query)
+	}
 	return sb.search(query, sb.user)
 }
 
-func (sb *Search) SearchHashtag(query string) (*SearchResult, error) {
+// SearchHashtag will perform a hashtag search with the provided query.
+//
+// By default search behavior will be mimicked by sending a search request per
+//  added letter, and waiting a few millis in between, just as if you were to
+//  type anything into the search bar. However, if you only want to make one
+//  search request passing in the full query immediately, you can turn on quick
+//  search by passing in one bool:true parameter, like so:
+//
+//  SearchHashtag("myquery", true)  // this will perform a quick search
+func (sb *Search) SearchHashtag(query string, p ...bool) (*SearchResult, error) {
+	if isQuickSearch(p) {
+		return sb.tags(query)
+	}
 	return sb.search(query, sb.tags)
 }
 
-func (sb *Search) SearchLocation(query string) (*SearchResult, error) {
+// SearchLocation will perform a location search with the provided query.
+//
+// By default search behavior will be mimicked by sending a search request per
+//  added letter, and waiting a few millis in between, just as if you were to
+//  type anything into the search bar. However, if you only want to make one
+//  search request passing in the full query immediately, you can turn on quick
+//  search by passing in one bool:true parameter, like so:
+//
+//  SearchLocation("myquery", true)  // this will perform a quick search
+func (sb *Search) SearchLocation(query string, p ...bool) (*SearchResult, error) {
+	if isQuickSearch(p) {
+		return sb.places(query)
+	}
 	return sb.search(query, sb.places)
 }
 
@@ -501,4 +560,11 @@ func (search *Search) history() (*[]SearchHistory, error) {
 		i.User.insta = search.insta
 	}
 	return &s.Recent, nil
+}
+
+func isQuickSearch(p []bool) bool {
+	if len(p) > 0 {
+		return p[0]
+	}
+	return false
 }
