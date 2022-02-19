@@ -19,6 +19,7 @@ type ConfigFile struct {
 	HeaderOptions map[string]string `json:"header_options"`
 	Account       *Account          `json:"account"`
 	Device        Device            `json:"device"`
+	TOTP          *TOTP             `json:"totp"`
 }
 
 type Device struct {
@@ -69,23 +70,37 @@ func (e ErrorN) Error() string {
 // Error400 is error returned by HTTP 400 status code.
 type Error400 struct {
 	Checkpoint
-	ChallengeError
-	Endpoint   string `json:"endpoint"`
-	Action     string `json:"action"`
-	StatusCode string `json:"status_code"`
-	Payload    struct {
+
+	Status  string `json:"status"`
+	Message string `json:"message"`
+
+	ErrorType  string `json:"error_type"`
+	ErrorTitle string `json:"error_title"`
+	ErrorBody  string `json:"error_body"`
+
+	// Status code
+	Code int
+
+	// The endpoint that returned the 400 status code
+	Endpoint string `json:"endpoint"`
+
+	Challenge         *Challenge     `json:"challenge"`
+	TwoFactorRequired bool           `json:"two_factor_required"`
+	TwoFactorInfo     *TwoFactorInfo `json:"two_factor_info"`
+
+	// This is double, as also present inside TwoFactorInfo
+	PhoneVerificationSettings phoneVerificationSettings `json:"phone_verification_settings"`
+
+	Payload struct {
 		ClientContext string `json:"client_context"`
 		Message       string `json:"message"`
 	} `json:"payload"`
+
 	DebugInfo struct {
 		Message   string `json:"string"`
 		Retriable bool   `json:"retriable"`
 		Type      string `json:"type"`
 	} `json:"debug_info"`
-	Code       int
-	ErrorBody  string `json:"error_body"`
-	ErrorTitle string `json:"error_title"`
-	Status     string `json:"status"`
 }
 
 func (e Error400) Error() string {
@@ -96,11 +111,11 @@ func (e Error400) Error() string {
 	if e.DebugInfo.Message != "" {
 		msg = e.DebugInfo.Message
 	}
-	if e.ChallengeError.Message != "" {
+	if e.Message != "" {
 		if msg != "" {
-			msg += "; " + e.ChallengeError.Message
+			msg += "; " + e.Message
 		} else {
-			msg = e.ChallengeError.Message
+			msg = e.Message
 		}
 	}
 
@@ -110,11 +125,23 @@ func (e Error400) Error() string {
 	return fmt.Sprintf("Request Status Code %d: %s, %s", e.Code, e.Status, msg)
 }
 
+func (e *Error400) GetMessage() string {
+	if e.ErrorType != "" {
+		return e.ErrorType
+	}
+	if e.Message != "" {
+		return e.Message
+	}
+	if e.Challenge != nil && len(e.Challenge.Errors) > 0 {
+		return e.Challenge.Errors[0]
+	}
+	return ""
+}
+
 // ChallengeError is error returned by HTTP 400 status code.
 type ChallengeError struct {
 	insta *Instagram
 
-	Message   string `json:"message"`
 	Challenge struct {
 		URL               string `json:"url"`
 		APIPath           string `json:"api_path"`
@@ -124,11 +151,12 @@ type ChallengeError struct {
 		NativeFlow        bool   `json:"native_flow"`
 	} `json:"challenge"`
 	Status    string `json:"status"`
+	Message   string `json:"message"`
 	ErrorType string `json:"error_type"`
 }
 
 func (e ChallengeError) Error() string {
-	return fmt.Sprintf("Challenge Required: %s, %s", e.Status, e.Message)
+	return fmt.Sprintf("%s: %s, %s", ErrChallengeRequired.Error(), e.Status, e.Message)
 }
 
 // Nametag is part of the account information.
@@ -451,4 +479,10 @@ type CommentOffensive struct {
 	IsOffensive      bool    `json:"is_offensive"`
 	Status           string  `json:"status"`
 	TextLanguage     string  `json:"text_language"`
+}
+
+// Two factor authentication seed, used to generte the one time passwords
+type TOTP struct {
+	ID   int64  `json:"totp_seed_id"`
+	Seed string `json:"totp_seed"`
 }

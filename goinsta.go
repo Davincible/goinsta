@@ -44,6 +44,7 @@ import (
 type Instagram struct {
 	user string
 	pass string
+	totp *TOTP // 2FA seed
 
 	// device id: android-1923fjnma8123
 	dID string
@@ -104,6 +105,8 @@ type Instagram struct {
 	Locations *LocationInstance
 	// Challenge stores the challenge info if provided
 	Challenge *Challenge
+	// Checkpoint stores the checkpoint info, this is usually a prompt to accept cookies
+	Checkpoint *Checkpoint
 	// TwoFactorInfo enabled 2FA
 	TwoFactorInfo *TwoFactorInfo
 
@@ -117,6 +120,13 @@ type Instagram struct {
 	infoHandler  func(...interface{})
 	warnHandler  func(...interface{})
 	debugHandler func(...interface{})
+
+	// Request Wrapper
+	reqWrapper ReqWrapper
+
+	// Proxy string
+	proxy         string
+	proxyInsecure bool
 
 	// Keep track of a challenge response requesting to accept cookies
 	privacyCalled *utilities.ABool
@@ -138,6 +148,10 @@ func (insta *Instagram) SetWarnHandler(f func(...interface{})) {
 
 func (insta *Instagram) SetDebugHandler(f func(...interface{})) {
 	insta.debugHandler = f
+}
+
+func (insta *Instagram) SetWrapper(fn ReqWrapper) {
+	insta.reqWrapper = fn
 }
 
 // SetHTTPClient sets http client.  This further allows users to use this functionality
@@ -199,8 +213,13 @@ func (insta *Instagram) SetCookieJar(jar http.CookieJar) error {
 	return nil
 }
 
-// New creates Instagram structure
-func New(username, password string) *Instagram {
+// New creates Instagram structure.
+//
+// :params:
+//   username:string
+//   password:string
+//   totp:string  -- OPTIONAL: 2FA private key, aka seed, used to generate 2FA codes
+func New(username, password string, totp_seed ...string) *Instagram {
 	// this call never returns error
 	jar, _ := cookiejar.New(nil)
 	insta := &Instagram{
@@ -226,12 +245,17 @@ func New(username, password string) *Instagram {
 		infoHandler:      defaultHandler,
 		warnHandler:      defaultHandler,
 		debugHandler:     defaultHandler,
+		reqWrapper:       DefaultWrapper(),
 		Debug:            os.Getenv("GOINSTA_DEBUG") != "",
 		privacyCalled:    utilities.NewABool(),
 		privacyRequested: utilities.NewABool(),
 		pubKeyID:         -1,
 	}
 	insta.init()
+
+	if len(totp_seed) > 0 {
+		insta.totp = &TOTP{Seed: totp_seed[0]}
+	}
 
 	for k, v := range defaultHeaderOptions {
 		insta.headerOptions.Store(k, v)
@@ -255,8 +279,16 @@ func (insta *Instagram) init() {
 	insta.IGTV = newIGTV(insta)
 }
 
+// SetTOTPSeed will set the seed used to generate 2FA codes.
+func (insta *Instagram) SetTOTPSeed(seed string) {
+	insta.totp = &TOTP{Seed: seed}
+}
+
 // SetProxy sets proxy for connection.
 func (insta *Instagram) SetProxy(url string, insecure bool, forceHTTP2 bool) error {
+	insta.proxy = url
+	insta.proxyInsecure = insecure
+
 	uri, err := neturl.Parse(url)
 	if err == nil {
 		insta.c.Transport = &http.Transport{
@@ -298,6 +330,7 @@ func (insta *Instagram) ExportConfig() ConfigFile {
 		HeaderOptions: map[string]string{},
 		Account:       insta.Account,
 		Device:        insta.device,
+		TOTP:          insta.totp,
 	}
 
 	setHeaders := func(key, value interface{}) bool {
@@ -358,6 +391,7 @@ func ImportReader(r io.Reader, args ...interface{}) (*Instagram, error) {
 func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 	insta := &Instagram{
 		user:          config.User,
+		totp:          config.TOTP,
 		dID:           config.DeviceID,
 		fID:           config.FamilyID,
 		uuid:          config.UUID,
@@ -377,6 +411,7 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 		infoHandler:      defaultHandler,
 		warnHandler:      defaultHandler,
 		debugHandler:     defaultHandler,
+		reqWrapper:       DefaultWrapper(),
 		Debug:            os.Getenv("GOINSTA_DEBUG") != "",
 		privacyCalled:    utilities.NewABool(),
 		privacyRequested: utilities.NewABool(),
@@ -429,7 +464,10 @@ func Import(path string, args ...interface{}) (*Instagram, error) {
 // Login performs instagram login sequence in close resemblance to the android apk.
 //
 // Password will be deleted after login
-func (insta *Instagram) Login() (err error) {
+func (insta *Instagram) Login(password ...string) (err error) {
+	if len(password) > 0 && password[0] != "" {
+		insta.pass = password[0]
+	}
 	// pre-login sequence
 	err = insta.zrToken()
 	if err != nil {
@@ -733,46 +771,38 @@ func (insta *Instagram) login() error {
 			Endpoint: urlLogin,
 			Query:    map[string]string{"signed_body": "SIGNATURE." + string(result)},
 			IsPost:   true,
+			IgnoreHeaders: []string{
+				"Ig-U-Shbts",
+				"Ig-U-Shbid",
+				"Ig-U-Rur",
+				"Authorization",
+			},
+			ExtraHeaders: map[string]string{
+				"X-Ig-Www-Claim":      "0",
+				"Ig-Intended-User-Id": "0",
+			},
 		},
 	)
-
-	insta.pass = ""
 	if err != nil {
 		return err
 	}
-	return insta.verifyLogin(body)
+	insta.pass = ""
+	return insta.parseLogin(body)
 }
 
-func (insta *Instagram) verifyLogin(body []byte) error {
-	res := accountResp{}
+// parseLogin gets called from Login and Login2FA
+func (insta *Instagram) parseLogin(body []byte) error {
+	var res struct {
+		Status  string   `json:"status"`
+		Account *Account `json:"logged_in_user"`
+	}
+
 	err := json.Unmarshal(body, &res)
 	if err != nil {
-		return fmt.Errorf("failed to parse json from login response with err: %s", err.Error())
+		return fmt.Errorf("Failed to parse json from login response with err: %w", err)
 	}
 
-	if res.Status != "ok" {
-		switch res.ErrorType {
-		case "bad_password":
-			return ErrBadPassword
-		case "two_factor_required":
-			insta.TwoFactorInfo = res.TwoFactorInfo
-			insta.TwoFactorInfo.insta = insta
-			return Err2FARequired
-		case "checkpoint_challenge_required":
-			insta.Challenge = res.Challenge
-			insta.Challenge.insta = insta
-		}
-		err := errors.New(
-			fmt.Sprintf(
-				"Failed to login: %s, %s",
-				res.ErrorType, res.Message,
-			),
-		)
-		insta.warnHandler(err)
-		return err
-	}
-
-	insta.Account = &res.Account
+	insta.Account = res.Account
 	insta.Account.insta = insta
 	insta.rankToken = strconv.FormatInt(insta.Account.ID, 10) + "_" + insta.uuid
 
@@ -796,9 +826,10 @@ func (insta *Instagram) getPrefill() error {
 	// request is non-critical.
 	insta.sendRequest(
 		&reqOptions{
-			Endpoint: urlGetPrefill,
-			IsPost:   true,
-			Query:    generateSignature(data),
+			Endpoint:  urlGetPrefill,
+			IsPost:    true,
+			Query:     generateSignature(data),
+			Ignore429: true,
 		},
 	)
 	return nil
@@ -819,9 +850,10 @@ func (insta *Instagram) contactPrefill() error {
 	//   and body is not needed. Request is non-critical.
 	insta.sendRequest(
 		&reqOptions{
-			Endpoint: urlContactPrefill,
-			IsPost:   true,
-			Query:    generateSignature(data),
+			Endpoint:  urlContactPrefill,
+			IsPost:    true,
+			Query:     generateSignature(data),
+			Ignore429: true,
 		},
 	)
 	return nil
@@ -1013,9 +1045,10 @@ func (insta *Instagram) callContPointSig() error {
 	// request is non-critical.
 	insta.sendRequest(
 		&reqOptions{
-			Endpoint: urlProcessContactPointSignals,
-			IsPost:   true,
-			Query:    map[string]string{"signed_body": "SIGNATURE." + string(b)},
+			Endpoint:  urlProcessContactPointSignals,
+			IsPost:    true,
+			Query:     map[string]string{"signed_body": "SIGNATURE." + string(b)},
+			Ignore429: true,
 		},
 	)
 	return nil

@@ -268,9 +268,17 @@ var (
 	// Account & Login Errors
 	ErrBadPassword     = errors.New("Password is incorrect")
 	ErrTooManyRequests = errors.New("Too many requests, please wait a few minutes before you try again")
-	Err2FARequired     = errors.New("Two Factor Autentication required. Please call insta.TwoFactorInfo.Login2FA(code)")
 	ErrLoggedOut       = errors.New("You have been logged out, please log back in.")
 	ErrLoginRequired   = errors.New("You are not logged in, please login")
+
+	ErrChallengeRequired  = errors.New("Challenge required")
+	ErrCheckpointRequired = errors.New("Checkpoint required")
+	ErrCheckpointPassed   = errors.New("A checkpoint was thrown, but goinsta managed to solve it. Please call the function again")
+	ErrChallengeFailed    = errors.New("Failed to solve challenge automatically")
+
+	Err2FARequired = errors.New("Two Factor Autentication required. Please call insta.TwoFactorInfo.Login2FA(code)")
+	Err2FANoCode   = errors.New("2FA seed is not set, and no code was provided. Please do atleast one of them")
+	ErrInvalidCode = errors.New("The security code provided is incorrect")
 
 	// Upload Errors
 	ErrInvalidFormat      = errors.New("Invalid file type, please use one of jpeg, jpg, mp4")

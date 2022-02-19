@@ -152,6 +152,7 @@ func (act *Activity) MarkAsSeen() error {
 	_, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlActivitySeen,
+			IsPost:   true,
 			Query: map[string]string{
 				"_uuid": insta.uuid,
 			},

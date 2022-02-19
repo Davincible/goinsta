@@ -273,6 +273,7 @@ func randNum(l int) string {
 	return num
 }
 
+// checkHeadlessErr will return a proper error if a chrome browser was not found.
 func checkHeadlessErr(err error) error {
 	// Check if err = Chrome not found
 	if err != nil {
@@ -281,8 +282,9 @@ func checkHeadlessErr(err error) error {
 		} else if matched {
 			return ErrChromeNotFound
 		}
+		return err
 	}
-	return err
+	return nil
 }
 
 func errIsFatal(err error) bool {

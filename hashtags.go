@@ -165,7 +165,7 @@ func (h *Hashtag) next(tab string) bool {
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlTagContent, name),
-			IsPost:   false,
+			IsPost:   true,
 			Query:    query,
 		},
 	)

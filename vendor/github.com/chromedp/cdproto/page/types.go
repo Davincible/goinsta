@@ -43,13 +43,16 @@ const (
 	PermissionsPolicyFeatureChUaPlatform                PermissionsPolicyFeature = "ch-ua-platform"
 	PermissionsPolicyFeatureChUaModel                   PermissionsPolicyFeature = "ch-ua-model"
 	PermissionsPolicyFeatureChUaMobile                  PermissionsPolicyFeature = "ch-ua-mobile"
+	PermissionsPolicyFeatureChUaFull                    PermissionsPolicyFeature = "ch-ua-full"
 	PermissionsPolicyFeatureChUaFullVersion             PermissionsPolicyFeature = "ch-ua-full-version"
 	PermissionsPolicyFeatureChUaFullVersionList         PermissionsPolicyFeature = "ch-ua-full-version-list"
 	PermissionsPolicyFeatureChUaPlatformVersion         PermissionsPolicyFeature = "ch-ua-platform-version"
 	PermissionsPolicyFeatureChUaReduced                 PermissionsPolicyFeature = "ch-ua-reduced"
+	PermissionsPolicyFeatureChUaWow64                   PermissionsPolicyFeature = "ch-ua-wow64"
 	PermissionsPolicyFeatureChViewportHeight            PermissionsPolicyFeature = "ch-viewport-height"
 	PermissionsPolicyFeatureChViewportWidth             PermissionsPolicyFeature = "ch-viewport-width"
 	PermissionsPolicyFeatureChWidth                     PermissionsPolicyFeature = "ch-width"
+	PermissionsPolicyFeatureChPartitionedCookies        PermissionsPolicyFeature = "ch-partitioned-cookies"
 	PermissionsPolicyFeatureClipboardRead               PermissionsPolicyFeature = "clipboard-read"
 	PermissionsPolicyFeatureClipboardWrite              PermissionsPolicyFeature = "clipboard-write"
 	PermissionsPolicyFeatureCrossOriginIsolated         PermissionsPolicyFeature = "cross-origin-isolated"
@@ -67,7 +70,6 @@ const (
 	PermissionsPolicyFeatureGyroscope                   PermissionsPolicyFeature = "gyroscope"
 	PermissionsPolicyFeatureHid                         PermissionsPolicyFeature = "hid"
 	PermissionsPolicyFeatureIdleDetection               PermissionsPolicyFeature = "idle-detection"
-	PermissionsPolicyFeatureInterestCohort              PermissionsPolicyFeature = "interest-cohort"
 	PermissionsPolicyFeatureJoinAdInterestGroup         PermissionsPolicyFeature = "join-ad-interest-group"
 	PermissionsPolicyFeatureKeyboardMap                 PermissionsPolicyFeature = "keyboard-map"
 	PermissionsPolicyFeatureMagnetometer                PermissionsPolicyFeature = "magnetometer"
@@ -138,6 +140,8 @@ func (t *PermissionsPolicyFeature) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PermissionsPolicyFeatureChUaModel
 	case PermissionsPolicyFeatureChUaMobile:
 		*t = PermissionsPolicyFeatureChUaMobile
+	case PermissionsPolicyFeatureChUaFull:
+		*t = PermissionsPolicyFeatureChUaFull
 	case PermissionsPolicyFeatureChUaFullVersion:
 		*t = PermissionsPolicyFeatureChUaFullVersion
 	case PermissionsPolicyFeatureChUaFullVersionList:
@@ -146,12 +150,16 @@ func (t *PermissionsPolicyFeature) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PermissionsPolicyFeatureChUaPlatformVersion
 	case PermissionsPolicyFeatureChUaReduced:
 		*t = PermissionsPolicyFeatureChUaReduced
+	case PermissionsPolicyFeatureChUaWow64:
+		*t = PermissionsPolicyFeatureChUaWow64
 	case PermissionsPolicyFeatureChViewportHeight:
 		*t = PermissionsPolicyFeatureChViewportHeight
 	case PermissionsPolicyFeatureChViewportWidth:
 		*t = PermissionsPolicyFeatureChViewportWidth
 	case PermissionsPolicyFeatureChWidth:
 		*t = PermissionsPolicyFeatureChWidth
+	case PermissionsPolicyFeatureChPartitionedCookies:
+		*t = PermissionsPolicyFeatureChPartitionedCookies
 	case PermissionsPolicyFeatureClipboardRead:
 		*t = PermissionsPolicyFeatureClipboardRead
 	case PermissionsPolicyFeatureClipboardWrite:
@@ -186,8 +194,6 @@ func (t *PermissionsPolicyFeature) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PermissionsPolicyFeatureHid
 	case PermissionsPolicyFeatureIdleDetection:
 		*t = PermissionsPolicyFeatureIdleDetection
-	case PermissionsPolicyFeatureInterestCohort:
-		*t = PermissionsPolicyFeatureInterestCohort
 	case PermissionsPolicyFeatureJoinAdInterestGroup:
 		*t = PermissionsPolicyFeatureJoinAdInterestGroup
 	case PermissionsPolicyFeatureKeyboardMap:
@@ -254,8 +260,9 @@ func (t PermissionsPolicyBlockReason) String() string {
 
 // PermissionsPolicyBlockReason values.
 const (
-	PermissionsPolicyBlockReasonHeader          PermissionsPolicyBlockReason = "Header"
-	PermissionsPolicyBlockReasonIframeAttribute PermissionsPolicyBlockReason = "IframeAttribute"
+	PermissionsPolicyBlockReasonHeader            PermissionsPolicyBlockReason = "Header"
+	PermissionsPolicyBlockReasonIframeAttribute   PermissionsPolicyBlockReason = "IframeAttribute"
+	PermissionsPolicyBlockReasonInFencedFrameTree PermissionsPolicyBlockReason = "InFencedFrameTree"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -275,6 +282,8 @@ func (t *PermissionsPolicyBlockReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PermissionsPolicyBlockReasonHeader
 	case PermissionsPolicyBlockReasonIframeAttribute:
 		*t = PermissionsPolicyBlockReasonIframeAttribute
+	case PermissionsPolicyBlockReasonInFencedFrameTree:
+		*t = PermissionsPolicyBlockReasonInFencedFrameTree
 
 	default:
 		in.AddError(errors.New("unknown PermissionsPolicyBlockReason value"))
@@ -560,6 +569,14 @@ type FontFamilies struct {
 	Pictograph string `json:"pictograph,omitempty"` // The pictograph font-family.
 }
 
+// ScriptFontFamilies font families collection for a script.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-ScriptFontFamilies
+type ScriptFontFamilies struct {
+	Script       string        `json:"script"`       // Name of the script which these font families are defined for.
+	FontFamilies *FontFamilies `json:"fontFamilies"` // Generic font families collection for the script.
+}
+
 // FontSizes default font sizes.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-FontSizes
@@ -824,7 +841,7 @@ func (t BackForwardCacheNotRestoredReason) String() string {
 
 // BackForwardCacheNotRestoredReason values.
 const (
-	BackForwardCacheNotRestoredReasonNotMainFrame                                             BackForwardCacheNotRestoredReason = "NotMainFrame"
+	BackForwardCacheNotRestoredReasonNotPrimaryMainFrame                                      BackForwardCacheNotRestoredReason = "NotPrimaryMainFrame"
 	BackForwardCacheNotRestoredReasonBackForwardCacheDisabled                                 BackForwardCacheNotRestoredReason = "BackForwardCacheDisabled"
 	BackForwardCacheNotRestoredReasonRelatedActiveContentsExist                               BackForwardCacheNotRestoredReason = "RelatedActiveContentsExist"
 	BackForwardCacheNotRestoredReasonHTTPSTatusNotOK                                          BackForwardCacheNotRestoredReason = "HTTPStatusNotOK"
@@ -962,8 +979,8 @@ func (t BackForwardCacheNotRestoredReason) MarshalJSON() ([]byte, error) {
 // UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
 func (t *BackForwardCacheNotRestoredReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	switch BackForwardCacheNotRestoredReason(in.String()) {
-	case BackForwardCacheNotRestoredReasonNotMainFrame:
-		*t = BackForwardCacheNotRestoredReasonNotMainFrame
+	case BackForwardCacheNotRestoredReasonNotPrimaryMainFrame:
+		*t = BackForwardCacheNotRestoredReasonNotPrimaryMainFrame
 	case BackForwardCacheNotRestoredReasonBackForwardCacheDisabled:
 		*t = BackForwardCacheNotRestoredReasonBackForwardCacheDisabled
 	case BackForwardCacheNotRestoredReasonRelatedActiveContentsExist:
@@ -1273,6 +1290,15 @@ func (t *BackForwardCacheNotRestoredReasonType) UnmarshalJSON(buf []byte) error 
 type BackForwardCacheNotRestoredExplanation struct {
 	Type   BackForwardCacheNotRestoredReasonType `json:"type"`   // Type of the reason
 	Reason BackForwardCacheNotRestoredReason     `json:"reason"` // Not restored reason
+}
+
+// BackForwardCacheNotRestoredExplanationTree [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-BackForwardCacheNotRestoredExplanationTree
+type BackForwardCacheNotRestoredExplanationTree struct {
+	URL          string                                        `json:"url"`          // URL of each frame
+	Explanations []*BackForwardCacheNotRestoredExplanation     `json:"explanations"` // Not restored reasons of each frame
+	Children     []*BackForwardCacheNotRestoredExplanationTree `json:"children"`     // Array of children frame
 }
 
 // FileChooserOpenedMode input mode.

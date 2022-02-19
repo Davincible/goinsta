@@ -16,7 +16,7 @@ func main() {
 	if err := insta.Login(); err != nil {
 		switch v := err.(type) {
 		case goinsta.ChallengeError:
-			err := insta.Challenge.Process(v.Challenge.APIPath)
+			err := insta.Challenge.ProcessOld(v.Challenge.APIPath)
 			if err != nil {
 				log.Fatalln(err)
 			}

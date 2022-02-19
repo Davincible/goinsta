@@ -57,6 +57,13 @@ type reqOptions struct {
 
 	// Timestamp
 	Timestamp string
+
+	// Count the number of times the wrapper has been called.
+	WrapperCount int
+
+	// If Status 429 should be ignored, ErrTooManyRequests. This behaviour should be implemented in
+	//  the wrapper. Goinsta does nothing directly with this value.
+	Ignore429 bool
 }
 
 func (insta *Instagram) sendSimpleRequest(uri string, a ...interface{}) (body []byte, err error) {
@@ -215,9 +222,9 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 		"X-Fb-Server-Cluster":         "True",
 	}
 	if insta.Account != nil {
-		req.Header.Set("Ig-Intended-User-Id", strconv.Itoa(int(insta.Account.ID)))
+		headers["Ig-Intended-User-Id"] = strconv.Itoa(int(insta.Account.ID))
 	} else {
-		req.Header.Set("Ig-Intended-User-Id", "0")
+		headers["Ig-Intended-User-Id"] = "0"
 	}
 	if contentEncoding != "" {
 		headers["Content-Encoding"] = contentEncoding
@@ -235,12 +242,12 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 
 	insta.extractHeaders(resp.Header)
 	body, err = ioutil.ReadAll(resp.Body)
-	if err == nil {
-		err = insta.isError(resp.StatusCode, body, resp.Status, o.Endpoint)
-	}
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// Extract error from request body, if present
+	err = insta.isError(resp.StatusCode, body, resp.Status, o.Endpoint)
 
 	// Decode gzip encoded responses
 	encoding := resp.Header.Get("Content-Encoding")
@@ -274,7 +281,21 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 		insta.debugHandler(string(b))
 	}
 
-	return body, resp.Header.Clone(), err
+	// Call Request Wrapper
+	hCopy := resp.Header.Clone()
+	if insta.reqWrapper != nil {
+		o.WrapperCount += 1
+		body, hCopy, err = insta.reqWrapper.GoInstaWrapper(
+			&ReqWrapperArgs{
+				insta:      insta,
+				reqOptions: o,
+				Body:       body,
+				Headers:    hCopy,
+				Error:      err,
+			})
+	}
+
+	return body, hCopy, err
 }
 
 func (insta *Instagram) checkXmidExpiry() {
@@ -338,52 +359,52 @@ func (insta *Instagram) isError(code int, body []byte, status, endpoint string) 
 	case 202:
 	case 400:
 		ierr := Error400{Endpoint: endpoint}
-		err = json.Unmarshal(body, &ierr)
-		if err == nil {
-			switch ierr.Message {
-			case "login_required":
-				if ierr.ErrorTitle == "You've Been Logged Out" {
-					return ErrLoggedOut
-				}
-				return ErrLoginRequired
-			case "Sorry, this media has been deleted":
-				return ErrMediaDeleted
-			case "checkpoint_required":
-				// Usually a request to accept cookies
-				insta.warnHandler(ierr)
-				ierr.Checkpoint.insta = insta
-				err := ierr.Checkpoint.Process()
 
-				if err != nil {
-					insta.warnHandler(
-						fmt.Errorf(
-							"Failed to automatically process status code 400 'checkpoint_required' with checkpoint url '%s', please report this on github. Error provided: %w",
-							ierr.Checkpoint.URL,
-							err,
-						))
-				} else {
-					insta.infoHandler(
-						fmt.Sprintf("Auto solving of checkpoint with url '%s' seems to have gone successful. This is an experimental feature, please let me know if it works! :)\n",
-							ierr.Checkpoint.URL,
-						))
-				}
+		// Ignore error, doesn't matter if types don't always match up
+		json.Unmarshal(body, &ierr)
 
-				return ierr
-			case "challenge_required":
-				insta.warnHandler(ierr)
-				insta.warnHandler("Encountered a captcha challenge, goinsta will attempt to open the challenge in a headless chromium browser, and take a screenshot. Please report the details in a github issue.")
-				ierr.ChallengeError.insta = insta
-				err := ierr.ChallengeError.Process()
-				if err != nil {
-					insta.warnHandler(err)
-				}
-
-				return ierr.ChallengeError
-			case "The password you entered is incorrect. Please try again.":
-				return ErrBadPassword
-			default:
-				return ierr
+		switch ierr.GetMessage() {
+		case "login_required":
+			if ierr.ErrorTitle == "You've Been Logged Out" {
+				return ErrLoggedOut
 			}
+			return ErrLoginRequired
+		case "bad_password":
+			return ErrBadPassword
+
+		case "Sorry, this media has been deleted":
+			return ErrMediaDeleted
+
+		case "checkpoint_required":
+			// Usually a request to accept cookies
+			insta.warnHandler(ierr)
+			insta.Checkpoint = &ierr.Checkpoint
+			insta.Checkpoint.insta = insta
+			return ErrCheckpointRequired
+
+		case "checkpoint_challenge_required":
+			fallthrough
+		case "challenge_required":
+			insta.warnHandler(ierr)
+			insta.Challenge = ierr.Challenge
+			insta.Challenge.insta = insta
+			return ErrChallengeRequired
+
+		case "two_factor_required":
+			insta.TwoFactorInfo = ierr.TwoFactorInfo
+			insta.TwoFactorInfo.insta = insta
+			if insta.Account == nil {
+				insta.Account = &Account{
+					ID:       insta.TwoFactorInfo.ID,
+					Username: insta.TwoFactorInfo.Username,
+				}
+			}
+			return Err2FARequired
+		case "Please check the code we sent you and try again.":
+			return ErrInvalidCode
+
+		default:
+			return ierr
 		}
 
 	case 403:

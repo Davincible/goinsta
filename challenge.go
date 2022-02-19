@@ -2,8 +2,6 @@ package goinsta
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
 	"strings"
 )
 
@@ -28,6 +26,9 @@ type Challenge struct {
 	UserID       int64    `json:"user_id"`
 	Status       string   `json:"status"`
 
+	Errors []string `json:"errors"`
+
+	URL               string            `json:"url"`
 	ApiPath           string            `json:"api_path"`
 	Context           *ChallengeContext `json:"challenge_context"`
 	FlowRenderType    int               `json:"flow_render_type"`
@@ -35,7 +36,6 @@ type Challenge struct {
 	Lock              bool              `json:"lock"`
 	Logout            bool              `json:"logout"`
 	NativeFlow        bool              `json:"native_flow"`
-	URL               string            `json:"url"`
 
 	TwoFactorRequired bool
 	TwoFactorInfo     TwoFactorInfo
@@ -59,32 +59,6 @@ type ChallengeContext struct {
 	StepName    string            `json:"step_name"`
 	StepData    ChallengeStepData `json:"step_data"`
 	UserID      int64             `json:"user_id"`
-}
-
-type TwoFactorInfo struct {
-	insta *Instagram
-
-	ElegibleForMultipleTotp    bool   `json:"elegible_for_multiple_totp"`
-	ObfuscatedPhoneNr          string `json:"obfuscated_phone_number"`
-	PendingTrustedNotification bool   `json:"pending_trusted_notification"`
-	ShouldOptInTrustedDevice   bool   `json:"should_opt_in_trusted_device_option"`
-	ShowMessengerCodeOption    bool   `json:"show_messenger_code_option"`
-	ShowTrustedDeviceOption    bool   `json:"show_trusted_device_option"`
-	SMSNotAllowedReason        string `json:"sms_not_allowed_reason"`
-	SMSTwoFactorOn             bool   `json:"sms_two_factor_on"`
-	TotpTwoFactorOn            bool   `json:"totp_two_factor_on"`
-	WhatsappTwoFactorOn        bool   `json:"whatsapp_two_factor_on"`
-	TwoFactorIdentifier        string `json:"two_factor_identifier"`
-	Username                   string `json:"username"`
-
-	PhoneVerificationSettings phoneVerificationSettings `json:"phone_verification_settings"`
-}
-
-type phoneVerificationSettings struct {
-	MaxSMSCount          int  `json:"max_sms_count"`
-	ResendSMSDelaySec    int  `json:"resend_sms_delay_sec"`
-	RobocallAfterMaxSms  bool `json:"robocall_after_max_sms"`
-	RobocallCountDownSec int  `json:"robocall_count_down_time_sec"`
 }
 
 type challengeResp struct {
@@ -207,7 +181,7 @@ func (c *Challenge) deltaLoginReview() error {
 	return c.selectVerifyMethod("0")
 }
 
-func (c *Challenge) Process(apiURL string) error {
+func (c *Challenge) ProcessOld(apiURL string) error {
 	c.insta.challengeURL = apiURL[1:]
 
 	if err := c.updateState(); err != nil {
@@ -224,86 +198,14 @@ func (c *Challenge) Process(apiURL string) error {
 	return ErrChallengeProcess{StepName: c.Context.StepName}
 }
 
-// Check2FATrusted checks whether the device has been trusted.
-// When you enable 2FA, you can verify, or trust, the device with one of your
-//   other devices. This method will check if this device has been trusted.
-// if so, it will login, if not, it will return an error.
-// The android app calls this method every 3 seconds
-func (info *TwoFactorInfo) Check2FATrusted() error {
-	insta := info.insta
-	body, _, err := insta.sendRequest(
-		&reqOptions{
-			Endpoint: url2FACheckTrusted,
-			Query: map[string]string{
-				"two_factor_identifier": info.TwoFactorIdentifier,
-				"username":              insta.user,
-				"device_id":             insta.dID,
-			},
-		},
-	)
-	if err != nil {
-		return err
-	}
-
-	stat := struct {
-		ReviewStatus int    `json:"review_status"`
-		Status       string `json:"status"`
-	}{}
-	err = json.Unmarshal(body, &stat)
-	if stat.ReviewStatus == 0 {
-		return errors.New("Two factor authentication not yet verified")
-	}
-
-	err = info.Login2FA("")
-	return err
-}
-
-// Login2FA allows for a login through 2FA
-func (info *TwoFactorInfo) Login2FA(code string) error {
-	insta := info.insta
-	data, err := json.Marshal(
-		map[string]string{
-			"verification_code":     code,
-			"phone_id":              insta.fID,
-			"two_factor_identifier": info.TwoFactorIdentifier,
-			"username":              insta.user,
-			"trust_this_device":     "1",
-			"guid":                  insta.uuid,
-			"device_id":             insta.dID,
-			"waterfall_id":          generateUUID(),
-			"verification_method":   "4",
-		},
-	)
-	if err != nil {
-		return err
-	}
-	body, _, err := insta.sendRequest(
-		&reqOptions{
-			Endpoint: url2FALogin,
-			IsPost:   true,
-			Query:    generateSignature(data),
-		},
-	)
-	if err != nil {
-		return err
-	}
-
-	err = insta.verifyLogin(body)
-	if err != nil {
-		return err
-	}
-
-	err = insta.OpenApp()
-	return err
-}
-
 // Process will open up the challenge url in a chromium browser and
 //   take a screenshot. Please report the screenshot and printed out struct so challenge
 //   automation can be build in.
-func (c *ChallengeError) Process() error {
+func (c *Challenge) Process() error {
 	insta := c.insta
-	insta.infoHandler(fmt.Sprintf("Challenge struct:\n%+v\n", c))
-	err := insta.openChallenge(c.Challenge.URL)
+
+	insta.warnHandler("Encountered a captcha challenge, goinsta will attempt to open the challenge in a headless chromium browser, and take a screenshot. Please report the details in a github issue.")
+	err := insta.openChallenge(c.URL)
 	err = checkHeadlessErr(err)
 
 	return err

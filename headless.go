@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"strconv"
 	"strings"
 	"time"
 
@@ -25,24 +24,27 @@ type headlessOptions struct {
 }
 
 // Wait until page gets redirected to instagram home page
-var waitForInstagram = chromedp.ActionFunc(
-	func(ctx context.Context) error {
-		for {
-			select {
-			case <-time.After(time.Millisecond * 250):
-				var l string
-				err := chromedp.Location(&l).Do(ctx)
-				if err != nil {
-					return err
-				}
-				if l == "https://www.instagram.com/" {
+func waitForInstagram(b *bool) chromedp.ActionFunc {
+	return chromedp.ActionFunc(
+		func(ctx context.Context) error {
+			for {
+				select {
+				case <-time.After(time.Millisecond * 250):
+					var l string
+					err := chromedp.Location(&l).Do(ctx)
+					if err != nil {
+						return err
+					}
+					if l == "https://www.instagram.com/" {
+						*b = true
+						return nil
+					}
+				case <-ctx.Done():
 					return nil
 				}
-			case <-ctx.Done():
-				return nil
 			}
-		}
-	})
+		})
+}
 
 // Wait until page gets redirected to instagram home page
 func printButtons(insta *Instagram) chromedp.Action {
@@ -54,10 +56,12 @@ func printButtons(insta *Instagram) chromedp.Action {
 				return err
 			}
 			for _, p := range nodes {
-				insta.infoHandler(
-					fmt.Sprintf("Found button on challenge page: %s\n",
-						p.Children[0].NodeValue,
-					))
+				if len(p.Children) > 0 {
+					insta.infoHandler(
+						fmt.Sprintf("Found button on challenge page: %s\n",
+							p.Children[0].NodeValue,
+						))
+				}
 			}
 			return nil
 		})
@@ -81,6 +85,11 @@ func takeScreenshot(fn string) chromedp.Action {
 func (insta *Instagram) acceptPrivacyCookies(url string) error {
 	// Looks for the "Allow All Cookies button"
 	selector := `//button[contains(text(),"Allow All Cookies")]`
+
+	// This value is not actually used, since its headless, the browser cannot
+	//  be closed easily. If the process is unsuccessful, it will return a timeout error.
+	success := false
+
 	return insta.runHeadless(
 		&headlessOptions{
 			timeout:     60,
@@ -93,7 +102,7 @@ func (insta *Instagram) acceptPrivacyCookies(url string) error {
 				chromedp.Sleep(time.Second * 1),
 				chromedp.Click(selector, chromedp.BySearch),
 
-				waitForInstagram,
+				waitForInstagram(&success),
 			},
 		},
 	)
@@ -102,6 +111,8 @@ func (insta *Instagram) acceptPrivacyCookies(url string) error {
 func (insta *Instagram) openChallenge(url string) error {
 	fname := fmt.Sprintf("challenge-screenshot-%d.png", time.Now().Unix())
 
+	success := false
+
 	err := insta.runHeadless(
 		&headlessOptions{
 			timeout:     300,
@@ -109,13 +120,13 @@ func (insta *Instagram) openChallenge(url string) error {
 			tasks: chromedp.Tasks{
 				chromedp.Navigate(url),
 
-				// Wait for a few seconds, and reocrd the page after
+				// Wait for a few seconds, and screenshot the page after
 				chromedp.Sleep(time.Second * 5),
 				printButtons(insta),
 				takeScreenshot(fname),
 
 				// Wait until page gets redirected to instagram home page
-				waitForInstagram,
+				waitForInstagram(&success),
 			},
 		},
 	)
@@ -130,6 +141,9 @@ func (insta *Instagram) openChallenge(url string) error {
 			fname,
 		))
 
+	if !success {
+		return ErrChallengeFailed
+	}
 	return nil
 }
 
@@ -177,14 +191,19 @@ func (insta *Instagram) runHeadless(options *headlessOptions) error {
 
 	opts := append(
 		chromedp.DefaultExecAllocatorOptions[:],
-		// Uncomment to use proxy
-		// chromedp.ProxyServer("http://localhost:9191"),
-		// chromedp.Flag("ignore-certificate-errors", true),
-
-		// Uncomment to show browser
-		// chromedp.Flag("headless", false),
 		chromedp.UserAgent(userAgent),
 	)
+
+	if insta.proxy != "" {
+		opts = append(opts, chromedp.ProxyServer(insta.proxy))
+	}
+	if insta.proxyInsecure {
+		opts = append(opts, chromedp.Flag("ignore-certificate-errors", true))
+	}
+	if options.showBrowser {
+		opts = append(opts, chromedp.Flag("headless", false))
+	}
+
 	ctx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
 	defer cancel()
 
@@ -200,25 +219,25 @@ func (insta *Instagram) runHeadless(options *headlessOptions) error {
 	defer cancel()
 
 	// Size for custom device
-	res := strings.Split(strings.ToLower(insta.device.ScreenResolution), "x")
-	width, err := strconv.Atoi(res[0])
-	if err != nil {
-		return err
-	}
-	height, err := strconv.Atoi(res[1])
-	if err != nil {
-		return err
-	}
+	// res := strings.Split(strings.ToLower(insta.device.ScreenResolution), "x")
+	// width, err := strconv.Atoi(res[0])
+	// if err != nil {
+	// 	return err
+	// }
+	// height, err := strconv.Atoi(res[1])
+	// if err != nil {
+	// 	return err
+	// }
 
 	default_actions := chromedp.Tasks{
 		// Set custom device type
 		chromedp.Tasks{
 			emulation.SetUserAgentOverride(userAgent),
-			emulation.SetDeviceMetricsOverride(int64(width), int64(height), 4.000000, true).
-				WithScreenOrientation(&emulation.ScreenOrientation{
-					Type:  emulation.OrientationTypePortraitPrimary,
-					Angle: 0,
-				}),
+			// emulation.SetDeviceMetricsOverride(int64(width), int64(height), 1.000000, true).
+			// 	WithScreenOrientation(&emulation.ScreenOrientation{
+			// 		Type:  emulation.OrientationTypePortraitPrimary,
+			// 		Angle: 0,
+			// 	}),
 			emulation.SetTouchEmulationEnabled(true),
 		},
 
@@ -249,6 +268,6 @@ func (insta *Instagram) runHeadless(options *headlessOptions) error {
 		),
 	}
 
-	err = chromedp.Run(ctx, append(default_actions, options.tasks))
+	err := chromedp.Run(ctx, append(default_actions, options.tasks))
 	return err
 }
