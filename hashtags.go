@@ -137,7 +137,7 @@ func (h *Hashtag) next(tab string) bool {
 		return false
 	}
 
-	if !(tab == "top" || tab == "recent") {
+	if !(tab == "top" || tab == "recent" || tab == "clips") {
 		h.err = ErrInvalidTab
 		return false
 	}

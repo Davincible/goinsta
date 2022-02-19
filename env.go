@@ -259,7 +259,6 @@ func getRandAcc(path ...string) (*Instagram, error) {
 	if err != nil {
 		return nil, err
 	}
-	insta.SetProxy("http://localhost:9090", false, true)
 	return insta, err
 }
 

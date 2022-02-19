@@ -245,7 +245,7 @@ const (
 	// Tags
 	urlTagInfo    = "tags/%s/info/"
 	urlTagStories = "tags/%s/story/"
-	urlTagContent = "tags/%s/ranked_sections/"
+	urlTagContent = "tags/%s/sections/"
 
 	// Upload
 	urlUploadPhoto      = "rupload_igphoto/%s"
