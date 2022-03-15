@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/Davincible/goinsta"
@@ -338,4 +339,25 @@ func TestUploadIGTV(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("The ID of the new upload is %s", item.ID)
+}
+
+func TestUploadProfilePicture(t *testing.T) {
+	insta, err := goinsta.EnvRandAcc()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Logged in as %s\n", insta.Account.Username)
+	insta.SetWarnHandler(t.Log)
+
+	file := "./downloads/1645304867/testy_1.jpg"
+	b, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	buf := bytes.NewBuffer(b)
+	if err := insta.Account.ChangeProfilePic(buf); err != nil {
+		t.Fatal(err)
+	}
+	t.Log("Changed profile picture!")
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -181,15 +182,24 @@ func (account *Account) RemoveProfilePic() error {
 func (account *Account) ChangeProfilePic(photo io.Reader) error {
 	insta := account.insta
 
+	buf, err := readFile(photo)
+	if err != nil {
+		return fmt.Errorf("ChangeProfilePic readFile: %w", err)
+	}
+
 	o := UploadOptions{
-		File: photo,
+		insta: insta,
+		File:  photo,
+		buf:   buf,
 	}
-	err := o.uploadPhoto()
-	if err != nil {
-		return err
+
+	t := http.DetectContentType(buf.Bytes())
+	if t != "image/jpeg" {
+		return ErrInvalidImage
 	}
-	if err != nil {
-		return err
+
+	if err = o.uploadPhoto(); err != nil {
+		return fmt.Errorf("ChangeProfilePic uploadPhoto: %w", err)
 	}
 
 	body, _, err := insta.sendRequest(
@@ -203,15 +213,17 @@ func (account *Account) ChangeProfilePic(photo io.Reader) error {
 			IsPost: true,
 		},
 	)
-	if err == nil {
-		resp := profResp{}
-		err = json.Unmarshal(body, &resp)
-		if err == nil {
-			*account = resp.Account
-			account.insta = insta
-		}
+	if err != nil {
+		return fmt.Errorf("ChangeProfilePic unmarshal response json: %w", err)
 	}
-	return err
+
+	resp := profResp{}
+	if err = json.Unmarshal(body, &resp); err != nil {
+		return fmt.Errorf("Failed to unmarshal account from json resposne: %w", err)
+	}
+	*account = resp.Account
+	account.insta = insta
+	return nil
 }
 
 // SetPrivate sets account to private mode.

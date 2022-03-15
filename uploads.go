@@ -243,11 +243,12 @@ func (o *UploadOptions) uploadPhoto() error {
 	o.width, o.height = width, height
 
 	// Create Rupload header params
-	o.createRUploadParams()
-
-	err = o.postPhoto()
-	if err != nil {
+	if err := o.createRUploadParams(); err != nil {
 		return err
+	}
+
+	if err = o.postPhoto(); err != nil {
+		return fmt.Errorf("postPhoto: %w", err)
 	}
 
 	o.createPhotoConfig()
@@ -457,6 +458,9 @@ func (o *UploadOptions) postPhoto() error {
 			},
 		},
 	)
+	if err != nil {
+		return err
+	}
 
 	// Parse Result
 	var result struct {
@@ -539,7 +543,7 @@ func (o *UploadOptions) createRUploadParams(extra ...map[string]string) error {
 
 	b, err := json.Marshal(params)
 	if err != nil {
-		return err
+		return fmt.Errorf("createRUploadParams: %w", err)
 	}
 	o.ruploadParams = string(b)
 	return nil
