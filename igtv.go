@@ -216,7 +216,7 @@ func (insta *Instagram) callIGTVChannel(id, nextID string) (*IGTVChannel, error)
 		"count": "10",
 	}
 	if nextID != "" {
-		query["max_id"] = id
+		query["max_id"] = nextID
 	}
 	body, _, err := insta.sendRequest(&reqOptions{
 		Endpoint: urlIGTVChannel,

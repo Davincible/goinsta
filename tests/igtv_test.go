@@ -2,6 +2,7 @@ package tests
 
 import (
 	"testing"
+	"time"
 
 	"github.com/Davincible/goinsta"
 )
@@ -77,11 +78,13 @@ func TestIGTVLive(t *testing.T) {
 	}
 
 	if igtv.MoreAvailable {
+		time.Sleep(3 * time.Second)
 		igtv, err := igtv.Live()
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+		} else {
+			t.Logf("Found %d broadcasts. More Available = %v\n", len(igtv.Broadcasts), igtv.MoreAvailable)
 		}
-		t.Logf("Found %d broadcasts. More Available = %v\n", len(igtv.Broadcasts), igtv.MoreAvailable)
 	}
 
 	for _, br := range broadcasts {

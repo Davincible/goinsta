@@ -279,19 +279,20 @@ type Tag struct {
 
 // Caption is media caption
 type Caption struct {
-	ID              int64  `json:"pk"`
-	UserID          int64  `json:"user_id"`
-	Text            string `json:"text"`
-	Type            int    `json:"type"`
-	CreatedAt       int64  `json:"created_at"`
-	CreatedAtUtc    int64  `json:"created_at_utc"`
-	ContentType     string `json:"content_type"`
-	Status          string `json:"status"`
-	BitFlags        int    `json:"bit_flags"`
-	User            User   `json:"user"`
-	DidReportAsSpam bool   `json:"did_report_as_spam"`
-	MediaID         int64  `json:"media_id"`
-	HasTranslation  bool   `json:"has_translation"`
+	// can be both string or int
+	ID              interface{} `json:"pk"`
+	UserID          int64       `json:"user_id"`
+	Text            string      `json:"text"`
+	Type            int         `json:"type"`
+	CreatedAt       int64       `json:"created_at"`
+	CreatedAtUtc    int64       `json:"created_at_utc"`
+	ContentType     string      `json:"content_type"`
+	Status          string      `json:"status"`
+	BitFlags        int         `json:"bit_flags"`
+	User            User        `json:"user"`
+	DidReportAsSpam bool        `json:"did_report_as_spam"`
+	MediaID         int64       `json:"media_id"`
+	HasTranslation  bool        `json:"has_translation"`
 }
 
 // Mentions is a user being mentioned on media.

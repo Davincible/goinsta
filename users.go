@@ -120,27 +120,27 @@ type User struct {
 	// User info
 	ID                     int64  `json:"pk"`
 	Username               string `json:"username"`
-	FullName               string `json:"full_name"`
-	Email                  string `json:"email"`
-	PhoneNumber            string `json:"phone_number"`
-	WhatsappNumber         string `json:"whatsapp_number"`
-	Gender                 int    `json:"gender"`
-	PublicEmail            string `json:"public_email"`
-	PublicPhoneNumber      string `json:"public_phone_number"`
-	PublicPhoneCountryCode string `json:"public_phone_country_code"`
-	ContactPhoneNumber     string `json:"contact_phone_number"`
+	FullName               string `json:"full_name,omitempty"`
+	Email                  string `json:"email,omitempty"`
+	PhoneNumber            string `json:"phone_number,omitempty"`
+	WhatsappNumber         string `json:"whatsapp_number,omitempty"`
+	Gender                 int    `json:"gender,omitempty"`
+	PublicEmail            string `json:"public_email,omitempty"`
+	PublicPhoneNumber      string `json:"public_phone_number,omitempty"`
+	PublicPhoneCountryCode string `json:"public_phone_country_code,omitempty"`
+	ContactPhoneNumber     string `json:"contact_phone_number,omitempty"`
 
 	// Profile visible properties
 	IsPrivate                  bool   `json:"is_private"`
 	IsVerified                 bool   `json:"is_verified"`
-	ExternalURL                string `json:"external_url"`
-	ExternalLynxURL            string `json:"external_lynx_url"`
+	ExternalURL                string `json:"external_url,omitempty"`
+	ExternalLynxURL            string `json:"external_lynx_url,omitempty"`
 	FollowerCount              int    `json:"follower_count"`
 	FollowingCount             int    `json:"following_count"`
-	ProfilePicID               string `json:"profile_pic_id"`
-	ProfilePicURL              string `json:"profile_pic_url"`
+	ProfilePicID               string `json:"profile_pic_id,omitempty"`
+	ProfilePicURL              string `json:"profile_pic_url,omitempty"`
 	HasAnonymousProfilePicture bool   `json:"has_anonymous_profile_picture"`
-	Biography                  string `json:"biography"`
+	Biography                  string `json:"biography,omitempty"`
 	BiographyWithEntities      struct {
 		RawText  string        `json:"raw_text"`
 		Entities []interface{} `json:"entities"`
@@ -156,18 +156,18 @@ type User struct {
 	ShowBestiesBadge               bool          `json:"show_besties_badge"`
 	RecentlyBestiedByCount         int           `json:"recently_bestied_by_count"`
 	AccountType                    int           `json:"account_type"`
-	AccountBadges                  []interface{} `json:"account_badges"`
+	AccountBadges                  []interface{} `json:"account_badges,omitempty"`
 	FbIdV2                         int64         `json:"fbid_v2"`
 	IsUnpublished                  bool          `json:"is_unpublished"`
 	UserTagsCount                  int           `json:"usertags_count"`
 	UserTagReviewEnabled           bool          `json:"usertag_review_enabled"`
 	FollowingTagCount              int           `json:"following_tag_count"`
-	MutualFollowersID              []int64       `json:"profile_context_mutual_follow_ids"`
+	MutualFollowersID              []int64       `json:"profile_context_mutual_follow_ids,omitempty"`
 	FollowFrictionType             int           `json:"follow_friction_type"`
-	ProfileContext                 string        `json:"profile_context"`
+	ProfileContext                 string        `json:"profile_context,omitempty"`
 	HasBiographyTranslation        bool          `json:"has_biography_translation"`
 	HasSavedItems                  bool          `json:"has_saved_items"`
-	Nametag                        Nametag       `json:"nametag"`
+	Nametag                        Nametag       `json:"nametag,omitempty"`
 	HasChaining                    bool          `json:"has_chaining"`
 	IsFavorite                     bool          `json:"is_favorite"`
 	IsFavoriteForStories           bool          `json:"is_favorite_for_stories"`
@@ -187,9 +187,9 @@ type User struct {
 	CanCreateNewFundraiser         bool   `json:"can_create_new_standalone_fundraiser"`
 	CanCreateNewPersonalFundraiser bool   `json:"can_create_new_standalone_personal_fundraiser"`
 	CanBeTaggedAsSponsor           bool   `json:"can_be_tagged_as_sponsor"`
-	PersonalAccountAdsPageName     string `json:"personal_account_ads_page_name"`
-	PersonalAccountAdsId           string `json:"personal_account_ads_page_id"`
-	Category                       string `json:"category"`
+	PersonalAccountAdsPageName     string `json:"personal_account_ads_page_name,omitempty"`
+	PersonalAccountAdsId           string `json:"personal_account_ads_page_id,omitempty"`
+	Category                       string `json:"category,omitempty"`
 
 	// Shopping properties
 	ShowShoppableFeed           bool `json:"show_shoppable_feed"`
@@ -198,17 +198,18 @@ type User struct {
 	// Miscellaneous
 	IsMutedWordsGlobalEnabled bool   `json:"is_muted_words_global_enabled"`
 	IsMutedWordsCustomEnabled bool   `json:"is_muted_words_custom_enabled"`
-	AllowedCommenterType      string `json:"allowed_commenter_type"`
+	AllowedCommenterType      string `json:"allowed_commenter_type,omitempty"`
 
 	// Media properties
-	MediaCount          int  `json:"media_count"`
-	IGTVCount           int  `json:"total_igtv_videos"`
-	HasIGTVSeries       bool `json:"has_igtv_series"`
-	HasVideos           bool `json:"has_videos"`
-	TotalClipCount      int  `json:"total_clips_count"`
-	TotalAREffects      int  `json:"total_ar_effects"`
-	GeoMediaCount       int  `json:"geo_media_count"`
-	HasProfileVideoFeed bool `json:"has_profile_video_feed"`
+	MediaCount          int   `json:"media_count"`
+	IGTVCount           int   `json:"total_igtv_videos"`
+	HasIGTVSeries       bool  `json:"has_igtv_series"`
+	HasVideos           bool  `json:"has_videos"`
+	TotalClipCount      int   `json:"total_clips_count"`
+	TotalAREffects      int   `json:"total_ar_effects"`
+	GeoMediaCount       int   `json:"geo_media_count"`
+	HasProfileVideoFeed bool  `json:"has_profile_video_feed"`
+	LiveBroadcastID     int64 `json:"live_broadcast_id"`
 
 	HasPlacedOrders bool `json:"has_placed_orders"`
 
@@ -219,8 +220,8 @@ type User struct {
 	RequestContactEnabled      bool `json:"request_contact_enabled"`
 	FeedPostReshareDisabled    bool `json:"feed_post_reshare_disabled"`
 	CreatorShoppingInfo        struct {
-		LinkedMerchantAccounts []interface{} `json:"linked_merchant_accounts"`
-	} `json:"creator_shopping_info"`
+		LinkedMerchantAccounts []interface{} `json:"linked_merchant_accounts,omitempty"`
+	} `json:"creator_shopping_info,omitempty"`
 	StandaloneFundraiserInfo struct {
 		HasActiveFundraiser                 bool        `json:"has_active_fundraiser"`
 		FundraiserId                        int64       `json:"fundraiser_id"`
@@ -232,25 +233,25 @@ type User struct {
 		PercentRaised                       interface{} `json:"percent_raised"`
 	} `json:"standalone_fundraiser_info"`
 	AggregatePromoteEngagement   bool         `json:"aggregate_promote_engagement"`
-	AllowMentionSetting          string       `json:"allow_mention_setting"`
-	AllowTagSetting              string       `json:"allow_tag_setting"`
+	AllowMentionSetting          string       `json:"allow_mention_setting,omitempty"`
+	AllowTagSetting              string       `json:"allow_tag_setting,omitempty"`
 	LimitedInteractionsEnabled   bool         `json:"limited_interactions_enabled"`
-	ReelAutoArchive              string       `json:"reel_auto_archive"`
+	ReelAutoArchive              string       `json:"reel_auto_archive,omitempty"`
 	HasHighlightReels            bool         `json:"has_highlight_reels"`
 	HightlightReshareDisabled    bool         `json:"highlight_reshare_disabled"`
 	IsMemorialized               bool         `json:"is_memorialized"`
 	HasGuides                    bool         `json:"has_guides"`
 	HasAffiliateShop             bool         `json:"has_active_affiliate_shop"`
 	CityID                       int64        `json:"city_id"`
-	CityName                     string       `json:"city_name"`
-	AddressStreet                string       `json:"address_street"`
-	DirectMessaging              string       `json:"direct_messaging"`
+	CityName                     string       `json:"city_name,omitempty"`
+	AddressStreet                string       `json:"address_street,omitempty"`
+	DirectMessaging              string       `json:"direct_messaging,omitempty"`
 	Latitude                     float64      `json:"latitude"`
 	Longitude                    float64      `json:"longitude"`
 	BusinessContactMethod        string       `json:"business_contact_method"`
 	IncludeDirectBlacklistStatus bool         `json:"include_direct_blacklist_status"`
-	HdProfilePicURLInfo          PicURLInfo   `json:"hd_profile_pic_url_info"`
-	HdProfilePicVersions         []PicURLInfo `json:"hd_profile_pic_versions"`
+	HdProfilePicURLInfo          PicURLInfo   `json:"hd_profile_pic_url_info,omitempty"`
+	HdProfilePicVersions         []PicURLInfo `json:"hd_profile_pic_versions,omitempty"`
 	School                       School       `json:"school"`
 	Byline                       string       `json:"byline"`
 	SocialContext                string       `json:"social_context,omitempty"`
@@ -259,9 +260,9 @@ type User struct {
 	LatestReelMedia              int64        `json:"latest_reel_media,omitempty"`
 	IsCallToActionEnabled        bool         `json:"is_call_to_action_enabled"`
 	IsPotentialBusiness          bool         `json:"is_potential_business"`
-	FbPageCallToActionID         string       `json:"fb_page_call_to_action_id"`
+	FbPageCallToActionID         string       `json:"fb_page_call_to_action_id,omitempty"`
 	FbPayExperienceEnabled       bool         `json:"fbpay_experience_enabled"`
-	Zip                          string       `json:"zip"`
+	Zip                          string       `json:"zip,omitempty"`
 	Friendship                   Friendship   `json:"friendship_status"`
 	AutoExpandChaining           bool         `json:"auto_expand_chaining"`
 

@@ -282,7 +282,8 @@ var (
 
 	// Upload Errors
 	ErrInvalidFormat      = errors.New("Invalid file type, please use one of jpeg, jpg, mp4")
-	ErrCarouselType       = errors.New("Invalid file type, please use a jpeg or jpg image")
+	ErrInvalidImage       = errors.New("Invalid file type, please use a jpeg or jpg image")
+	ErrCarouselType       = ErrInvalidImage
 	ErrCarouselMediaLimit = errors.New("Carousel media limit of 10 exceeded")
 	ErrStoryBadMediaType  = errors.New("When uploading multiple items to your story at once, all have to be mp4")
 	ErrStoryMediaTooLong  = errors.New("Story media must not exceed 15 seconds per item")

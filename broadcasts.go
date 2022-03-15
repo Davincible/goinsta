@@ -23,34 +23,34 @@ type Broadcast struct {
 	LivePostID int64  `json:"live_post_id"`
 
 	// BroadcastStatus is either "active", "interrupted", "stopped"
-	BroadcastStatus            string  `json:"broadcast_status"`
-	DashPlaybackURL            string  `json:"dash_playback_url"`
-	DashAbrPlaybackURL         string  `json:"dash_abr_playback_url"`
-	DashManifest               string  `json:"dash_manifest"`
-	ExpireAt                   int64   `json:"expire_at"`
-	EncodingTag                string  `json:"encoding_tag"`
-	InternalOnly               bool    `json:"internal_only"`
-	NumberOfQualities          int     `json:"number_of_qualities"`
-	CoverFrameURL              string  `json:"cover_frame_url"`
-	User                       User    `json:"broadcast_owner"`
-	Cobroadcasters             []*User `json:"cobroadcasters"`
-	PublishedTime              int64   `json:"published_time"`
-	Message                    string  `json:"broadcast_message"`
-	OrganicTrackingToken       string  `json:"organic_tracking_token"`
-	IsPlayerLiveTrace          int     `json:"is_player_live_trace_enabled"`
-	IsGamingContent            bool    `json:"is_gaming_content"`
-	IsViewerCommentAllowed     bool    `json:"is_viewer_comment_allowed"`
-	IsPolicyViolation          bool    `json:"is_policy_violation"`
-	PolicyViolationReason      string  `json:"policy_violation_reason"`
-	LiveCommentMentionEnabled  bool    `json:"is_live_comment_mention_enabled"`
-	LiveCommmentRepliesEnabled bool    `json:"is_live_comment_replies_enabled"`
-	HideFromFeedUnit           bool    `json:"hide_from_feed_unit"`
-	VideoDuration              float64 `json:"video_duration"`
-	Visibility                 int     `json:"visibility"`
-	ViewerCount                float64 `json:"viewer_count"`
-	ResponseTs                 int64   `json:"response_timestamp"`
-	Status                     string  `json:"status"`
-	Dimensions                 struct {
+	BroadcastStatus           string  `json:"broadcast_status"`
+	DashPlaybackURL           string  `json:"dash_playback_url"`
+	DashAbrPlaybackURL        string  `json:"dash_abr_playback_url"`
+	DashManifest              string  `json:"dash_manifest"`
+	ExpireAt                  int64   `json:"expire_at"`
+	EncodingTag               string  `json:"encoding_tag"`
+	InternalOnly              bool    `json:"internal_only"`
+	NumberOfQualities         int     `json:"number_of_qualities"`
+	CoverFrameURL             string  `json:"cover_frame_url"`
+	User                      User    `json:"broadcast_owner"`
+	Cobroadcasters            []*User `json:"cobroadcasters"`
+	PublishedTime             int64   `json:"published_time"`
+	Message                   string  `json:"broadcast_message"`
+	OrganicTrackingToken      string  `json:"organic_tracking_token"`
+	IsPlayerLiveTrace         int     `json:"is_player_live_trace_enabled"`
+	IsGamingContent           bool    `json:"is_gaming_content"`
+	IsViewerCommentAllowed    bool    `json:"is_viewer_comment_allowed"`
+	IsPolicyViolation         bool    `json:"is_policy_violation"`
+	PolicyViolationReason     string  `json:"policy_violation_reason"`
+	LiveCommentMentionEnabled bool    `json:"is_live_comment_mention_enabled"`
+	LiveCommentRepliesEnabled bool    `json:"is_live_comment_replies_enabled"`
+	HideFromFeedUnit          bool    `json:"hide_from_feed_unit"`
+	VideoDuration             float64 `json:"video_duration"`
+	Visibility                int     `json:"visibility"`
+	ViewerCount               float64 `json:"viewer_count"`
+	ResponseTs                int64   `json:"response_timestamp"`
+	Status                    string  `json:"status"`
+	Dimensions                struct {
 		Width  int `json:"width"`
 		Height int `json:"height"`
 	} `json:"dimensions"`
@@ -96,15 +96,29 @@ type BroadcastComments struct {
 	CommentMuted               int        `json:"comment_muted"`
 	IsViewerCommentAllowed     bool       `json:"is_viewer_comment_allowed"`
 	UserPaySupportersInfo      struct {
-		SupportersInComments   map[string]string `json:"supporters_in_comments"`
-		SupportersInCommentsV2 map[string]struct {
-			SupportTier string `json:"support_tier"`
-			BadgesCount int    `json:"badges_count"`
-		} `json:"supporters_in_comments_v2"`
-		// Never actually seen this filled
-		NewSupporters map[string]interface{} `json:"new_supporters"`
+		SupportersInComments   map[string]interface{} `json:"supporters_in_comments"`
+		SupportersInCommentsV2 map[string]interface{} `json:"supporters_in_comments_v2"`
+		// SupportersInCommentsV2 map[string]struct {
+		// 	SupportTier string `json:"support_tier"`
+		// 	BadgesCount int    `json:"badges_count"`
+		// } `json:"supporters_in_comments_v2"`
+		NewSupportersNextMinID int64          `json:"new_supporters_next_min_id"`
+		NewSupporters          []NewSupporter `json:"new_supporters"`
 	} `json:"user_pay_supporter_info"`
 	Status string `json:"status"`
+}
+
+type NewSupporter struct {
+	RepeatedSupporter bool    `json:"is_repeat_supporter"`
+	SupportTier       string  `json:"support_tier"`
+	Timestamp         float64 `json:"ts_secs"`
+	User              struct {
+		ID         int64  `json:"pk"`
+		Username   string `json:"username"`
+		FullName   string `json:"full_name"`
+		IsPrivate  bool   `json:"is_private"`
+		IsVerified bool   `json:"is_verified"`
+	}
 }
 
 type BroadcastLikes struct {
@@ -119,10 +133,10 @@ type BroadcastLikes struct {
 	Status           string `json:"status"`
 	PaySupporterInfo struct {
 		LikeCountByTier []struct {
-			BurstLikes  int                    `json:"burst_likes"`
-			Likers      map[string]interface{} `json:"likers"`
-			Likes       int                    `json:"likes"`
-			SupportTier string                 `json:"support_tier"`
+			BurstLikes  int           `json:"burst_likes"`
+			Likers      []interface{} `json:"likers"`
+			Likes       int           `json:"likes"`
+			SupportTier string        `json:"support_tier"`
 		} `json:"like_count_by_support_tier"`
 		BurstLikes int `json:"supporter_tier_burst_likes"`
 		Likes      int `json:"supporter_tier_likes"`
@@ -142,6 +156,11 @@ type BroadcastHeartbeat struct {
 // Discover wraps Instagram.IGTV.Live
 func (br *Broadcast) Discover() (*IGTVChannel, error) {
 	return br.insta.IGTV.Live()
+}
+
+// NewUser returns prepared user to be used with his functions.
+func (insta *Instagram) NewBroadcast(id int64) *Broadcast {
+	return &Broadcast{insta: insta, ID: id, mu: &sync.RWMutex{}}
 }
 
 // GetInfo will fetch the information about a broadcast
@@ -287,6 +306,18 @@ func (br *Broadcast) GetLiveChaining() ([]*Broadcast, error) {
 		br.setValues(insta)
 	}
 	return resp.Broadcasts, nil
+}
+
+func (br *Broadcast) DownloadCoverFrame() ([]byte, error) {
+	if br.CoverFrameURL == "" {
+		return nil, ErrNoMedia
+	}
+
+	b, err := br.insta.download(br.CoverFrameURL)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
 
 func (br *Broadcast) setValues(insta *Instagram) {

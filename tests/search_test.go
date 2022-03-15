@@ -16,7 +16,7 @@ func TestSearchUser(t *testing.T) {
 	t.Logf("Logged in as %s\n", insta.Account.Username)
 
 	// Search for users
-	result, err := insta.Searchbar.SearchUser("a")
+	result, err := insta.Searchbar.SearchUser("crownme_delisamarie")
 	if err != nil {
 		t.Fatal(err)
 	}
