@@ -185,15 +185,16 @@ const (
 	urlFeedNewPostsExist = "feed/new_feed_posts_exist/"
 
 	// Media
-	urlMediaInfo    = "media/%s/info/"
-	urlMediaDelete  = "media/%s/delete/"
-	urlMediaLike    = "media/%s/like/"
-	urlMediaUnlike  = "media/%s/unlike/"
-	urlMediaSave    = "media/%s/save/"
-	urlMediaUnsave  = "media/%s/unsave/"
-	urlMediaSeen    = "media/seen/"
-	urlMediaLikers  = "media/%s/likers/"
-	urlMediaBlocked = "media/blocked/"
+	urlMediaInfo         = "media/%s/info/"
+	urlMediaDelete       = "media/%s/delete/"
+	urlMediaLike         = "media/%s/like/"
+	urlMediaUnlike       = "media/%s/unlike/"
+	urlMediaSave         = "media/%s/save/"
+	urlMediaUnsave       = "media/%s/unsave/"
+	urlMediaSeen         = "media/seen/"
+	urlMediaLikers       = "media/%s/likers/"
+	urlMediaBlocked      = "media/blocked/"
+	urlMediaCommentInfos = "media/comment_infos/"
 
 	// Broadcasts
 	urlLiveInfo      = "live/%d/info/"

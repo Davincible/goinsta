@@ -75,17 +75,26 @@ type Item struct {
 	NearlyCompleteCopyRightMatch bool   `json:"nearly_complete_copyright_match"`
 	// Toplikers can be `string` or `[]string`.
 	// Use TopLikers function instead of getting it directly.
-	Toplikers                    interface{} `json:"top_likers"`
-	Likers                       []*User     `json:"likers"`
-	CommentLikesEnabled          bool        `json:"comment_likes_enabled"`
-	CommentThreadingEnabled      bool        `json:"comment_threading_enabled"`
-	HasMoreComments              bool        `json:"has_more_comments"`
-	MaxNumVisiblePreviewComments int         `json:"max_num_visible_preview_comments"`
+	Toplikers  interface{} `json:"top_likers"`
+	Likers     []*User     `json:"likers"`
+	PhotoOfYou bool        `json:"photo_of_you"`
+
+	// Comments
+	CommentLikesEnabled          bool `json:"comment_likes_enabled"`
+	CommentThreadingEnabled      bool `json:"comment_threading_enabled"`
+	HasMoreComments              bool `json:"has_more_comments"`
+	MaxNumVisiblePreviewComments int  `json:"max_num_visible_preview_comments"`
+
+	// To fetch, call feed.GetCommentInfo(), or item.GetCommentInfo()
+	CommentInfo *CommentInfo
+
+	// Will always be zero, call feed.GetCommentInfo()
+	CommentCount int `json:"comment_count"`
+
 	// Previewcomments can be `string` or `[]string` or `[]Comment`.
 	// Use PreviewComments function instead of getting it directly.
 	Previewcomments interface{} `json:"preview_comments,omitempty"`
-	CommentCount    int         `json:"comment_count"`
-	PhotoOfYou      bool        `json:"photo_of_you"`
+
 	// Tags are tagged people in photo
 	Tags struct {
 		In []Tag `json:"in"`
@@ -841,11 +850,11 @@ type FeedMedia struct {
 	endpoint  string
 	timestamp string
 
-	Items               []Item `json:"items"`
-	NumResults          int    `json:"num_results"`
-	MoreAvailable       bool   `json:"more_available"`
-	AutoLoadMoreEnabled bool   `json:"auto_load_more_enabled"`
-	Status              string `json:"status"`
+	Items               []*Item `json:"items"`
+	NumResults          int     `json:"num_results"`
+	MoreAvailable       bool    `json:"more_available"`
+	AutoLoadMoreEnabled bool    `json:"auto_load_more_enabled"`
+	Status              string  `json:"status"`
 	// Can be int64 and string
 	// this is why we recommend Next() usage :')
 	NextID interface{} `json:"next_max_id"`
@@ -926,7 +935,7 @@ func (media *FeedMedia) setValues() {
 	for i := range media.Items {
 		media.Items[i].insta = media.insta
 		media.Items[i].User.insta = media.insta
-		setToItem(&media.Items[i], media)
+		setToItem(media.Items[i], media)
 	}
 }
 
@@ -1006,9 +1015,81 @@ func (media *FeedMedia) Next(params ...interface{}) bool {
 	return false
 }
 
+// GetCommentInfo will fetch the item.CommentInfo for an item
+func (item *Item) GetCommentInfo() error {
+	insta := item.insta
+
+	query := map[string]string{
+		"media_ids": item.GetID(),
+	}
+
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlMediaCommentInfos,
+			Query:    query,
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	var rsp struct {
+		CommentInfos map[string]*CommentInfo `json:"comment_infos"`
+	}
+	if err := json.Unmarshal(body, &rsp); err != nil {
+		return err
+	}
+	item.CommentInfo = rsp.CommentInfos[item.GetID()]
+
+	return nil
+}
+
+// GetCommentInfo will fetch the item.CommentInfo; e.g. comment counts, and
+//  other comment information for the feed.Latest() items
+func (media *FeedMedia) GetCommentInfo() error {
+	insta := media.insta
+
+	items := media.Latest()
+	query := map[string]string{
+		"media_ids": "",
+	}
+
+	for _, item := range items {
+		query["media_ids"] = query["media_ids"] + "," + item.GetID()
+	}
+	query["media_ids"] = strings.TrimPrefix(query["media_ids"], ",")
+
+	body, _, err := insta.sendRequest(
+		&reqOptions{
+			Endpoint: urlMediaCommentInfos,
+			Query:    query,
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	var rsp struct {
+		CommentInfos map[string]*CommentInfo `json:"comment_infos"`
+	}
+	if err := json.Unmarshal(body, &rsp); err != nil {
+		return err
+	}
+	for id, info := range rsp.CommentInfos {
+		for _, item := range items {
+			if item.GetID() == id {
+				item.CommentInfo = info
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // Latest returns a slice of the latest fetched items of the list of all items.
 // The Next method keeps adding to the list, with Latest you can retrieve only
 // the newest items.
-func (media *FeedMedia) Latest() []Item {
+func (media *FeedMedia) Latest() []*Item {
 	return media.Items[len(media.Items)-media.NumResults:]
 }

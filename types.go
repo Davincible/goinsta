@@ -487,3 +487,16 @@ type TOTP struct {
 	ID   int64  `json:"totp_seed_id"`
 	Seed string `json:"totp_seed"`
 }
+
+type CommentInfo struct {
+	LikesEnabled                   bool          `json:"comment_likes_enabled"`
+	ThreadingEnabled               bool          `json:"comment_threading_enabled"`
+	HasMore                        bool          `json:"has_more_comments"`
+	MaxNumVisiblePreview           int           `json:"max_num_visible_preview_comments"`
+	PreviewComments                []interface{} `json:"preview_comments"`
+	CanViewMorePreview             bool          `json:"can_view_more_preview_comments"`
+	CommentCount                   int           `json:"comment_count"`
+	HideViewAllCommentEntrypoint   bool          `json:"hide_view_all_comment_entrypoint"`
+	InlineComposerDisplayCondition string        `json:"inline_composer_display_condition"`
+	InlineComposerImpTriggerTime   int           `json:"inline_composer_imp_trigger_time"`
+}
