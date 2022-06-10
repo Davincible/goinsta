@@ -79,8 +79,10 @@ func (w *Wrapper) GoInstaWrapper(o *ReqWrapperArgs) ([]byte, http.Header, error)
 	case errors.Is(o.Error, Err2FARequired):
 		// Attempt auto 2FA login with TOTP code generation
 		err := insta.TwoFactorInfo.Login2FA()
-		if err != nil {
+		if err != nil && err != Err2FANoCode {
 			return o.Body, o.Headers, err
+		} else {
+			return o.Body, o.Headers, o.Error
 		}
 
 	case errors.Is(o.Error, ErrLoggedOut):

@@ -219,6 +219,7 @@ func (insta *Instagram) SetCookieJar(jar http.CookieJar) error {
 //   username:string
 //   password:string
 //   totp:string  -- OPTIONAL: 2FA private key, aka seed, used to generate 2FA codes
+//                   checks for empty string, so it's safe to pass in an empty string.
 func New(username, password string, totp_seed ...string) *Instagram {
 	// this call never returns error
 	jar, _ := cookiejar.New(nil)
@@ -253,7 +254,7 @@ func New(username, password string, totp_seed ...string) *Instagram {
 	}
 	insta.init()
 
-	if len(totp_seed) > 0 {
+	if len(totp_seed) > 0 && totp_seed[0] != "" {
 		insta.totp = &TOTP{Seed: totp_seed[0]}
 	}
 
@@ -281,7 +282,9 @@ func (insta *Instagram) init() {
 
 // SetTOTPSeed will set the seed used to generate 2FA codes.
 func (insta *Instagram) SetTOTPSeed(seed string) {
-	insta.totp = &TOTP{Seed: seed}
+	if seed != "" {
+		insta.totp = &TOTP{Seed: seed}
+	}
 }
 
 // SetProxy sets proxy for connection.
@@ -462,6 +465,9 @@ func Import(path string, args ...interface{}) (*Instagram, error) {
 }
 
 // Login performs instagram login sequence in close resemblance to the android apk.
+//
+// Password can optionally be provided for re-logins.
+// If you create the insta object with goinsta.New(), there is no need to.
 //
 // Password will be deleted after login
 func (insta *Instagram) Login(password ...string) (err error) {
