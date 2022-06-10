@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Davincible/goinsta"
+	"github.com/Davincible/goinsta/v3"
 )
 
 // Random big accounts used for story reply and DM tests

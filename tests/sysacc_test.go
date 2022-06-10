@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Davincible/goinsta"
+	"github.com/Davincible/goinsta/v3"
 )
 
 var errNoAPIKEY = errors.New("No API Key has been found. Please add one to .env")

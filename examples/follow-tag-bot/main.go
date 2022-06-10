@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/Davincible/goinsta"
+	"github.com/Davincible/goinsta/v3"
 )
 
 func main() {

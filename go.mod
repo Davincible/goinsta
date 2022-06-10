@@ -3,7 +3,6 @@ module github.com/Davincible/goinsta/v3
 go 1.18
 
 require (
-	github.com/Davincible/goinsta v0.0.0-20220425072628-96aad7267204
 	github.com/chromedp/cdproto v0.0.0-20220530001853-c0f376d894d1
 	github.com/chromedp/chromedp v0.8.2
 	github.com/tcnksm/go-input v0.0.0-20180404061846-548a7d7a8ee8

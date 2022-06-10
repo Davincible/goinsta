@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Davincible/goinsta"
+	"github.com/Davincible/goinsta/v3"
 )
 
 func TestTimeline(t *testing.T) {
