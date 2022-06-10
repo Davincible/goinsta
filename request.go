@@ -211,8 +211,8 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 		"X-Pigeon-Session-Id":         insta.psID,
 		"X-Pigeon-Rawclienttime":      fmt.Sprintf("%s.%d", o.Timestamp, random(100, 900)),
 		"X-Ig-Bandwidth-Speed-KBPS":   fmt.Sprintf("%d.000", random(1000, 9000)),
-		"X-Ig-Bandwidth-TotalBytes-B": strconv.Itoa(random(1000000, 5000000)),
-		"X-Ig-Bandwidth-Totaltime-Ms": strconv.Itoa(random(200, 800)),
+		"X-Ig-Bandwidth-TotalBytes-B": strconv.FormatInt(random(1000000, 5000000), 10),
+		"X-Ig-Bandwidth-Totaltime-Ms": strconv.FormatInt(random(200, 800), 10),
 		"X-Ig-App-Startup-Country":    "unkown",
 		"X-Bloks-Version-Id":          bloksVerID,
 		"X-Bloks-Is-Layout-Rtl":       "false",
@@ -487,7 +487,7 @@ func (insta *Instagram) prepareDataQuery(other ...map[string]interface{}) map[st
 	return data
 }
 
-func random(min, max int) int {
+func random(min, max int64) int64 {
 	rand.Seed(time.Now().UnixNano())
-	return rand.Intn(max-min) + min
+	return rand.Int63n(max-min) + min
 }

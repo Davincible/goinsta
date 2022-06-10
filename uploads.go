@@ -1122,9 +1122,9 @@ func (o *UploadOptions) createSegments(t int) *[][]byte {
 		//   the same, so adding a random difference to the segment sizes.
 		r := random(0, 10000)
 		if rand.Float64() < 0.65 {
-			segments = append(segments, o.buf.Next(t-r))
+			segments = append(segments, o.buf.Next(t-int(r)))
 		} else {
-			segments = append(segments, o.buf.Next(t+r))
+			segments = append(segments, o.buf.Next(t+int(r)))
 		}
 	}
 	return &segments
