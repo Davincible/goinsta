@@ -2,8 +2,9 @@ package goinsta
 
 import (
 	"encoding/json"
-	"errors"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 // Search is the object for all searches like Facebook, Location or Tag search.
@@ -343,7 +344,7 @@ func (sb *Search) search(query string, fn func(string) (*SearchResult, error)) (
 	}
 	h, err := sb.history()
 	if err != nil {
-		return errors.Wrap(err, "Failed to get search history")
+		return nil, errors.Wrap(err, "Failed to get search history")
 	}
 	result.History = *h
 	if err := sb.NullState(); err != nil {
