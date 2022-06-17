@@ -1128,6 +1128,11 @@ func (insta *Instagram) getConfig() error {
 	return err
 }
 
+// SetTimeout will set the client timeout
+func (insta *Instagram) SetTimeout(t time.Duration) {
+	insta.c.Timeout = t
+}
+
 // GetMedia returns media specified by id.
 //
 // The argument can be int64 or string

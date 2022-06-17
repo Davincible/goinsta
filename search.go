@@ -343,11 +343,7 @@ func (sb *Search) search(query string, fn func(string) (*SearchResult, error)) (
 	}
 	h, err := sb.history()
 	if err != nil {
-		if errIsFatal(err) {
-			return nil, err
-		}
-		insta.warnHandler("Non fatal error while fetcihng recent search results",
-			err)
+		return errors.Wrap(err, "Failed to get search history")
 	}
 	result.History = *h
 	if err := sb.NullState(); err != nil {
