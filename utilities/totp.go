@@ -52,7 +52,7 @@ func genHOTP(secret string, interval int64) (string, error) {
 	// Ignore most significant bits as per RFC 4226, and crop to 6 digits.
 	h12 := (int(header) & 0x7fffffff) % 1000000
 
-	otp := strconv.Itoa(int(h12))
+	otp := strconv.Itoa(h12)
 	otp = prefix(otp)
 
 	return otp, nil

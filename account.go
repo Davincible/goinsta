@@ -105,7 +105,7 @@ func (account *Account) Sync() error {
 func (account *Account) ChangePassword(old, new_ string) error {
 	insta := account.insta
 
-	timestamp := strconv.Itoa(int(time.Now().Unix()))
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 	old, err := utilities.EncryptPassword(old, insta.pubKey, insta.pubKeyID, timestamp)
 	if err != nil {
 		return err

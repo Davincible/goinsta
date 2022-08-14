@@ -194,7 +194,7 @@ func (br *Broadcast) GetComments() (*BroadcastComments, error) {
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlLiveComments, br.ID),
 			Query: map[string]string{
-				"last_comment_ts":               strconv.Itoa(int(br.LastCommentTs)),
+				"last_comment_ts":               strconv.FormatInt(br.LastCommentTs, 10),
 				"join_request_last_seen_ts":     "0",
 				"join_request_last_fetch_ts":    "0",
 				"join_request_last_total_count": "0",
@@ -228,7 +228,7 @@ func (br *Broadcast) GetLikes() (*BroadcastLikes, error) {
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlLiveLikeCount, br.ID),
 			Query: map[string]string{
-				"like_ts": strconv.Itoa(int(br.LastLikeTs)),
+				"like_ts": strconv.FormatInt(br.LastLikeTs, 10),
 			},
 		})
 	if err != nil {

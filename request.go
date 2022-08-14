@@ -98,7 +98,7 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 	}
 
 	if o.Timestamp == "" {
-		o.Timestamp = strconv.Itoa(int(time.Now().Unix()))
+		o.Timestamp = strconv.FormatInt(time.Now().Unix(), 10)
 	}
 
 	var nu string

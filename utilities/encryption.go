@@ -59,7 +59,7 @@ func RSAPublicKeyPKCS1Encrypt(publicKey *rsa.PublicKey, data []byte) ([]byte, er
 
 func EncryptPassword(password, pubKeyEncoded string, pubKeyVersion int, t string) (string, error) {
 	if t == "" {
-		t = strconv.Itoa(int(time.Now().Unix()))
+		t = strconv.FormatInt(time.Now().Unix(), 10)
 	}
 
 	// Get the public key

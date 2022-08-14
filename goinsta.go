@@ -744,10 +744,10 @@ func (insta *Instagram) OpenApp() (err error) {
 }
 
 func (insta *Instagram) login() error {
-	timestamp := strconv.Itoa(int(time.Now().Unix()))
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 	if insta.pubKey == "" || insta.pubKeyID == -1 {
 		return errors.New(
-			"No public key or public key ID set. Please call Instagram.Sync() and verify that it works correctly",
+			"no public key or public key ID set. Please call Instagram.Sync() and verify that it works correctly",
 		)
 	}
 	encrypted, err := utilities.EncryptPassword(insta.pass, insta.pubKey, insta.pubKeyID, timestamp)
@@ -1025,7 +1025,7 @@ func (insta *Instagram) callNotifBadge() error {
 			IsPost:   true,
 			Query: map[string]string{
 				"phone_id":  insta.fID,
-				"user_ids":  strconv.Itoa(int(insta.Account.ID)),
+				"user_ids":  strconv.FormatInt(insta.Account.ID, 10),
 				"device_id": insta.uuid,
 				"_uuid":     insta.uuid,
 			},
@@ -1037,7 +1037,7 @@ func (insta *Instagram) callNotifBadge() error {
 func (insta *Instagram) callContPointSig() error {
 	query := map[string]string{
 		"phone_id":      insta.fID,
-		"_uid":          strconv.Itoa(int(insta.Account.ID)),
+		"_uid":          strconv.FormatInt(insta.Account.ID, 10),
 		"device_id":     insta.uuid,
 		"_uuid":         insta.uuid,
 		"google_tokens": "[]",

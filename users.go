@@ -378,8 +378,8 @@ func (user *User) Block(autoBlock bool) error {
 	data, err := json.Marshal(map[string]string{
 		"surface":              "profile",
 		"is_autoblock_enabled": strconv.FormatBool(autoBlock),
-		"user_id":              strconv.Itoa(int(user.ID)),
-		"_uid":                 strconv.Itoa(int(insta.Account.ID)),
+		"user_id":              strconv.FormatInt(user.ID, 10),
+		"_uid":                 strconv.FormatInt(insta.Account.ID, 10),
 		"_uuid":                insta.uuid,
 	})
 	if err != nil {
@@ -627,9 +627,13 @@ func (user *User) GetFeaturedAccounts() ([]*User, error) {
 	body, _, err := user.insta.sendRequest(&reqOptions{
 		Endpoint: urlFeaturedAccounts,
 		Query: map[string]string{
-			"target_user_id": strconv.Itoa(int(user.ID)),
+			"target_user_id": strconv.FormatInt(user.ID, 10),
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
+
 	d := struct {
 		Accounts []*User `json:"accounts"`
 		Status   string  `json:"status"`
