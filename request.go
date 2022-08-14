@@ -222,7 +222,7 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 		"X-Fb-Server-Cluster":         "True",
 	}
 	if insta.Account != nil {
-		headers["Ig-Intended-User-Id"] = strconv.Itoa(int(insta.Account.ID))
+		headers["Ig-Intended-User-Id"] = strconv.FormatInt(insta.Account.ID, 10)
 	} else {
 		headers["Ig-Intended-User-Id"] = "0"
 	}
