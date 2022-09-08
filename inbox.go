@@ -96,7 +96,7 @@ type InboxItem struct {
 	TqSeqID       int    `json:"tq_seq_id"`
 
 	// Type there are a few types:
-	// text, like, raven_media, action_log, media_share, reel_share, link
+	// text, like, raven_media, action_log, media_share, reel_share, link, clip
 	Type string `json:"item_type"`
 
 	// Text is message text.
@@ -107,6 +107,7 @@ type InboxItem struct {
 
 	Like string `json:"like"`
 
+	Clip          *clip          `json:"clip"`
 	Reel          *reelShare     `json:"reel_share"`
 	Media         *Item          `json:"media"`
 	MediaShare    *Item          `json:"media_share"`
@@ -161,6 +162,10 @@ type reelShare struct {
 	Type        string `json:"type"`
 	ReelType    string `json:"reel_type"`
 	Media       Item   `json:"media"`
+}
+
+type clip struct {
+	Media Item `json:"clip"`
 }
 
 type actionLog struct {
