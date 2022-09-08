@@ -17,8 +17,6 @@ type Profiles struct {
 //   Highlights, IGTV posts, and friendship status.
 //
 type Profile struct {
-	insta *Instagram
-
 	User       *User
 	Friendship *Friendship
 
@@ -73,14 +71,14 @@ func (user *User) VisitProfile() (*Profile, error) {
 
 	// Fetch Profile Info
 	wg.Add(1)
-	go func(wg *sync.WaitGroup) {
-		info.Add(1)
+	info.Add(1)
+	go func(wg, info *sync.WaitGroup) {
 		defer wg.Done()
 		defer info.Done()
 		if err := user.Info("entry_point", "profile", "from_module", "blended_search"); err != nil {
 			errChan <- err
 		}
-	}(wg)
+	}(wg, info)
 
 	// Fetch Friendship
 	wg.Add(1)
@@ -138,7 +136,7 @@ func (user *User) VisitProfile() (*Profile, error) {
 
 	// Fetch IGTV
 	wg.Add(1)
-	go func(wg *sync.WaitGroup) {
+	go func(wg, info *sync.WaitGroup) {
 		defer wg.Done()
 		info.Wait()
 		if user.IGTVCount > 0 {
@@ -148,7 +146,7 @@ func (user *User) VisitProfile() (*Profile, error) {
 			}
 			p.IGTV = igtv
 		}
-	}(wg)
+	}(wg, info)
 
 	wg.Wait()
 	select {
@@ -196,7 +194,7 @@ func (prof *Profiles) ByID(id_ interface{}) (*User, error) {
 	case string:
 		id = x
 	default:
-		return nil, errors.New("Invalid id, please provide a string or int(64)")
+		return nil, errors.New("invalid id, please provide a string or int(64)")
 	}
 
 	body, _, err := prof.insta.sendRequest(

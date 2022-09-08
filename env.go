@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"strings"
@@ -40,7 +39,7 @@ type EnvAcc struct {
 }
 
 var (
-	errNoAcc = errors.New("No Account Found")
+	errNoAcc = errors.New("no account found")
 )
 
 // EnvRandAcc will check the environment variables, and the .env file in
@@ -110,13 +109,10 @@ func EnvRandLogin(path ...string) (string, string, error) {
 //
 func EnvProvision(path string, refresh ...bool) error {
 	// By default, skip exisitng accounts
-	refreshFlag := false
-	if len(refresh) == 0 || (len(refresh) > 0 && !refresh[0]) {
-		refreshFlag = true
-	}
+	refreshFlag := len(refresh) == 0 || (len(refresh) > 0 && !refresh[0])
 	fmt.Printf("Force refresh is set to %v\n", refreshFlag)
 
-	accs, other, err := envLoadAccs(path)
+	accs, _, err := envLoadAccs(path)
 	if err != nil {
 		return err
 	}
@@ -132,10 +128,11 @@ func EnvProvision(path string, refresh ...bool) error {
 		password := acc.Plain.Password
 		fmt.Println("Processing", username)
 		insta := New(username, password)
-		err := insta.Login()
-		if err != nil {
+
+		if err := insta.Login(); err != nil {
 			return err
 		}
+
 		// Export Config
 		enc, err := insta.ExportAsBase64String()
 		if err != nil {
@@ -145,7 +142,7 @@ func EnvProvision(path string, refresh ...bool) error {
 		fmt.Println("Sleeping...")
 		time.Sleep(20 * time.Second)
 	}
-	err = accsToFile(path, accs, other)
+	err = accsToFile(path, accs)
 	if err != nil {
 		return err
 	}
@@ -188,7 +185,7 @@ func EnvUpdatePlain(path string, newAccs []*EnvPlainAcc) error {
 }
 
 func envUpdateAccs(path string, newAccs interface{}) error {
-	accs, other, err := dotenv(path)
+	accs, _, err := dotenv(path)
 	if err != nil {
 		return err
 	}
@@ -205,7 +202,7 @@ func envUpdateAccs(path string, newAccs interface{}) error {
 		}
 	}
 
-	return accsToFile(path, accs, other)
+	return accsToFile(path, accs)
 }
 
 // checkEnv will check the env variables for accounts that do have a login,
@@ -224,7 +221,9 @@ func checkEnv(path ...string) error {
 			if len(path) > 0 {
 				p = path[0]
 			}
-			EnvProvision(p, true)
+			if err := EnvProvision(p, true); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -354,7 +353,7 @@ func dotenv(path string) ([]*EnvAcc, []string, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	lines := strings.Split(string(buf.Bytes()), "\n")
+	lines := strings.Split(buf.String(), "\n")
 	accs, other, err := parseAccs(lines)
 	if err != nil {
 		return nil, nil, err
@@ -477,8 +476,9 @@ func addOrUpdateAcc(accs []*EnvAcc, toAdd interface{}) []*EnvAcc {
 	return accs
 }
 
-func accsToFile(path string, accs []*EnvAcc, other []string) error {
+func accsToFile(path string, accs []*EnvAcc) error {
 	newBuf := new(bytes.Buffer)
+
 	for _, acc := range accs {
 		if acc.Plain != nil {
 			line := fmt.Sprintf("INSTAGRAM_ACT_%s=\"%s:%s\"\n", acc.Plain.Name, acc.Plain.Username, acc.Plain.Password)
@@ -497,10 +497,10 @@ func accsToFile(path string, accs []*EnvAcc, other []string) error {
 		}
 	}
 
-	err := ioutil.WriteFile(path, newBuf.Bytes(), 0o644)
-	if err != nil {
+	if err := os.WriteFile(path, newBuf.Bytes(), 0o644); err != nil {
 		return err
 	}
+
 	return nil
 }
 

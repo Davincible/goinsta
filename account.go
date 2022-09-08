@@ -372,31 +372,6 @@ func (account *Account) Saved() *SavedMedia {
 	}
 }
 
-type editResp struct {
-	Status  string  `json:"status"`
-	Account Account `json:"user"`
-}
-
-func (account *Account) edit() {
-	insta := account.insta
-	acResp := editResp{}
-	body, _, err := insta.sendRequest(
-		&reqOptions{
-			Endpoint: urlCurrentUser,
-			Query: map[string]string{
-				"edit": "true",
-			},
-		},
-	)
-	if err == nil {
-		err = json.Unmarshal(body, &acResp)
-		if err == nil {
-			acResp.Account.insta = insta
-			*account = acResp.Account
-		}
-	}
-}
-
 // UpdateProfile method allows you to update your current account information.
 // :param: form takes a map[string]string, the common values are:
 //
@@ -512,9 +487,6 @@ func (account *Account) PendingFollowRequests() (*PendingRequests, error) {
 	for _, u := range result.Users {
 		u.insta = insta
 		users = append(users, toString(u.ID))
-	}
-	for _, u := range result.SuggestedUsers.Suggestions {
-		u.User.insta = insta
 	}
 
 	friendships, err := account.FriendhipsShowMany(users)

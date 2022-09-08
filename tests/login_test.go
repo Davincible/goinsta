@@ -12,7 +12,10 @@ func TestImportAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	insta.OpenApp()
+	if err := insta.OpenApp(); err != nil {
+		t.Fatal(err)
+	}
+
 	t.Logf("logged into Instagram as user '%s'", insta.Account.Username)
 	logPosts(t, insta)
 }
@@ -23,14 +26,23 @@ func TestLogin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Logf("Attempting to login as %s\n", user)
+	if user == "codebrewernl" {
+		t.Skip()
+	}
 
 	insta := goinsta.New(user, pass)
-	err = insta.Login()
-	if err != nil {
+	if err = insta.Login(); err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("Logged in successfully as %s\n", user)
+	t.Log("Logged in successfully")
 	logPosts(t, insta)
+
+	// Test Logout
+	if err := insta.Logout(); err != nil {
+		t.Fatal(err)
+	}
+	t.Log("Logged out successfully")
 }
 
 func logPosts(t *testing.T, insta *goinsta.Instagram) {

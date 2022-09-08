@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"math/rand"
+	"sync"
 	"time"
 )
 
@@ -137,10 +138,16 @@ func (tl *Timeline) Next(p ...interface{}) bool {
 		query["max_id"] = tl.NextID
 	}
 
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
 	errChan := make(chan error)
+
 	if reason != PAGINATION {
 		tl.sessionID = generateUUID()
+
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			err := tl.FetchTray(reason)
 			if err != nil {
 				errChan <- err

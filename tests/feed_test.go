@@ -15,8 +15,6 @@ func TestFeedUser(t *testing.T) {
 	}
 	t.Logf("Logged in as %s\n", insta.Account.Username)
 
-	insta.SetProxy("http://localhost:8080", false, true)
-
 	sr, err := insta.Searchbar.SearchUser("elonrmuskk")
 	if err != nil {
 		t.Fatal(err)
@@ -26,6 +24,7 @@ func TestFeedUser(t *testing.T) {
 
 	next := feed.NextID
 	for i := 0; feed.Next(); i++ {
+		t.Logf("Fetched feed page %d/5", i)
 		if feed.NextID == next {
 			t.Fatal("Next ID must be different after each request")
 		}
@@ -35,10 +34,6 @@ func TestFeedUser(t *testing.T) {
 
 		if err := feed.GetCommentInfo(); err != nil {
 			t.Fatalf("Failed to fetch comment info: %v", err)
-		}
-
-		for _, post := range feed.Latest() {
-			t.Logf("%d comments found", post.CommentInfo.CommentCount)
 		}
 
 		next = feed.NextID

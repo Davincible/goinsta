@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-var ErrAllSaved = errors.New("Unable to call function for collection all posts")
+var ErrAllSaved = errors.New("unable to call function for collection all posts")
 
 // MediaItem defines a item media for the
 // SavedMedia struct
@@ -40,10 +40,10 @@ type Collections struct {
 	insta *Instagram
 	err   error
 
-	AutoLoadMoreEnabled bool         `json:"auto_load_more_enabled"`
-	Items               []Collection `json:"items"`
-	MoreAvailable       bool         `json:"more_available"`
-	NextID              string       `json:"next_max_id"`
+	AutoLoadMoreEnabled bool          `json:"auto_load_more_enabled"`
+	Items               []*Collection `json:"items"`
+	MoreAvailable       bool          `json:"more_available"`
+	NextID              string        `json:"next_max_id"`
 	NumResults          int
 	Status              string `json:"status"`
 }
@@ -135,7 +135,7 @@ func (c *Collections) Next() bool {
 	}
 	c.Items = append(c.Items, tmp.Items...)
 	if !c.MoreAvailable {
-		err = ErrNoMore
+		c.err = ErrNoMore
 	}
 
 	return c.MoreAvailable
@@ -143,7 +143,7 @@ func (c *Collections) Next() bool {
 
 // Latest will return the last fetched items by indexing with Collections.LastCount.
 // Collections.Next keeps adding to the items, this method only returns the latest items.
-func (c *Collections) Latest() []Collection {
+func (c *Collections) Latest() []*Collection {
 	return c.Items[len(c.Items)-c.NumResults:]
 }
 
@@ -244,6 +244,7 @@ func (c *Collection) ChangeCover(item Item) error {
 	if err != nil {
 		return err
 	}
+
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlCollectionEdit, c.ID),
@@ -251,7 +252,14 @@ func (c *Collection) ChangeCover(item Item) error {
 			Query:    generateSignature(data),
 		},
 	)
-	err = json.Unmarshal(body, c)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(body, c); err != nil {
+		return err
+	}
+
 	return err
 }
 
@@ -274,6 +282,7 @@ func (c *Collection) ChangeName(name string) error {
 	if err != nil {
 		return err
 	}
+
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlCollectionEdit, c.ID),
@@ -281,7 +290,14 @@ func (c *Collection) ChangeName(name string) error {
 			Query:    generateSignature(data),
 		},
 	)
-	err = json.Unmarshal(body, c)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(body, c); err != nil {
+		return err
+	}
+
 	return err
 }
 
@@ -320,7 +336,14 @@ func (c *Collection) AddCollaborators(colab ...User) error {
 			Query:    generateSignature(data),
 		},
 	)
-	err = json.Unmarshal(body, c)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(body, c); err != nil {
+		return err
+	}
+
 	return err
 }
 
@@ -359,7 +382,14 @@ func (c *Collection) RemoveMedia(items ...Item) error {
 			Query:    generateSignature(data),
 		},
 	)
-	err = json.Unmarshal(body, c)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(body, c); err != nil {
+		return err
+	}
+
 	return err
 }
 
@@ -454,8 +484,12 @@ func (c *Collection) Next(params ...interface{}) bool {
 		c.err = err
 		return false
 	}
+
 	tmp := SavedMedia{}
-	err = json.Unmarshal(body, &tmp)
+	if err := json.Unmarshal(body, &tmp); err != nil {
+		c.err = err
+		return false
+	}
 
 	c.NextID = tmp.NextID
 	c.MoreAvailable = tmp.MoreAvailable
@@ -512,7 +546,7 @@ func (item *Item) SaveTo(c *Collection) error {
 		if errIsFatal(err) {
 			return err
 		}
-		insta.warnHandler(errors.New("Non fatal error, failed to save post to all"))
+		insta.warnHandler(errors.New("non fatal error, failed to save post to all"))
 	}
 
 	data, err := json.Marshal(

@@ -120,6 +120,12 @@ func getMP4Duration(b []byte) (int, error) {
 	if err != nil {
 		return -1, err
 	}
+
+	// If timescale failed to read a value, return -1 * 1000
+	if timescale == 0 {
+		return -1000, nil
+	}
+
 	length, err := read32(b, keys, 12+4)
 	if err != nil {
 		return -1, err

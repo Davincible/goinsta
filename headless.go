@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -75,7 +75,7 @@ func takeScreenshot(fn string) chromedp.Action {
 			if err != nil {
 				return err
 			}
-			if err := ioutil.WriteFile(fn, buf, 0o644); err != nil {
+			if err := os.WriteFile(fn, buf, 0o644); err != nil {
 				return err
 			}
 			return nil

@@ -16,7 +16,7 @@ func TestSearchUser(t *testing.T) {
 	t.Logf("Logged in as %s\n", insta.Account.Username)
 
 	// Search for users
-	result, err := insta.Searchbar.SearchUser("crownme_delisamarie")
+	result, err := insta.Searchbar.SearchUser("nicky")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,6 +26,9 @@ func TestSearchUser(t *testing.T) {
 	t.Logf("Result length is %d", len(result.Users))
 
 	// Select a random user
+	if len(result.Users) == 0 {
+		t.Fatal("No search results found! Change search query or fix api")
+	}
 	user := result.Users[rand.Intn(len(result.Users))]
 	err = result.RegisterUserClick(user)
 	if err != nil {
@@ -40,8 +43,7 @@ func TestSearchUser(t *testing.T) {
 
 	// Get user feed
 	feed := user.Feed()
-	s := feed.Next()
-	if !s {
+	if !feed.Next() {
 		t.Fatalf("Failed to get feed: %s", feed.Error())
 	}
 	t.Logf("Found %d posts", len(feed.Items))

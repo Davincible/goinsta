@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"testing"
 
@@ -21,11 +20,10 @@ func TestUploadPhoto(t *testing.T) {
 	insta.SetWarnHandler(t.Log)
 
 	// Get random photo
-	resp, err := http.Get("https://picsum.photos/1400/1400")
+	photo, err := getPhoto(1400, 1400)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer resp.Body.Close()
 
 	results, err := insta.Searchbar.SearchLocation("New York")
 	if err != nil {
@@ -35,11 +33,13 @@ func TestUploadPhoto(t *testing.T) {
 		t.Fatal(errors.New("No search result found"))
 	}
 	location := results.Places[0].Location
-	results.RegisterLocationClick(location)
+	if err := results.RegisterLocationClick(location); err != nil {
+		t.Fatal(err)
+	}
 
 	item, err := insta.Upload(
 		&goinsta.UploadOptions{
-			File:     resp.Body,
+			File:     photo,
 			Caption:  "awesome! :) #41",
 			Location: location.NewPostTag(),
 			UserTags: &[]goinsta.UserTag{
@@ -70,14 +70,13 @@ func TestUploadThumbVideo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	size := float64(len(video)) / 1000000.0
+	size := float64(len(video.Content)) / 1000000.0
 	t.Logf("Video size: %.2f Mb", size)
 
-	resp, err := http.Get("https://picsum.photos/1400/1400")
+	photo, err := getPhoto(1920, 1080)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer resp.Body.Close()
 
 	// Find location
 	results, err := insta.Searchbar.SearchLocation("Chicago")
@@ -87,13 +86,16 @@ func TestUploadThumbVideo(t *testing.T) {
 	if len(results.Places) == 0 {
 		t.Fatal(errors.New("No search result found"))
 	}
+
 	location := results.Places[1].Location
-	results.RegisterLocationClick(location)
+	if err := results.RegisterLocationClick(location); err != nil {
+		t.Fatal(err)
+	}
 
 	item, err := insta.Upload(
 		&goinsta.UploadOptions{
-			File:      bytes.NewReader(video),
-			Thumbnail: resp.Body,
+			File:      bytes.NewReader(video.Content),
+			Thumbnail: photo,
 			Caption:   "What a terrific video! #art",
 			Location:  location.NewPostTag(),
 			UserTags: &[]goinsta.UserTag{
@@ -124,7 +126,7 @@ func TestUploadVideo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	size := float64(len(video)) / 1000000.0
+	size := float64(len(video.Content)) / 1000000.0
 	t.Logf("Video size: %.2f Mb", size)
 
 	// Find location
@@ -136,11 +138,13 @@ func TestUploadVideo(t *testing.T) {
 		t.Fatal(errors.New("No search result found"))
 	}
 	location := results.Places[1].Location
-	results.RegisterLocationClick(location)
+	if err := results.RegisterLocationClick(location); err != nil {
+		t.Fatal(err)
+	}
 
 	item, err := insta.Upload(
 		&goinsta.UploadOptions{
-			File:     bytes.NewReader(video),
+			File:     bytes.NewReader(video.Content),
 			Caption:  "What a terrific video! #art",
 			Location: location.NewPostTag(),
 			UserTags: &[]goinsta.UserTag{
@@ -167,15 +171,14 @@ func TestUploadStoryPhoto(t *testing.T) {
 	insta.SetWarnHandler(t.Log)
 
 	// Get random photo
-	resp, err := http.Get("https://picsum.photos/1400/1400")
+	photo, err := getPhoto(1400, 1400)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer resp.Body.Close()
 
 	item, err := insta.Upload(
 		&goinsta.UploadOptions{
-			File:    resp.Body,
+			File:    photo,
 			IsStory: true,
 		},
 	)
@@ -198,12 +201,12 @@ func TestUploadStoryVideo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	size := float64(len(video)) / 1000000.0
+	size := float64(len(video.Content)) / 1000000.0
 	t.Logf("Video size: %.2f Mb", size)
 
 	item, err := insta.Upload(
 		&goinsta.UploadOptions{
-			File:    bytes.NewReader(video),
+			File:    bytes.NewReader(video.Content),
 			IsStory: true,
 		},
 	)
@@ -228,9 +231,9 @@ func TestUploadStoryMultiVideo(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		size := float64(len(video)) / 1000000.0
+		size := float64(len(video.Content)) / 1000000.0
 		t.Logf("Video size: %.2f Mb", size)
-		album = append(album, bytes.NewReader(video))
+		album = append(album, bytes.NewReader(video.Content))
 	}
 
 	item, err := insta.Upload(
@@ -256,19 +259,12 @@ func TestUploadCarousel(t *testing.T) {
 	// Get random photos
 	album := []io.Reader{}
 	for i := 0; i < 5; i++ {
-		resp, err := http.Get("https://picsum.photos/1400/1400")
+		photo, err := getPhoto(1920, 1080)
 		if err != nil {
 			log.Fatal(err)
 		}
-		bodyBytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := resp.Body.Close(); err != nil {
-			t.Fatal(err)
-		}
-		buf := bytes.NewReader(bodyBytes)
-		album = append(album, buf)
+
+		album = append(album, photo)
 	}
 
 	// Add video to album
@@ -276,9 +272,9 @@ func TestUploadCarousel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	size := float64(len(video)) / 1000000.0
+	size := float64(len(video.Content)) / 1000000.0
 	t.Logf("Video size: %.2f Mb", size)
-	album = append(album, bytes.NewReader(video))
+	album = append(album, bytes.NewReader(video.Content))
 
 	results, err := insta.Searchbar.SearchLocation("New York")
 	if err != nil {
@@ -288,7 +284,9 @@ func TestUploadCarousel(t *testing.T) {
 		t.Fatal(errors.New("No search result found"))
 	}
 	location := results.Places[1].Location
-	results.RegisterLocationClick(location)
+	if err := results.RegisterLocationClick(location); err != nil {
+		t.Fatal(err)
+	}
 
 	// Upload Album
 	item, err := insta.Upload(
@@ -303,36 +301,6 @@ func TestUploadCarousel(t *testing.T) {
 					},
 				},
 			},
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("The ID of the new upload is %s", item.ID)
-}
-
-func TestUploadIGTV(t *testing.T) {
-	insta, err := goinsta.EnvRandAcc()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("Logged in as %s\n", insta.Account.Username)
-	insta.SetWarnHandler(t.Log)
-
-	// Get random video
-	video, err := getVideo()
-	if err != nil {
-		t.Fatal(err)
-	}
-	size := float64(len(video)) / 1000000.0
-	t.Logf("Video size: %.2f Mb", size)
-
-	item, err := insta.Upload(
-		&goinsta.UploadOptions{
-			File:    bytes.NewReader(video),
-			IsIGTV:  true,
-			Title:   "IGTV Videos are so cool",
-			Caption: "What a terrific video! #art",
 		},
 	)
 	if err != nil {

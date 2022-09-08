@@ -116,6 +116,8 @@ func TestIGTVLive(t *testing.T) {
 }
 
 func TestIGTVDiscover(t *testing.T) {
+	t.Skip("Skipping IGTV Discover, depricated")
+
 	insta, err := goinsta.EnvRandAcc()
 	if err != nil {
 		t.Fatal(err)

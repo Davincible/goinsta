@@ -61,7 +61,9 @@ func (c *Contacts) SyncContacts(contacts *[]Contact) (*SyncAnswer, error) {
 	}
 
 	answ := &SyncAnswer{}
-	json.Unmarshal(body, answ)
+	if err := json.Unmarshal(body, answ); err != nil {
+		return nil, err
+	}
 	return answ, nil
 }
 
