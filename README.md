@@ -1,7 +1,7 @@
 
 ![goinsta logo](https://raw.githubusercontent.com/Davincible/goinsta/v1/resources/goinsta-image.png)
 
-[![GoDoc](https://godoc.org/github.com/Davincible/goinsta?status.svg)](https://godoc.org/github.com/Davincible/goinsta) [![Go Report Card](https://goreportcard.com/badge/github.com/Davincible/goinsta)](https://goreportcard.com/report/github.com/Davincible/goinsta) [![Gitter chat](https://badges.gitter.im/goinsta/community.png)](https://gitter.im/goinsta/community)
+[![GoDoc](https://godoc.org/github.com/Davincible/goinsta/v3?status.svg)](https://godoc.org/github.com/Davincible/goinsta/v3) [![Go Report Card](https://goreportcard.com/badge/github.com/Davincible/goinsta/v3)](https://goreportcard.com/report/github.com/Davincible/goinsta/v3)
 
 ## Go Instagram Private API
 
