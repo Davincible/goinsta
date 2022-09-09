@@ -320,6 +320,7 @@ var (
 
 	// Users
 	ErrNoPendingFriendship = errors.New("unable to approve or ignore friendship for user, as there is no pending friendship request")
+	ErrNoProfilePicUrl     = errors.New("unable to get profile picture url, as the user has no profile picture")
 
 	// Headless
 	ErrChromeNotFound = errors.New("to solve challenges a (headless) Chrome browser is used, but none was found. Please install Chromium or Google Chrome, and try again")
