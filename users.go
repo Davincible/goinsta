@@ -710,7 +710,7 @@ func (user *User) Tags(minTimestamp []byte) (*FeedMedia, error) {
 //   return it as a byte slice.
 func (user *User) DownloadProfilePic() ([]byte, error) {
 	if user.ProfilePicURL == "" {
-		return nil, ErrNoProfilePicUrl
+		return nil, ErrNoProfilePicURL
 	}
 	insta := user.insta
 	b, err := insta.download(user.ProfilePicURL)
