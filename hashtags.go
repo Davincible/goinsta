@@ -71,7 +71,10 @@ type hashtagPageInfo struct {
 }
 
 func (h *Hashtag) setValues() {
-	h.PageInfo = make(map[string]hashtagPageInfo)
+	if h.PageInfo == nil {
+		h.PageInfo = make(map[string]hashtagPageInfo)
+	}
+
 	for _, s := range h.Sections {
 		for _, m := range s.LayoutContent.Medias {
 			setToItem(m.Item, h)
@@ -137,7 +140,7 @@ func (h *Hashtag) next(tab string) bool {
 		return false
 	}
 
-	if !(tab == "top" || tab == "recent" || tab == "clips") {
+	if tab != "top" && tab != "recent" && tab != "clips" {
 		h.err = ErrInvalidTab
 		return false
 	}
@@ -173,9 +176,9 @@ func (h *Hashtag) next(tab string) bool {
 		h.err = err
 		return false
 	}
+
 	res := &Hashtag{}
-	err = json.Unmarshal(body, res)
-	if err != nil {
+	if err := json.Unmarshal(body, res); err != nil {
 		h.err = err
 		return false
 	}
