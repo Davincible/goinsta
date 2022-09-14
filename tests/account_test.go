@@ -47,3 +47,38 @@ func TestPendingFriendships(t *testing.T) {
 	}
 	t.Logf("After approving there are %d pending friendships remaining\n", count)
 }
+
+func TestFollowList(t *testing.T) {
+	insta, err := goinsta.EnvRandAcc()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Logged in as %s\n", insta.Account.Username)
+
+	users := insta.Account.Following("", goinsta.DefaultOrder)
+	for users.Next() {
+		t.Logf("Fetched %d following", len(users.Users))
+	}
+	t.Logf("Fetched %d following", len(users.Users))
+	if users.Error() != goinsta.ErrNoMore {
+		t.Fatal(users.Error())
+	}
+
+	users = insta.Account.Following("", goinsta.LatestOrder)
+	for users.Next() {
+		t.Logf("Fetched %d following (latest order)", len(users.Users))
+	}
+	t.Logf("Fetched %d following (latest order)", len(users.Users))
+	if users.Error() != goinsta.ErrNoMore {
+		t.Fatal(users.Error())
+	}
+
+	users = insta.Account.Followers("", goinsta.DefaultOrder)
+	for users.Next() {
+		t.Logf("Fetched %d followers", len(users.Users))
+	}
+	t.Logf("Fetched %d followers", len(users.Users))
+	if users.Error() != goinsta.ErrNoMore {
+		t.Fatal(users.Error())
+	}
+}
