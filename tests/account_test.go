@@ -73,7 +73,7 @@ func TestFollowList(t *testing.T) {
 		t.Fatal(users.Error())
 	}
 
-	users = insta.Account.Followers("", goinsta.DefaultOrder)
+	users = insta.Account.Followers("")
 	for users.Next() {
 		t.Logf("Fetched %d followers", len(users.Users))
 	}

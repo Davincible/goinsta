@@ -281,13 +281,13 @@ func (account *Account) changePublic(endpoint string) error {
 // To fetch all user an empty string "".
 //
 // Users.Next can be used to paginate
-func (account *Account) Followers(query string, order FollowOrder) *Users {
+func (account *Account) Followers(query string) *Users {
 	user := &User{
 		insta: account.insta,
 		ID:    account.ID,
 	}
 
-	return user.Followers(query, order)
+	return user.Followers(query)
 }
 
 // Following returns a list of user following.
