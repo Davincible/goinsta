@@ -55,10 +55,13 @@ func (users *Users) Next() bool {
 	insta := users.insta
 	endpoint := users.endpoint
 
-	query := map[string]string{
-		"max_id":             users.NextID,
-		"ig_sig_key_version": instaSigKeyVersion,
-		"rank_token":         insta.rankToken,
+	query := map[string]string{}
+	if users.NextID != "" {
+		query["max_id"] = users.NextID
+	}
+
+	if _, ok := users.query["rank_token"]; !ok {
+		users.query["rank_token"] = generateUUID()
 	}
 
 	for key, value := range users.query {
@@ -105,9 +108,9 @@ func (users *Users) Next() bool {
 
 	users.setValues()
 
+	// Dont't return false on first error otherwise for loop won't run
 	if users.NextID == "" {
 		users.err = ErrNoMore
-		return false
 	}
 
 	return true
@@ -389,15 +392,18 @@ func (user *User) followList(url, query string, order FollowOrder) *Users {
 		insta:    user.insta,
 		endpoint: fmt.Sprintf(url, user.ID),
 		query: map[string]string{
-			"includes_hashtags": "true",
-			"search_surface":    "follow_list_page",
-			"query":             query,
-			"enable_groups":     "true",
+			"search_surface": "follow_list_page",
+			"query":          query,
+			"enable_groups":  "true",
 		},
 	}
 
 	if order != DefaultOrder {
 		users.query["order"] = string(order)
+	}
+
+	if url == urlFollowing {
+		users.query["includes_hashtags"] = "true"
 	}
 
 	return &users
