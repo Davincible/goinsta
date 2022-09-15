@@ -401,6 +401,7 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 		totp:          config.TOTP,
 		dID:           config.DeviceID,
 		fID:           config.FamilyID,
+		psID:          "UFS-" + generateUUID() + "-0",
 		uuid:          config.UUID,
 		rankToken:     config.RankToken,
 		token:         config.Token,
