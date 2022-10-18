@@ -126,6 +126,7 @@ type Item struct {
 	HasAudio          bool    `json:"has_audio,omitempty"`
 	VideoDuration     float64 `json:"video_duration,omitempty"`
 	ViewCount         float64 `json:"view_count,omitempty"`
+	PlayCount         float64 `json:"play_count,omitempty"`
 	IsDashEligible    int     `json:"is_dash_eligible,omitempty"`
 	IsUnifiedVideo    bool    `json:"is_unified_video"`
 	VideoDashManifest string  `json:"video_dash_manifest,omitempty"`
