@@ -59,10 +59,10 @@ type Collection struct {
 
 	ID         string `json:"collection_id"`
 	MediaCount int    `json:"collection_media_count"`
-	Name       string `json:"name"`
+	Name       string `json:"collection_name"`
 	Type       string `json:"collection_type"`
 	Cover      struct {
-		ID             int64  `json:"id"`
+		ID             string `json:"id"`
 		Images         Images `json:"image_versions2"`
 		OriginalWidth  int    `json:"original_width"`
 		OriginalHeight int    `json:"original_height"`
@@ -106,7 +106,7 @@ func (c *Collections) Next() bool {
 		"collection_types": "[\"ALL_MEDIA_AUTO_COLLECTION\",\"PRODUCT_AUTO_COLLECTION\",\"MEDIA\",\"AUDIO_AUTO_COLLECTION\",\"GUIDES_AUTO_COLLECTION\"]",
 	}
 	if c.NextID != "" {
-		query["next_max_id"] = c.NextID
+		query["max_id"] = c.NextID
 	}
 	body, _, err := insta.sendRequest(
 		&reqOptions{
@@ -476,7 +476,7 @@ func (c *Collection) Next(params ...interface{}) bool {
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlCollectionFeedPosts, c.ID),
 			Query: map[string]string{
-				"next_max_id": c.GetNextID(),
+				"max_id": c.GetNextID(),
 			},
 		},
 	)
@@ -495,7 +495,6 @@ func (c *Collection) Next(params ...interface{}) bool {
 	c.MoreAvailable = tmp.MoreAvailable
 	c.NumResults = tmp.NumResults
 
-	c.Items = []Item{}
 	for _, i := range tmp.Items {
 		c.Items = append(c.Items, i.Media)
 	}
