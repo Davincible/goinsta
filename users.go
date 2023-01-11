@@ -177,7 +177,7 @@ type User struct {
 	RecentlyBestiedByCount         int           `json:"recently_bestied_by_count"`
 	AccountType                    int           `json:"account_type"`
 	AccountBadges                  []interface{} `json:"account_badges,omitempty"`
-	FbIdV2                         int64         `json:"fbid_v2"`
+	FbIdV2                         int64         `json:"fbid_"`
 	IsUnpublished                  bool          `json:"is_unpublished"`
 	UserTagsCount                  int           `json:"usertags_count"`
 	UserTagReviewEnabled           bool          `json:"usertag_review_enabled"`
