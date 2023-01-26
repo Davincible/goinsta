@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"math/rand"
+	"sync"
 	"time"
 )
 
@@ -137,10 +138,19 @@ func (tl *Timeline) Next(p ...interface{}) bool {
 		query["max_id"] = tl.NextID
 	}
 
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
+
 	errChan := make(chan error)
+
 	if reason != PAGINATION {
 		tl.sessionID = generateUUID()
+
+		wg.Add(1)
+
 		go func() {
+			defer wg.Done()
+
 			err := tl.FetchTray(reason)
 			if err != nil {
 				errChan <- err
@@ -241,13 +251,15 @@ func (tl *Timeline) SetPullRefresh() {
 }
 
 // UnsetPullRefresh will unset the pull to refresh flag, if you previously manually
-//   set it, and want to unset it.
+//
+//	set it, and want to unset it.
 func (tl *Timeline) UnsetPullRefresh() {
 	tl.pullRefresh = false
 }
 
 // ClearPosts will unreference the current list of post items. Used when calling
-//   .Refresh()
+//
+//	.Refresh()
 func (tl *Timeline) ClearPosts() {
 	tl.Items = []*Item{}
 	tl.Tray = &Tray{}
@@ -255,11 +267,13 @@ func (tl *Timeline) ClearPosts() {
 
 // FetchTray fetches the timeline tray with story media.
 // This function should rarely be called manually. If you want to refresh
-//   the timeline call Timeline.Refresh()
+//
+//	the timeline call Timeline.Refresh()
 func (tl *Timeline) FetchTray(r fetchReason) error {
 	insta := tl.insta
 
 	var reason string
+
 	switch r {
 	case PULLTOREFRESH:
 		reason = string(PULLTOREFRESH)
@@ -295,11 +309,13 @@ func (tl *Timeline) FetchTray(r fetchReason) error {
 
 	tray.set(tl.insta)
 	tl.Tray = tray
+
 	return nil
 }
 
 // Refresh will clear the current list of posts, perform a pull to refresh action,
-//   and refresh the current timeline.
+//
+//	and refresh the current timeline.
 func (tl *Timeline) Refresh() error {
 	tl.ClearPosts()
 	tl.SetPullRefresh()

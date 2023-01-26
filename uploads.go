@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 type UploadOptions struct {
@@ -19,25 +21,15 @@ type UploadOptions struct {
 
 	// File to upload, can be one of jpeg, jpg, mp4
 	File io.Reader
-
 	// Thumbnail to use for videos, one of jpeg or jpg. If not set a thumbnail
 	//   will be extracted automatically
 	Thumbnail io.Reader
-
 	// Multiple images, to post a carousel or multiple stories at once
 	Album []io.Reader
-
-	// Caption text, or decription if IGTV
+	// Caption text for posts
 	Caption string
-
 	// Set to true if you want to post a story
 	IsStory bool
-
-	// IGTV settings
-	IsIGTV      bool
-	Title       string
-	IGTVPreview bool
-
 	// Option flags, set to true disable
 	MuteAudio            bool
 	DisableComments      bool
@@ -50,13 +42,7 @@ type UploadOptions struct {
 
 	// Used to provide a location for a post
 	Location     *LocationTag
-	locationJson string
-
-	// File properties
-	width     int
-	height    int
-	duration  int
-	mediaType int
+	locationJSON string
 
 	// Internal config
 	config         map[string]interface{}
@@ -71,6 +57,10 @@ type UploadOptions struct {
 	index          int    // used for story multi-video upload
 	offset         int
 	segmentType    int
+	width          int
+	height         int
+	duration       int
+	mediaType      int
 	isSidecar      bool
 	useXSharingIDs bool
 	isThumbnail    bool
@@ -81,7 +71,7 @@ type UploadOptions struct {
 
 	// Formatted UserTags
 	userTags *postTags
-	tagsJson string
+	tagsJSON string
 }
 
 // UserTag represents a user post tag. Position is optional, a random
@@ -114,14 +104,12 @@ type LocationTag struct {
 // Upload is the single function used for all upload in goinsta.
 // You can specify the options of your upload with the single parameter &UploadOptions{}
 // See the UploadOptions struct for more details.
-//
 func (insta *Instagram) Upload(o *UploadOptions) (*Item, error) {
 	o.insta = insta
 	o.startTime = toString(time.Now().Unix())
 
 	// Format User & Location Tags
-	err := o.processTags()
-	if err != nil {
+	if err := o.processTags(); err != nil {
 		return nil, err
 	}
 
@@ -135,7 +123,6 @@ func (insta *Instagram) Upload(o *UploadOptions) (*Item, error) {
 	}
 
 	// Single file uploads
-	// Read file into memory
 	buf, err := readFile(o.File)
 	if err != nil {
 		return nil, err
@@ -143,23 +130,21 @@ func (insta *Instagram) Upload(o *UploadOptions) (*Item, error) {
 	o.buf = buf
 
 	// Check file type
-	t := http.DetectContentType(buf.Bytes())
-	if t == "image/jpeg" {
-		err := o.uploadPhoto()
-		if err != nil {
+	switch t := http.DetectContentType(buf.Bytes()); t {
+	case "image/jpeg":
+		if err := o.uploadPhoto(); err != nil {
 			return nil, err
 		}
 		return o.configureImage()
-	} else if t == "video/mp4" {
-		err := o.uploadVideo()
-		if err != nil {
+	case "video/mp4":
+		if err := o.uploadVideo(); err != nil {
 			return nil, err
 		}
 		return o.configureVideo()
+	default:
+		insta.infoHandler(fmt.Errorf("unable to handle file upload with format %s", t))
+		return nil, ErrInvalidFormat
 	}
-
-	insta.infoHandler(fmt.Errorf("Unable to handle file upload with format %s", t))
-	return nil, ErrInvalidFormat
 }
 
 func formatUserTags(tags []UserTag, isVideo bool) *postTags {
@@ -242,20 +227,20 @@ func (o *UploadOptions) uploadPhoto() error {
 	}
 	o.width, o.height = width, height
 
-	// Create Rupload header params
 	if err := o.createRUploadParams(); err != nil {
 		return err
 	}
 
-	if err = o.postPhoto(); err != nil {
+	if err := o.postPhoto(); err != nil {
 		return fmt.Errorf("postPhoto: %w", err)
 	}
 
 	o.createPhotoConfig()
+
 	return nil
 }
 
-func (o *UploadOptions) configurePost(video bool) (*Item, error) {
+func (o *UploadOptions) configurePost() (*Item, error) {
 	insta := o.insta
 
 	query := MergeMapI(
@@ -272,59 +257,59 @@ func (o *UploadOptions) configurePost(video bool) (*Item, error) {
 		},
 	)
 
-	if o.locationJson != "" {
-		query["location"] = o.locationJson
-	}
-	o.config = query
-	o.configURL = urlConfigure
-	if video {
-		origUrl := o.configURL + "?video=1"
-		o.configURL = urlUploadFinishVid
-		_, err := o.configure()
-		if err != nil {
-			return nil, err
-		}
-		o.configURL = origUrl
+	if o.locationJSON != "" {
+		query["location"] = o.locationJSON
 	}
 
+	o.config = query
+	o.configURL = urlConfigure
 	return o.configure()
 }
 
 func (o *UploadOptions) configureVideo() (*Item, error) {
-	if o.IsIGTV {
-		return o.configureIGTV()
-	} else if o.IsStory {
+	if o.IsStory {
 		return o.configureStory(true)
 	}
-	return o.configurePost(true)
+	return o.configureClip()
 }
 
-func (o *UploadOptions) configureImage() (*Item, error) {
-	if o.IsStory {
-		return o.configureStory(false)
-	}
-	return o.configurePost(false)
-}
-
-func (o *UploadOptions) configureIGTV() (*Item, error) {
+func (o *UploadOptions) configureClip() (*Item, error) {
 	insta := o.insta
 
 	query := MergeMapI(
 		o.config,
 		map[string]interface{}{
+			"camera_entry_point":         "256",
 			"_uid":                       toString(insta.Account.ID),
 			"_uuid":                      insta.uuid,
 			"device_id":                  insta.dID,
 			"creation_logger_session_id": generateUUID(),
 			"nav_chain":                  "",
 			"multi_sharing":              "1",
+
+			"camera_session_id":                     generateUUID(),
+			"is_creator_requesting_mashup":          "0",
+			"capture_type":                          "clips_v2",
+			"template_clips_media_id":               "null",
+			"camera_position":                       "unknown",
+			"is_created_with_contextual_music_recs": "0",
+			"clips_creation_entry_point":            "feed",
+
+			"is_clips_edited": "0",
 		},
 	)
 
 	o.config = query
-	o.configURL = urlConfigureIGTV
+	o.configURL = urlConfigureClip
 
 	return o.configure()
+}
+
+func (o *UploadOptions) configureImage() (*Item, error) {
+	if o.IsStory {
+		return o.configureStory(false)
+	}
+	return o.configurePost()
 }
 
 func (o *UploadOptions) configureStory(video bool) (*Item, error) {
@@ -360,11 +345,11 @@ func (o *UploadOptions) postThumbnail() error {
 	o.name = o.uploadID + "_0_" + toString(rand)
 	o.waterfallID = generateUUID()
 
-	// Create Rupload header params
-	o.createRUploadParams()
+	if err := o.createRUploadParams(); err != nil {
+		return err
+	}
 
-	err = o.postPhoto()
-	if err != nil {
+	if err := o.postPhoto(); err != nil {
 		return err
 	}
 
@@ -440,6 +425,11 @@ func (o *UploadOptions) postVideoGET() error {
 func (o *UploadOptions) postPhoto() error {
 	insta := o.insta
 
+	contentType := http.DetectContentType(o.buf.Bytes())
+	if contentType == "text/plain" {
+		return errors.Wrap(ErrInvalidImage, "thumbnail invalid")
+	}
+
 	// Upload Photo
 	body, _, err := insta.sendRequest(
 		&reqOptions{
@@ -449,7 +439,7 @@ func (o *UploadOptions) postPhoto() error {
 			DataBytes: o.buf,
 			ExtraHeaders: map[string]string{
 				"X-Entity-Name":              o.name,
-				"X-Entity-Type":              http.DetectContentType(o.buf.Bytes()),
+				"X-Entity-Type":              contentType,
 				"X-Entity-Length":            toString(o.buf.Len()),
 				"X-Instagram-Rupload-Params": o.ruploadParams,
 				"Offset":                     "0",
@@ -503,9 +493,6 @@ func (o *UploadOptions) createRUploadParams(extra ...map[string]string) error {
 			"upload_media_width":       toString(o.width),
 			"upload_media_duration_ms": toString(o.duration),
 		})
-		if o.IsIGTV {
-			params["is_igtv_video"] = "1"
-		}
 		if o.Thumbnail == nil {
 			params["content_tags"] = "use_default_cover"
 			params["extract_cover_frame"] = "1" // test this out
@@ -574,8 +561,8 @@ func (o *UploadOptions) createPhotoConfig() {
 		},
 	}
 
-	if o.tagsJson != "" {
-		config["usertags"] = o.tagsJson
+	if o.tagsJSON != "" {
+		config["usertags"] = o.tagsJSON
 	}
 	if o.IsStory {
 		supCap, _ := getSupCap()
@@ -634,7 +621,7 @@ func (o *UploadOptions) createVideoConfig() error {
 		"poster_frame_index": 0, // TODO: look into this (testing to see if it matters which index is used)
 	}
 
-	if o.UserTags != nil && !(o.IsIGTV || o.IsStory) {
+	if o.UserTags != nil && !o.IsStory {
 		tags := formatUserTags(*o.UserTags, true)
 		b, err := json.Marshal(tags)
 		if err != nil {
@@ -642,7 +629,7 @@ func (o *UploadOptions) createVideoConfig() error {
 		}
 		config["usertags"] = string(b)
 	}
-	if o.DisableLikeViewCount && !(o.IsIGTV || o.IsStory) {
+	if o.DisableLikeViewCount && !o.IsStory {
 		config["like_and_view_counts_disabled"] = "1"
 	}
 	if o.DisableSubtitles && !o.IsStory {
@@ -650,17 +637,6 @@ func (o *UploadOptions) createVideoConfig() error {
 	}
 	if !o.isSidecar {
 		config["camera_entry_point"] = "34"
-	}
-	if o.IsIGTV {
-		config["camera_entry_point"] = "171"
-		config["title"] = o.Title
-		config["igtv_ads_toggled_on"] = "0"
-		config["keep_shoppable_products"] = "0"
-		config["igtv_composer_session_id"] = generateUUID()
-		config["igtv_share_preview_to_feed"] = "0"
-		if o.IGTVPreview {
-			config["igtv_share_preview_to_feed"] = "1"
-		}
 	}
 	if o.IsStory {
 		supCap, err := getSupCap()
@@ -719,13 +695,6 @@ func (o *UploadOptions) uploadAlbum() (*Item, error) {
 		}
 		o.buf = buf
 
-		// Validate file type
-		t := http.DetectContentType(buf.Bytes())
-		if !(t == "image/jpeg" || t == "video/mp4") {
-			insta.infoHandler(fmt.Errorf("Unable to handle file upload with format %s", t))
-			return nil, ErrInvalidFormat
-		}
-
 		// Use album tags if available
 		if o.UserTags == nil && o.AlbumTags != nil && len(*o.AlbumTags) == len(o.Album) {
 			o.UserTags = &(*o.AlbumTags)[index]
@@ -735,7 +704,8 @@ func (o *UploadOptions) uploadAlbum() (*Item, error) {
 		}
 
 		// Upload Media
-		if t == "image/jpeg" {
+		switch t := http.DetectContentType(buf.Bytes()); t {
+		case "image/jpeg":
 			// Create upload id & name
 			o.newUploadID()
 			rand := random(1000000000, 9999999999)
@@ -745,11 +715,14 @@ func (o *UploadOptions) uploadAlbum() (*Item, error) {
 			if err != nil {
 				return nil, err
 			}
-		} else if t == "video/mp4" {
+		case "video/mp4":
 			err := o.uploadVideo()
 			if err != nil {
 				return nil, err
 			}
+		default:
+			insta.infoHandler(fmt.Errorf("unable to handle file upload with format %s", t))
+			return nil, ErrInvalidFormat
 		}
 
 		metadata = append(metadata, o.config)
@@ -773,8 +746,8 @@ func (o *UploadOptions) uploadAlbum() (*Item, error) {
 		"children_metadata":  metadata,
 	}
 
-	if o.locationJson != "" {
-		query["location"] = o.locationJson
+	if o.locationJSON != "" {
+		query["location"] = o.locationJSON
 	}
 	o.config = query
 	o.configURL = urlConfigureSidecar
@@ -819,11 +792,11 @@ func (o *UploadOptions) configure() (*Item, error) {
 	if res.Status != "ok" {
 		switch res.Message {
 		case "Transcode not finished yet.":
-			insta.infoHandler(fmt.Errorf("%s, %s. Please wait.", res.Status, res.Message))
+			insta.infoHandler("Waiting for transcode to finish...")
 			time.Sleep(6 * time.Second)
 			return o.configure()
 		case "media_needs_reupload":
-			insta.infoHandler(fmt.Errorf("Instagram asks for the video to be reuploaded, please wait."))
+			insta.infoHandler(fmt.Errorf("instagram asks for the video to be reuploaded, please wait"))
 			err := o.postVideo()
 			if err != nil {
 				return nil, err
@@ -866,7 +839,9 @@ func (o *UploadOptions) uploadMultiStory() (*Item, error) {
 	}
 
 	s := make([]byte, 6)
-	cryptRand.Read(s)
+	if _, err := cryptRand.Read(s); err != nil {
+		return nil, err
+	}
 	suffix := fmt.Sprintf("_%X_Mixed_0", s)
 
 	// Upload Media
@@ -924,15 +899,27 @@ func (o *UploadOptions) uploadMultiStory() (*Item, error) {
 func (o *UploadOptions) uploadVideo() error {
 	// Set media type to video
 	o.mediaType = 2
-	o.useXSharingIDs = true
 	o.newUploadID()
 
-	// Get video info
 	width, height, duration, err := getVideoInfo(o.buf.Bytes())
 	if err != nil {
 		return err
 	}
 	o.width, o.height, o.duration = width, height, duration
+
+	// Verify Thumbnail content type
+	if o.Thumbnail != nil {
+		thumb, err := readFile(o.Thumbnail)
+		if err != nil {
+			return err
+		}
+
+		contentType := http.DetectContentType(thumb.Bytes())
+		if contentType == "text/plain" {
+			return ErrInvalidImage
+		}
+		o.Thumbnail = bytes.NewReader(thumb.Bytes())
+	}
 
 	size := float64(len(o.buf.Bytes())) / 1000000.0
 	o.insta.infoHandler(
@@ -942,36 +929,27 @@ func (o *UploadOptions) uploadVideo() error {
 		),
 	)
 
-	// Create Rupload header params
-	err = o.createRUploadParams()
-	if err != nil {
+	if err := o.createRUploadParams(); err != nil {
 		return err
 	}
 
-	// If video size greater than twice the threshold, use segments
+	// Warn on large video size
 	t := 1 << 22
-	if o.buf.Len() > 2*t {
-		err := o.segmentVideo(t)
-		if err != nil {
-			return err
-		}
-	} else {
-		// If not segmented, upload video directly
-		// Create unique upload id and name
-		rand := random(1000000000, 9999999999)
-		o.name = fmt.Sprintf("%s_0_%d", o.uploadID, rand)
-		o.waterfallID = generateUUID()
+	if o.buf.Len() > t*4 {
+		o.insta.warnHandler("Video size is fairy large, if you have trouble uploading, try a smaller video.")
+	}
 
-		// Initialize the upload with a get request
-		err = o.postVideoGET()
-		if err != nil {
-			return err
-		}
+	rand := random(1000000000, 9999999999)
+	o.name = fmt.Sprintf("%s_0_%d", o.uploadID, rand)
+	o.waterfallID = generateUUID()
 
-		err = o.postVideo()
-		if err != nil {
-			return err
-		}
+	// Initialize the upload with a get request
+	if err := o.postVideoGET(); err != nil {
+		return err
+	}
+
+	if err := o.postVideo(); err != nil {
+		return err
 	}
 
 	if o.Thumbnail != nil {
@@ -981,45 +959,11 @@ func (o *UploadOptions) uploadVideo() error {
 		}
 	}
 
-	err = o.createVideoConfig()
-	return err
-}
-
-func (o *UploadOptions) segmentVideo(t int) error {
-	o.waterfallID = toString(time.Now().Unix())
-
-	err := o.segmentPhase("start")
-	if err != nil {
+	if err := o.createVideoConfig(); err != nil {
 		return err
 	}
 
-	segments := o.createSegments(t)
-	length := len(*segments)
-	o.segmentType = 2
-	for i, segment := range *segments {
-		if i == length-1 {
-			o.segmentType = 1
-		}
-
-		// Create new name for each request
-		o.newSegmentName(len(segment))
-
-		err = o.postVideoGET()
-		if err != nil {
-			return err
-		}
-
-		err = o.segmentTransfer(segment)
-		if err != nil {
-			return err
-		}
-		o.offset += len(segment)
-		o.insta.infoHandler(fmt.Sprintf("Uploaded video segment [%d/%d]", i+1, length))
-
-	}
-
-	err = o.segmentPhase("end")
-	return err
+	return nil
 }
 
 func (o *UploadOptions) newSegmentName(l int) {
@@ -1077,59 +1021,6 @@ func (o *UploadOptions) segmentTransfer(segment []byte) error {
 	return nil
 }
 
-func (o *UploadOptions) segmentPhase(phase string) error {
-	insta := o.insta
-	url := fmt.Sprintf(urlUploadVideo, generateUUID())
-	headers := map[string]string{
-		"X-Instagram-Rupload-Params": o.ruploadParams,
-	}
-	if phase == "end" {
-		headers["Stream-Id"] = o.streamID
-	}
-
-	body, _, err := insta.sendRequest(
-		&reqOptions{
-			Endpoint:     fmt.Sprintf("%s?segmented=true&phase=%s", url, phase),
-			OmitAPI:      true,
-			IsPost:       true,
-			ExtraHeaders: headers,
-		},
-	)
-	if err != nil {
-		return err
-	}
-	var res struct {
-		StreamID int64  `json:"stream_id"`
-		Status   string `json:"status"`
-	}
-	err = json.Unmarshal(body, &res)
-	if err != nil {
-		return err
-	}
-	if res.Status != "ok" {
-		return fmt.Errorf("invalid status, result: %s", res.Status)
-	}
-	if phase == "start" {
-		o.streamID = toString(res.StreamID)
-	}
-	return nil
-}
-
-func (o *UploadOptions) createSegments(t int) *[][]byte {
-	var segments [][]byte
-	for o.buf.Len() != 0 {
-		// For some reason the byte lengths the insta app uploads are never
-		//   the same, so adding a random difference to the segment sizes.
-		r := random(0, 10000)
-		if rand.Float64() < 0.65 {
-			segments = append(segments, o.buf.Next(t-int(r)))
-		} else {
-			segments = append(segments, o.buf.Next(t+int(r)))
-		}
-	}
-	return &segments
-}
-
 func readFile(f io.Reader) (*bytes.Buffer, error) {
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(f)
@@ -1143,7 +1034,7 @@ func (o *UploadOptions) processTags() error {
 		if err != nil {
 			return err
 		}
-		o.tagsJson = string(b)
+		o.tagsJSON = string(b)
 	}
 
 	if o.Location != nil {
@@ -1151,7 +1042,7 @@ func (o *UploadOptions) processTags() error {
 		if err != nil {
 			return err
 		}
-		o.locationJson = string(b)
+		o.locationJSON = string(b)
 	}
 	return nil
 }

@@ -4,6 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
+)
+
+const (
+	TooManyRequestsTimeout = 60 * time.Second
 )
 
 type ReqWrapper interface {
@@ -17,6 +22,10 @@ type ReqWrapperArgs struct {
 	Body    []byte
 	Headers http.Header
 	Error   error
+}
+
+type Wrapper struct {
+	o *ReqWrapperArgs
 }
 
 func (w *ReqWrapperArgs) RetryRequest() (body []byte, h http.Header, err error) {
@@ -41,10 +50,6 @@ func (w *ReqWrapperArgs) SetInsta(insta *Instagram) {
 
 func (w *ReqWrapperArgs) Ignore429() bool {
 	return w.reqOptions.Ignore429
-}
-
-type Wrapper struct {
-	o *ReqWrapperArgs
 }
 
 func DefaultWrapper() *Wrapper {
@@ -72,9 +77,8 @@ func (w *Wrapper) GoInstaWrapper(o *ReqWrapperArgs) ([]byte, http.Header, error)
 		if o.Ignore429() {
 			return o.Body, o.Headers, nil
 		}
-		// Possible implementation, instead of returning:
-		// time.Sleep(60 * time.Second)
-		return o.Body, o.Headers, o.Error
+			insta.warnHandler("Too many requests, sleeping for %d seconds", TooManyRequestsTimeout)
+			time.Sleep(TooManyRequestsTimeout)
 
 	case errors.Is(o.Error, Err2FARequired):
 		// Attempt auto 2FA login with TOTP code generation
@@ -95,7 +99,7 @@ func (w *Wrapper) GoInstaWrapper(o *ReqWrapperArgs) ([]byte, http.Header, error)
 		err := insta.Checkpoint.Process()
 		if err != nil {
 			return o.Body, o.Headers, fmt.Errorf(
-				"Failed to automatically process status code 400 'checkpoint_required' with checkpoint url '%s', please report this on github. Error provided: %w",
+				"failed to automatically process status code 400 'checkpoint_required' with checkpoint url '%s', please report this on github. Error provided: %w",
 				insta.Checkpoint.URL,
 				err,
 			)
@@ -110,7 +114,7 @@ func (w *Wrapper) GoInstaWrapper(o *ReqWrapperArgs) ([]byte, http.Header, error)
 
 	case errors.Is(o.Error, ErrChallengeRequired):
 		if err := insta.Challenge.Process(); err != nil {
-			return o.Body, o.Headers, fmt.Errorf("Failed to process challenge automatically with: %w", err)
+			return o.Body, o.Headers, fmt.Errorf("failed to process challenge automatically with: %w", err)
 		}
 	default:
 		// Unhandeled errors should be passed on

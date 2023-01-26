@@ -275,34 +275,42 @@ func (account *Account) changePublic(endpoint string) error {
 
 // Followers returns a list of user followers.
 //
-// Users.Next can be used to paginate
+// Query can be used to search for a specific user.
+// Be aware that it only matches from the start, e.g.
+// "theprimeagen" will only match "theprime" not "prime".
+// To fetch all user an empty string "".
 //
-// See example: examples/account/followers.go
-func (account *Account) Followers() *Users {
-	endpoint := fmt.Sprintf(urlFollowers, account.ID)
-	users := &Users{}
-	users.insta = account.insta
-	users.endpoint = endpoint
-	return users
+// Users.Next can be used to paginate
+func (account *Account) Followers(query string) *Users {
+	user := &User{
+		insta: account.insta,
+		ID:    account.ID,
+	}
+
+	return user.Followers(query)
 }
 
 // Following returns a list of user following.
 //
-// Users.Next can be used to paginate
+// Query can be used to search for a specific user.
+// Be aware that it only matches from the start, e.g.
+// "theprimeagen" will only match "theprime" not "prime".
+// To fetch all user an empty string "".
 //
-// See example: examples/account/following.go
-func (account *Account) Following() *Users {
-	endpoint := fmt.Sprintf(urlFollowing, account.ID)
-	users := &Users{}
-	users.insta = account.insta
-	users.endpoint = endpoint
-	return users
+// Users.Next can be used to paginate
+func (account *Account) Following(query string, order FollowOrder) *Users {
+	user := &User{
+		insta: account.insta,
+		ID:    account.ID,
+	}
+
+	return user.Following(query, order)
 }
 
 // Feed returns current account feed
 //
-// 	params can be:
-// 		string: timestamp of the minimum media timestamp.
+//	params can be:
+//		string: timestamp of the minimum media timestamp.
 //
 // minTime is the minimum timestamp of media.
 //
@@ -372,31 +380,6 @@ func (account *Account) Saved() *SavedMedia {
 	}
 }
 
-type editResp struct {
-	Status  string  `json:"status"`
-	Account Account `json:"user"`
-}
-
-func (account *Account) edit() {
-	insta := account.insta
-	acResp := editResp{}
-	body, _, err := insta.sendRequest(
-		&reqOptions{
-			Endpoint: urlCurrentUser,
-			Query: map[string]string{
-				"edit": "true",
-			},
-		},
-	)
-	if err == nil {
-		err = json.Unmarshal(body, &acResp)
-		if err == nil {
-			acResp.Account.insta = insta
-			*account = acResp.Account
-		}
-	}
-}
-
 // UpdateProfile method allows you to update your current account information.
 // :param: form takes a map[string]string, the common values are:
 //
@@ -406,7 +389,6 @@ func (account *Account) edit() {
 // first_name -- is actually your full name
 // biography
 // email
-//
 func (account *Account) UpdateProfile(form map[string]string) error {
 	insta := account.insta
 	query := map[string]string{
@@ -508,13 +490,11 @@ func (account *Account) PendingFollowRequests() (*PendingRequests, error) {
 		return nil, fmt.Errorf("bad status: %s", result.Status)
 	}
 
-	var users []string
+	users := make([]string, 0, len(result.Users))
+
 	for _, u := range result.Users {
 		u.insta = insta
 		users = append(users, toString(u.ID))
-	}
-	for _, u := range result.SuggestedUsers.Suggestions {
-		u.User.insta = insta
 	}
 
 	friendships, err := account.FriendhipsShowMany(users)

@@ -8,16 +8,25 @@ import (
 	"time"
 )
 
+type FollowOrder string
+
+const (
+	DefaultOrder  FollowOrder = "default"
+	LatestOrder   FollowOrder = "date_followed_latest"
+	EarliestOrder FollowOrder = "date_followed_earliest"
+)
+
 // Users is a struct that stores many user's returned by many different methods.
 type Users struct {
 	insta *Instagram
 
-	// It's a bit confusing have the same structure
+	// It's a bit confusing to have the same structure
 	// in the Instagram strucure and in the multiple users
 	// calls
 
 	err      error
 	endpoint string
+	query    map[string]string
 
 	Status    string          `json:"status"`
 	BigList   bool            `json:"big_list"`
@@ -25,12 +34,6 @@ type Users struct {
 	PageSize  int             `json:"page_size"`
 	RawNextID json.RawMessage `json:"next_max_id"`
 	NextID    string          `json:"-"`
-}
-
-func newUsers(insta *Instagram) *Users {
-	users := &Users{insta: insta}
-
-	return users
 }
 
 // SetInstagram sets new instagram to user structure
@@ -52,47 +55,64 @@ func (users *Users) Next() bool {
 	insta := users.insta
 	endpoint := users.endpoint
 
+	query := map[string]string{}
+	if users.NextID != "" {
+		query["max_id"] = users.NextID
+	}
+
+	if _, ok := users.query["rank_token"]; !ok {
+		users.query["rank_token"] = generateUUID()
+	}
+
+	for key, value := range users.query {
+		query[key] = value
+	}
+
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: endpoint,
-			Query: map[string]string{
-				"max_id":             users.NextID,
-				"ig_sig_key_version": instaSigKeyVersion,
-				"rank_token":         insta.rankToken,
-			},
+			Query:    query,
 		},
 	)
 	if err != nil {
 		users.err = err
 		return false
 	}
-	usrs := Users{}
-	err = json.Unmarshal(body, &usrs)
-	if err != nil {
+
+	var newUsers Users
+	if err := json.Unmarshal(body, &newUsers); err != nil {
 		users.err = err
 		return false
 	}
 
-	if len(usrs.RawNextID) > 0 && usrs.RawNextID[0] == '"' && usrs.RawNextID[len(usrs.RawNextID)-1] == '"' {
-		if err := json.Unmarshal(usrs.RawNextID, &usrs.NextID); err != nil {
+	// check whether the nextID contains quotes (string type) or not (int64 type)
+	if len(newUsers.RawNextID) > 0 && newUsers.RawNextID[0] == '"' && newUsers.RawNextID[len(newUsers.RawNextID)-1] == '"' {
+		if err := json.Unmarshal(newUsers.RawNextID, &users.NextID); err != nil {
 			users.err = err
 			return false
 		}
-	} else if usrs.RawNextID != nil {
+	} else if newUsers.RawNextID != nil {
 		var nextID int64
-		if err := json.Unmarshal(usrs.RawNextID, &nextID); err != nil {
+		if err := json.Unmarshal(newUsers.RawNextID, &nextID); err != nil {
 			users.err = err
 			return false
 		}
-		usrs.NextID = strconv.FormatInt(nextID, 10)
+		users.NextID = strconv.FormatInt(nextID, 10)
 	}
-	*users = usrs
-	if usrs.NextID == "" {
+
+	users.Status = newUsers.Status
+	users.BigList = newUsers.BigList
+	users.Users = newUsers.Users
+	users.PageSize = newUsers.PageSize
+	users.RawNextID = newUsers.RawNextID
+
+	users.setValues()
+
+	// Dont't return false on first error otherwise for loop won't run
+	if users.NextID == "" {
 		users.err = ErrNoMore
 	}
-	users.insta = insta
-	users.endpoint = endpoint
-	users.setValues()
+
 	return true
 }
 
@@ -157,7 +177,7 @@ type User struct {
 	RecentlyBestiedByCount         int           `json:"recently_bestied_by_count"`
 	AccountType                    int           `json:"account_type"`
 	AccountBadges                  []interface{} `json:"account_badges,omitempty"`
-	FbIdV2                         int64         `json:"fbid_v2"`
+	FbIdV2                         int64         `json:"fbid_"`
 	IsUnpublished                  bool          `json:"is_unpublished"`
 	UserTagsCount                  int           `json:"usertags_count"`
 	UserTagReviewEnabled           bool          `json:"usertag_review_enabled"`
@@ -345,26 +365,48 @@ func (user *User) Sync(params ...interface{}) error {
 
 // Following returns a list of user following.
 //
-// Users.Next can be used to paginate
+// Query can be used to search for a specific user.
+// Be aware that it only matches from the start, e.g.
+// "theprimeagen" will only match "theprime" not "prime".
+// To fetch all user an empty string "".
 //
-// See example: examples/user/following.go
-func (user *User) Following() *Users {
-	users := &Users{}
-	users.insta = user.insta
-	users.endpoint = fmt.Sprintf(urlFollowing, user.ID)
-	return users
+// Users.Next can be used to paginate
+func (user *User) Following(query string, order FollowOrder) *Users {
+	return user.followList(urlFollowing, query, order)
 }
 
 // Followers returns a list of user followers.
 //
-// Users.Next can be used to paginate
+// Query can be used to search for a specific user.
+// Be aware that it only matches from the start, e.g.
+// "theprimeagen" will only match "theprime" not "prime".
+// To fetch all user an empty string "".
 //
-// See example: examples/user/followers.go
-func (user *User) Followers() *Users {
-	users := &Users{}
-	users.insta = user.insta
-	users.endpoint = fmt.Sprintf(urlFollowers, user.ID)
-	return users
+// Users.Next can be used to paginate
+func (user *User) Followers(query string) *Users {
+	return user.followList(urlFollowers, query, DefaultOrder)
+}
+
+func (user *User) followList(url, query string, order FollowOrder) *Users {
+	users := Users{
+		insta:    user.insta,
+		endpoint: fmt.Sprintf(url, user.ID),
+		query: map[string]string{
+			"search_surface": "follow_list_page",
+			"query":          query,
+			"enable_groups":  "true",
+		},
+	}
+
+	if order != DefaultOrder {
+		users.query["order"] = string(order)
+	}
+
+	if url == urlFollowing {
+		users.query["includes_hashtags"] = "true"
+	}
+
+	return &users
 }
 
 // Block blocks user
@@ -710,7 +752,7 @@ func (user *User) Tags(minTimestamp []byte) (*FeedMedia, error) {
 //   return it as a byte slice.
 func (user *User) DownloadProfilePic() ([]byte, error) {
 	if user.ProfilePicURL == "" {
-		return nil, ErrNoProfilePicUrl
+		return nil, ErrNoProfilePicURL
 	}
 	insta := user.insta
 	b, err := insta.download(user.ProfilePicURL)

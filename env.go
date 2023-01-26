@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"strings"
@@ -13,7 +12,7 @@ import (
 
 // EnvPlainAcc represents the plain account details stored in the env variable:
 //
-//   INSTAGRAM_ACT_<name>="username:password"
+//	INSTAGRAM_ACT_<name>="username:password"
 type EnvPlainAcc struct {
 	Name     string
 	Username string
@@ -22,7 +21,7 @@ type EnvPlainAcc struct {
 
 // EnvEncAcc represents the encoded account details stored in the env variable:
 //
-//   INSTAGRAM_BASE64_<name>="<base64 encoded config>"
+//	INSTAGRAM_BASE64_<name>="<base64 encoded config>"
 type EnvEncAcc struct {
 	Name     string
 	Username string
@@ -30,29 +29,31 @@ type EnvEncAcc struct {
 }
 
 // EnvAcc represents the pair of plain and base64 encoded account pairs as
-//   stored in EnvPlainAcc and EnvEncAcc, with env variables:
 //
-//   INSTAGRAM_ACT_<name>="username:password"
-//   INSTAGRAM_BASE64_<name>="<base64 encoded config>"
+//	stored in EnvPlainAcc and EnvEncAcc, with env variables:
+//
+//	INSTAGRAM_ACT_<name>="username:password"
+//	INSTAGRAM_BASE64_<name>="<base64 encoded config>"
 type EnvAcc struct {
 	Plain *EnvPlainAcc
 	Enc   *EnvEncAcc
 }
 
 var (
-	errNoAcc = errors.New("No Account Found")
+	errNoAcc = errors.New("no account found")
 )
 
 // EnvRandAcc will check the environment variables, and the .env file in
-//   the current working directory (unless another path has been provided),
-//   for either a base64 encoded goinsta config, or plain credentials.
+//
+//	the current working directory (unless another path has been provided),
+//	for either a base64 encoded goinsta config, or plain credentials.
 //
 // To use this function, add one or multiple of the following:
-//   INSTAGRAM_ACT_<name>="username:password"
-//   INSTAGRAM_BASE64_<name>="<base64 encoded config>"
+//
+//	INSTAGRAM_ACT_<name>="username:password"
+//	INSTAGRAM_BASE64_<name>="<base64 encoded config>"
 //
 // INSTAGRAM_ACT_ variables will automatiaclly be converted to INSTAGRAM_BASE64_
-//
 func EnvRandAcc(path ...string) (*Instagram, error) {
 	err := checkEnv(path...)
 	if err != nil {
@@ -65,7 +66,6 @@ func EnvRandAcc(path ...string) (*Instagram, error) {
 // :param: path (OPTIONAL) - path to a file, by default .env
 //
 // Looks for INSTAGRAM_ACT_<name>="username:password" in env
-//
 func EnvRandLogin(path ...string) (string, string, error) {
 	allAccs, err := EnvReadAccs(path...)
 	if err != nil {
@@ -95,7 +95,8 @@ func EnvRandLogin(path ...string) (string, string, error) {
 }
 
 // EnvProvision will check the environment variables for INSTAGRAM_ACT_ and
-//   create a base64 encoded config for the account, and write it to path.
+//
+//	create a base64 encoded config for the account, and write it to path.
 //
 // :param: path               - path a file to use as env, commonly a .env, but not required.
 // :param: refresh (OPTIONAL) - refresh all plaintext credentials, don't skip already converted accounts
@@ -103,20 +104,18 @@ func EnvRandLogin(path ...string) (string, string, error) {
 // This function has been created the use of a .env file in mind.
 //
 // .env contents:
-//   INSTAGRAM_ACT_<name>="user:pass"
+//
+//	INSTAGRAM_ACT_<name>="user:pass"
 //
 // This function will add to the .env:
-//   INSTAGRAM_BASE64_<name>="..."
 //
+//	INSTAGRAM_BASE64_<name>="..."
 func EnvProvision(path string, refresh ...bool) error {
-	// By default, skip exisitng accounts
-	refreshFlag := false
-	if len(refresh) == 0 || (len(refresh) > 0 && !refresh[0]) {
-		refreshFlag = true
-	}
+	// By default, skip existng accounts
+	refreshFlag := len(refresh) == 0 || (len(refresh) > 0 && !refresh[0])
 	fmt.Printf("Force refresh is set to %v\n", refreshFlag)
 
-	accs, other, err := envLoadAccs(path)
+	accs, _, err := envLoadAccs(path)
 	if err != nil {
 		return err
 	}
@@ -128,25 +127,30 @@ func EnvProvision(path string, refresh ...bool) error {
 			fmt.Printf("Skipping account %s\n", acc.Plain.Name)
 			continue
 		}
+
 		username := acc.Plain.Username
 		password := acc.Plain.Password
+
 		fmt.Println("Processing", username)
 		insta := New(username, password)
-		err := insta.Login()
-		if err != nil {
+
+		if err := insta.Login(); err != nil {
 			return err
 		}
+
 		// Export Config
 		enc, err := insta.ExportAsBase64String()
 		if err != nil {
 			return err
 		}
+
 		acc.Enc.Base64 = enc
+
 		fmt.Println("Sleeping...")
 		time.Sleep(20 * time.Second)
 	}
-	err = accsToFile(path, accs, other)
-	if err != nil {
+
+	if err = accsToFile(path, accs); err != nil {
 		return err
 	}
 
@@ -154,10 +158,11 @@ func EnvProvision(path string, refresh ...bool) error {
 }
 
 // EnvUpdateAccs will update the plain and encoded account variables stored in
-//  the .env file:
 //
-//   INSTAGRAM_ACT_<name>="username:password"
-//   INSTAGRAM_BASE64_<name>="<base64 encoded config>"
+//	the .env file:
+//
+//	 INSTAGRAM_ACT_<name>="username:password"
+//	 INSTAGRAM_BASE64_<name>="<base64 encoded config>"
 //
 // :param: string:path -- file path of the .env file, typically ".env"
 // :param: []*EncAcc:newAccs -- list of updated versions of the accounts
@@ -166,9 +171,10 @@ func EnvUpdateAccs(path string, newAccs []*EnvAcc) error {
 }
 
 // EnvUpdateEnc will update the encoded account variables stored in
-//  the .env file:
 //
-//   INSTAGRAM_BASE64_<name>="<base64 encoded config>"
+//	the .env file:
+//
+//	 INSTAGRAM_BASE64_<name>="<base64 encoded config>"
 //
 // :param: string:path -- file path of the .env file, typically ".env"
 // :param: []*EnvEncAcc:newAccs -- list of updated encoded accounts
@@ -177,9 +183,10 @@ func EnvUpdateEnc(path string, newAccs []*EnvEncAcc) error {
 }
 
 // EnvPlainAccs will update the plain account variables stored in
-//  the .env file:
 //
-//   INSTAGRAM_ACT_<name>="username:password"
+//	the .env file:
+//
+//	 INSTAGRAM_ACT_<name>="username:password"
 //
 // :param: string:path -- file path of the .env file, typically ".env"
 // :param: []*EnvPlainAcc:newAccs -- list of updated plain accounts
@@ -188,10 +195,11 @@ func EnvUpdatePlain(path string, newAccs []*EnvPlainAcc) error {
 }
 
 func envUpdateAccs(path string, newAccs interface{}) error {
-	accs, other, err := dotenv(path)
+	accs, _, err := dotenv(path)
 	if err != nil {
 		return err
 	}
+
 	switch n := newAccs.(type) {
 	case []*EnvAcc:
 
@@ -205,11 +213,12 @@ func envUpdateAccs(path string, newAccs interface{}) error {
 		}
 	}
 
-	return accsToFile(path, accs, other)
+	return accsToFile(path, accs)
 }
 
 // checkEnv will check the env variables for accounts that do have a login,
-//    but no config (INSTAGRAM_BASE64_<...>). If one is found, call ProvisionEnv
+//
+//	but no config (INSTAGRAM_BASE64_<...>). If one is found, call ProvisionEnv
 func checkEnv(path ...string) error {
 	accs, err := EnvReadAccs(path...)
 	if err != nil {
@@ -220,13 +229,19 @@ func checkEnv(path ...string) error {
 	for _, acc := range accs {
 		if acc.Plain != nil && acc.Enc == nil {
 			fmt.Println("Unable to find:", acc.Plain.Name, acc.Plain.Username)
+
 			p := ".env"
+
 			if len(path) > 0 {
 				p = path[0]
 			}
-			EnvProvision(p, true)
+
+			if err := EnvProvision(p, true); err != nil {
+				return err
+			}
 		}
 	}
+
 	return nil
 }
 
@@ -265,7 +280,7 @@ func getRandAcc(path ...string) (*Instagram, error) {
 
 // EnvLoadPlain will load all plain accounts stored in the env variables:
 //
-//   INSTAGRAM_ACT_<name>="username:password"
+//	INSTAGRAM_ACT_<name>="username:password"
 //
 // :param: path (OPTIONAL) -- .env file to load, default to ".env"
 func EnvLoadPlain(path ...string) ([]*EnvPlainAcc, error) {
@@ -308,8 +323,9 @@ func EnvLoadAccs(p ...string) ([]*Instagram, error) {
 // EnvReadAccs loads both all plain and base64 encoded accounts
 //
 // Set in a .env file or export to your environment variables:
-//   INSTAGRAM_ACT_<name>="user:pass"
-//   INSTAGRAM_BASE64_<name>="..."
+//
+//	INSTAGRAM_ACT_<name>="user:pass"
+//	INSTAGRAM_BASE64_<name>="..."
 //
 // :param: p (OPTIONAL) -- env file path, ".env" by default
 func EnvReadAccs(p ...string) ([]*EnvAcc, error) {
@@ -341,7 +357,8 @@ func envLoadAccs(p ...string) ([]*EnvAcc, []string, error) {
 }
 
 // dotenv loads the file in the path parameter (commonly a .env file) and
-//   returns its contents.
+//
+//	returns its contents.
 func dotenv(path string) ([]*EnvAcc, []string, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -350,15 +367,19 @@ func dotenv(path string) ([]*EnvAcc, []string, error) {
 	defer file.Close()
 
 	buf := new(bytes.Buffer)
+
 	_, err = buf.ReadFrom(file)
 	if err != nil {
 		return nil, nil, err
 	}
-	lines := strings.Split(string(buf.Bytes()), "\n")
+
+	lines := strings.Split(buf.String(), "\n")
+
 	accs, other, err := parseAccs(lines)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	return accs, other, nil
 }
 
@@ -468,20 +489,26 @@ func addOrUpdateAcc(accs []*EnvAcc, toAdd interface{}) []*EnvAcc {
 				if newAcc.Name == "" {
 					newAcc.Name = acc.Enc.Name
 				}
+
 				acc.Enc = newAcc
+
 				return accs
 			}
 		}
+
 		accs = append(accs, &EnvAcc{Enc: newAcc})
 	}
+
 	return accs
 }
 
-func accsToFile(path string, accs []*EnvAcc, other []string) error {
+func accsToFile(path string, accs []*EnvAcc) error {
 	newBuf := new(bytes.Buffer)
+
 	for _, acc := range accs {
 		if acc.Plain != nil {
 			line := fmt.Sprintf("INSTAGRAM_ACT_%s=\"%s:%s\"\n", acc.Plain.Name, acc.Plain.Username, acc.Plain.Password)
+
 			_, err := newBuf.WriteString(line)
 			if err != nil {
 				return err
@@ -497,15 +524,16 @@ func accsToFile(path string, accs []*EnvAcc, other []string) error {
 		}
 	}
 
-	err := ioutil.WriteFile(path, newBuf.Bytes(), 0o644)
-	if err != nil {
+	if err := os.WriteFile(path, newBuf.Bytes(), 0o644); err != nil {
 		return err
 	}
+
 	return nil
 }
 
 func (acc *Account) GetEnvEncAcc() (*EnvEncAcc, error) {
 	b, err := acc.insta.ExportAsBase64String()
+
 	return &EnvEncAcc{
 		Username: acc.Username,
 		Base64:   b,

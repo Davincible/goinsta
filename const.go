@@ -253,6 +253,7 @@ const (
 	urlUploadVideo      = "rupload_igvideo/%s"
 	urlUploadFinishVid  = "media/upload_finish/?video=1"
 	urlConfigure        = "media/configure/"
+	urlConfigureClip    = "media/configure_to_clips/"
 	urlConfigureSidecar = "media/configure_sidecar/"
 	urlConfigureIGTV    = "media/configure_to_igtv/?video=1"
 	urlConfigureStory   = "media/configure_to_story/"
@@ -267,27 +268,29 @@ var (
 	RespErr2FA = "two_factor_required"
 
 	// Account & Login Errors
-	ErrBadPassword     = errors.New("Password is incorrect")
-	ErrTooManyRequests = errors.New("Too many requests, please wait a few minutes before you try again")
-	ErrLoggedOut       = errors.New("You have been logged out, please log back in.")
-	ErrLoginRequired   = errors.New("You are not logged in, please login")
+	ErrBadPassword     = errors.New("password is incorrect")
+	ErrTooManyRequests = errors.New("too many requests, please wait a few minutes before you try again")
+	ErrLoggedOut       = errors.New("you have been logged out, please log back in")
+	ErrLoginRequired   = errors.New("you are not logged in, please login")
+	ErrSessionNotSet   = errors.New("session identifier is not set, please log in again to set it")
+	ErrLogoutFailed    = errors.New("failed to logout")
 
-	ErrChallengeRequired  = errors.New("Challenge required")
-	ErrCheckpointRequired = errors.New("Checkpoint required")
-	ErrCheckpointPassed   = errors.New("A checkpoint was thrown, but goinsta managed to solve it. Please call the function again")
-	ErrChallengeFailed    = errors.New("Failed to solve challenge automatically")
+	ErrChallengeRequired  = errors.New("challenge required")
+	ErrCheckpointRequired = errors.New("checkpoint required")
+	ErrCheckpointPassed   = errors.New("a checkpoint was thrown, but goinsta managed to solve it. Please call the function again")
+	ErrChallengeFailed    = errors.New("failed to solve challenge automatically")
 
-	Err2FARequired = errors.New("Two Factor Autentication required. Please call insta.TwoFactorInfo.Login2FA(code)")
+	Err2FARequired = errors.New("two Factor Autentication required. Please call insta.TwoFactorInfo.Login2FA(code)")
 	Err2FANoCode   = errors.New("2FA seed is not set, and no code was provided. Please do atleast one of them")
-	ErrInvalidCode = errors.New("The security code provided is incorrect")
+	ErrInvalidCode = errors.New("the security code provided is incorrect")
 
 	// Upload Errors
-	ErrInvalidFormat      = errors.New("Invalid file type, please use one of jpeg, jpg, mp4")
-	ErrInvalidImage       = errors.New("Invalid file type, please use a jpeg or jpg image")
+	ErrInvalidFormat      = errors.New("invalid file type, please use one of jpeg, jpg, mp4")
+	ErrInvalidImage       = errors.New("invalid file type, please use a jpeg or jpg image")
 	ErrCarouselType       = ErrInvalidImage
-	ErrCarouselMediaLimit = errors.New("Carousel media limit of 10 exceeded")
-	ErrStoryBadMediaType  = errors.New("When uploading multiple items to your story at once, all have to be mp4")
-	ErrStoryMediaTooLong  = errors.New("Story media must not exceed 15 seconds per item")
+	ErrCarouselMediaLimit = errors.New("carousel media limit of 10 exceeded")
+	ErrStoryBadMediaType  = errors.New("when uploading multiple items to your story at once, all have to be mp4")
+	ErrStoryMediaTooLong  = errors.New("story media must not exceed 15 seconds per item")
 
 	// Search Errors
 	ErrSearchUserNotFound = errors.New("User not found in search result")
@@ -298,26 +301,26 @@ var (
 	)
 
 	// Feed Errors
-	ErrInvalidTab   = errors.New("Invalid tab, please select top or recent")
-	ErrNoMore       = errors.New("No more posts availible, page end has been reached")
-	ErrNotHighlight = errors.New("Unable to sync, Reel is not of type highlight")
-	ErrMediaDeleted = errors.New("Sorry, this media has been deleted")
+	ErrInvalidTab   = errors.New("invalid tab, please select top or recent")
+	ErrNoMore       = errors.New("no more posts availible, page end has been reached")
+	ErrNotHighlight = errors.New("unable to sync, Reel is not of type highlight")
+	ErrMediaDeleted = errors.New("sorry, this media has been deleted")
 
 	// Inbox
-	ErrConvNotPending = errors.New("Unable to perform action, conversation is not pending")
+	ErrConvNotPending = errors.New("unable to perform action, conversation is not pending")
 
 	// Misc
-	ErrByteIndexNotFound = errors.New("Failed to index byte slice, delim not found")
-	ErrNoMedia           = errors.New("Failed to download, no media found")
+	ErrByteIndexNotFound = errors.New("failed to index byte slice, delim not found")
+	ErrNoMedia           = errors.New("failed to download, no media found")
 	ErrInstaNotDefined   = errors.New(
-		"Insta has not been defined, this is most likely a bug in the code. Please backtrack which call this error came from, and open an issue detailing exactly how you got to this error.",
+		"insta has not been defined, this is most likely a bug in the code. Please backtrack which call this error came from, and open an issue detailing exactly how you got to this error",
 	)
-	ErrNoValidLogin    = errors.New("No valid login found")
-	ErrNoProfilePicUrl = errors.New("No profile picture url was found. Please fetch the profile first")
+	ErrNoValidLogin    = errors.New("no valid login found")
+	ErrNoProfilePicURL = errors.New("no profile picture url was found. Please fetch the profile first")
 
 	// Users
-	ErrNoPendingFriendship = errors.New("Unable to approve or ignore friendship for user, as there is no pending friendship request")
+	ErrNoPendingFriendship = errors.New("unable to approve or ignore friendship for user, as there is no pending friendship request")
 
 	// Headless
-	ErrChromeNotFound = errors.New("To solve challenges a (headless) Chrome browser is used, but none was found. Please install Chromium or Google Chrome, and try again.")
+	ErrChromeNotFound = errors.New("to solve challenges a (headless) Chrome browser is used, but none was found. Please install Chromium or Google Chrome, and try again")
 )

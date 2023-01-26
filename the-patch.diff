@@ -1,0 +1,3532 @@
+diff --git a/README.md b/README.md
+index d641b29..c453a1c 100644
+--- a/README.md
++++ b/README.md
+@@ -1,21 +1,22 @@
+-### Fork
+ 
+-This repository has been forked from [ahmdrz/goinsta](https://github.com/ahmdrz/goinsta). 
+-As the maintainer of this repositry has been absend the last few months, and 
+-the code in the repository was based on a 2 year old instagram app version, 
+-since which a lot has changed, I have taken the courtesy to build upon his 
+-great framework and update the code to be compatible with apk v195.0.0.31.123 
+-(July 6, 2021). After migrating the endpoints and adding new ones, there are 
+-are few breaking changes. You can check the full walkthrough documentation in
+-the [wiki](https://github.com/Davincible/goinsta/wiki/1.-Getting-Started), 
+-and looking at the code to further understand how it works is encouraged.
+-
+-#### Golang + Instagram Private API
+ ![goinsta logo](https://raw.githubusercontent.com/Davincible/goinsta/v1/resources/goinsta-image.png)
+ 
++[![GoDoc](https://godoc.org/github.com/Davincible/goinsta/v3?status.svg)](https://godoc.org/github.com/Davincible/goinsta/v3) [![Go Report Card](https://goreportcard.com/badge/github.com/Davincible/goinsta/v3)](https://goreportcard.com/report/github.com/Davincible/goinsta/v3)
++
++## Go Instagram Private API
++
+ > Unofficial Instagram API for Golang
+ 
+-[![Build Status](https://travis-ci.org/Davincible/goinsta.svg?branch=master)](https://travis-ci.org/Davincible/goinsta) [![GoDoc](https://godoc.org/github.com/Davincible/goinsta?status.svg)](https://godoc.org/github.com/Davincible/goinsta) [![Go Report Card](https://goreportcard.com/badge/github.com/Davincible/goinsta)](https://goreportcard.com/report/github.com/Davincible/goinsta) [![Gitter chat](https://badges.gitter.im/goinsta/community.png)](https://gitter.im/goinsta/community)
++This repository has been forked from [ahmdrz/goinsta](https://github.com/ahmdrz/goinsta). 
++As the maintainer of this repositry has archived the project, and 
++the code in the repository was based on a few year old instagram app version, 
++since which a lot has changed, I have taken the courtesy to build upon his 
++great framework and update the code to be compatible with apk v250.0.0.21.109 
++(Aug 30, 2022). Walkthrough docs can be found in the 
++[wiki](https://github.com/Davincible/goinsta/wiki/1.-Getting-Started).
++
++If you are missing anything or something is not working as expected please let
++me know through the issues or discussions.
+ 
+ ### Features
+ 
+@@ -46,8 +47,7 @@ func main() {
+   insta := goinsta.New("USERNAME", "PASSWORD")
+   
+   // Only call Login the first time you login. Next time import your config
+-  err := insta.Login()
+-  if err != nil {
++  if err := insta.Login(); err != nil {
+           panic(err)
+   }
+ 
+@@ -69,19 +69,3 @@ For the full documentation, check the [wiki](https://github.com/Davincible/goins
+ 
+ This code is in no way affiliated with, authorized, maintained, sponsored or endorsed by Instagram or any of its affiliates or subsidiaries. This is an independent and unofficial API. Use at your own risk.
+ 
+-### Versioning
+-
+-Goinsta used gopkg.in as versioning control. Stable new API is the version v3.0. You can get it using:
+-
+-```bash
+-$ go get -u -v github.com/Davincible/goinsta/v3
+-```
+-
+-Or 
+-
+-If you have `GO111MODULE=on`
+-
+-```
+-$ go get -u github.com/Davincible/goinsta/v3
+-```
+-
+diff --git a/account.go b/account.go
+index bdf936e..0ca279e 100644
+--- a/account.go
++++ b/account.go
+@@ -275,28 +275,36 @@ func (account *Account) changePublic(endpoint string) error {
+ 
+ // Followers returns a list of user followers.
+ //
+-// Users.Next can be used to paginate
++// Query can be used to search for a specific user.
++// Be aware that it only matches from the start, e.g.
++// "theprimeagen" will only match "theprime" not "prime".
++// To fetch all user an empty string "".
+ //
+-// See example: examples/account/followers.go
+-func (account *Account) Followers() *Users {
+-	endpoint := fmt.Sprintf(urlFollowers, account.ID)
+-	users := &Users{}
+-	users.insta = account.insta
+-	users.endpoint = endpoint
+-	return users
++// Users.Next can be used to paginate
++func (account *Account) Followers(query string) *Users {
++	user := &User{
++		insta: account.insta,
++		ID:    account.ID,
++	}
++
++	return user.Followers(query)
+ }
+ 
+ // Following returns a list of user following.
+ //
+-// Users.Next can be used to paginate
++// Query can be used to search for a specific user.
++// Be aware that it only matches from the start, e.g.
++// "theprimeagen" will only match "theprime" not "prime".
++// To fetch all user an empty string "".
+ //
+-// See example: examples/account/following.go
+-func (account *Account) Following() *Users {
+-	endpoint := fmt.Sprintf(urlFollowing, account.ID)
+-	users := &Users{}
+-	users.insta = account.insta
+-	users.endpoint = endpoint
+-	return users
++// Users.Next can be used to paginate
++func (account *Account) Following(query string, order FollowOrder) *Users {
++	user := &User{
++		insta: account.insta,
++		ID:    account.ID,
++	}
++
++	return user.Following(query, order)
+ }
+ 
+ // Feed returns current account feed
+@@ -372,31 +380,6 @@ func (account *Account) Saved() *SavedMedia {
+ 	}
+ }
+ 
+-type editResp struct {
+-	Status  string  `json:"status"`
+-	Account Account `json:"user"`
+-}
+-
+-func (account *Account) edit() {
+-	insta := account.insta
+-	acResp := editResp{}
+-	body, _, err := insta.sendRequest(
+-		&reqOptions{
+-			Endpoint: urlCurrentUser,
+-			Query: map[string]string{
+-				"edit": "true",
+-			},
+-		},
+-	)
+-	if err == nil {
+-		err = json.Unmarshal(body, &acResp)
+-		if err == nil {
+-			acResp.Account.insta = insta
+-			*account = acResp.Account
+-		}
+-	}
+-}
+-
+ // UpdateProfile method allows you to update your current account information.
+ // :param: form takes a map[string]string, the common values are:
+ //
+@@ -513,9 +496,6 @@ func (account *Account) PendingFollowRequests() (*PendingRequests, error) {
+ 		u.insta = insta
+ 		users = append(users, toString(u.ID))
+ 	}
+-	for _, u := range result.SuggestedUsers.Suggestions {
+-		u.User.insta = insta
+-	}
+ 
+ 	friendships, err := account.FriendhipsShowMany(users)
+ 	if err != nil {
+diff --git a/activity.go b/activity.go
+index 37307c9..c24ac25 100644
+--- a/activity.go
++++ b/activity.go
+@@ -132,7 +132,10 @@ func (act *Activity) Next() bool {
+ 		*act = act2
+ 		act.insta = insta
+ 		if first {
+-			act.MarkAsSeen()
++			if err := act.MarkAsSeen(); err != nil {
++				act.err = err
++				return false
++			}
+ 		}
+ 
+ 		if act.NextID == "" {
+diff --git a/collections.go b/collections.go
+index 760936f..fdb43c0 100644
+--- a/collections.go
++++ b/collections.go
+@@ -6,7 +6,7 @@ import (
+ 	"fmt"
+ )
+ 
+-var ErrAllSaved = errors.New("Unable to call function for collection all posts")
++var ErrAllSaved = errors.New("unable to call function for collection all posts")
+ 
+ // MediaItem defines a item media for the
+ // SavedMedia struct
+@@ -40,10 +40,10 @@ type Collections struct {
+ 	insta *Instagram
+ 	err   error
+ 
+-	AutoLoadMoreEnabled bool         `json:"auto_load_more_enabled"`
+-	Items               []Collection `json:"items"`
+-	MoreAvailable       bool         `json:"more_available"`
+-	NextID              string       `json:"next_max_id"`
++	AutoLoadMoreEnabled bool          `json:"auto_load_more_enabled"`
++	Items               []*Collection `json:"items"`
++	MoreAvailable       bool          `json:"more_available"`
++	NextID              string        `json:"next_max_id"`
+ 	NumResults          int
+ 	Status              string `json:"status"`
+ }
+@@ -59,10 +59,10 @@ type Collection struct {
+ 
+ 	ID         string `json:"collection_id"`
+ 	MediaCount int    `json:"collection_media_count"`
+-	Name       string `json:"name"`
++	Name       string `json:"collection_name"`
+ 	Type       string `json:"collection_type"`
+ 	Cover      struct {
+-		ID             int64  `json:"id"`
++		ID             string `json:"id"`
+ 		Images         Images `json:"image_versions2"`
+ 		OriginalWidth  int    `json:"original_width"`
+ 		OriginalHeight int    `json:"original_height"`
+@@ -106,7 +106,7 @@ func (c *Collections) Next() bool {
+ 		"collection_types": "[\"ALL_MEDIA_AUTO_COLLECTION\",\"PRODUCT_AUTO_COLLECTION\",\"MEDIA\",\"AUDIO_AUTO_COLLECTION\",\"GUIDES_AUTO_COLLECTION\"]",
+ 	}
+ 	if c.NextID != "" {
+-		query["next_max_id"] = c.NextID
++		query["max_id"] = c.NextID
+ 	}
+ 	body, _, err := insta.sendRequest(
+ 		&reqOptions{
+@@ -135,7 +135,7 @@ func (c *Collections) Next() bool {
+ 	}
+ 	c.Items = append(c.Items, tmp.Items...)
+ 	if !c.MoreAvailable {
+-		err = ErrNoMore
++		c.err = ErrNoMore
+ 	}
+ 
+ 	return c.MoreAvailable
+@@ -143,7 +143,7 @@ func (c *Collections) Next() bool {
+ 
+ // Latest will return the last fetched items by indexing with Collections.LastCount.
+ // Collections.Next keeps adding to the items, this method only returns the latest items.
+-func (c *Collections) Latest() []Collection {
++func (c *Collections) Latest() []*Collection {
+ 	return c.Items[len(c.Items)-c.NumResults:]
+ }
+ 
+@@ -244,6 +244,7 @@ func (c *Collection) ChangeCover(item Item) error {
+ 	if err != nil {
+ 		return err
+ 	}
++
+ 	body, _, err := insta.sendRequest(
+ 		&reqOptions{
+ 			Endpoint: fmt.Sprintf(urlCollectionEdit, c.ID),
+@@ -251,7 +252,14 @@ func (c *Collection) ChangeCover(item Item) error {
+ 			Query:    generateSignature(data),
+ 		},
+ 	)
+-	err = json.Unmarshal(body, c)
++	if err != nil {
++		return err
++	}
++
++	if err := json.Unmarshal(body, c); err != nil {
++		return err
++	}
++
+ 	return err
+ }
+ 
+@@ -274,6 +282,7 @@ func (c *Collection) ChangeName(name string) error {
+ 	if err != nil {
+ 		return err
+ 	}
++
+ 	body, _, err := insta.sendRequest(
+ 		&reqOptions{
+ 			Endpoint: fmt.Sprintf(urlCollectionEdit, c.ID),
+@@ -281,7 +290,14 @@ func (c *Collection) ChangeName(name string) error {
+ 			Query:    generateSignature(data),
+ 		},
+ 	)
+-	err = json.Unmarshal(body, c)
++	if err != nil {
++		return err
++	}
++
++	if err := json.Unmarshal(body, c); err != nil {
++		return err
++	}
++
+ 	return err
+ }
+ 
+@@ -320,7 +336,14 @@ func (c *Collection) AddCollaborators(colab ...User) error {
+ 			Query:    generateSignature(data),
+ 		},
+ 	)
+-	err = json.Unmarshal(body, c)
++	if err != nil {
++		return err
++	}
++
++	if err := json.Unmarshal(body, c); err != nil {
++		return err
++	}
++
+ 	return err
+ }
+ 
+@@ -359,7 +382,14 @@ func (c *Collection) RemoveMedia(items ...Item) error {
+ 			Query:    generateSignature(data),
+ 		},
+ 	)
+-	err = json.Unmarshal(body, c)
++	if err != nil {
++		return err
++	}
++
++	if err := json.Unmarshal(body, c); err != nil {
++		return err
++	}
++
+ 	return err
+ }
+ 
+@@ -446,7 +476,7 @@ func (c *Collection) Next(params ...interface{}) bool {
+ 		&reqOptions{
+ 			Endpoint: fmt.Sprintf(urlCollectionFeedPosts, c.ID),
+ 			Query: map[string]string{
+-				"next_max_id": c.GetNextID(),
++				"max_id": c.GetNextID(),
+ 			},
+ 		},
+ 	)
+@@ -454,14 +484,17 @@ func (c *Collection) Next(params ...interface{}) bool {
+ 		c.err = err
+ 		return false
+ 	}
++
+ 	tmp := SavedMedia{}
+-	err = json.Unmarshal(body, &tmp)
++	if err := json.Unmarshal(body, &tmp); err != nil {
++		c.err = err
++		return false
++	}
+ 
+ 	c.NextID = tmp.NextID
+ 	c.MoreAvailable = tmp.MoreAvailable
+ 	c.NumResults = tmp.NumResults
+ 
+-	c.Items = []Item{}
+ 	for _, i := range tmp.Items {
+ 		c.Items = append(c.Items, i.Media)
+ 	}
+@@ -512,7 +545,7 @@ func (item *Item) SaveTo(c *Collection) error {
+ 		if errIsFatal(err) {
+ 			return err
+ 		}
+-		insta.warnHandler(errors.New("Non fatal error, failed to save post to all"))
++		insta.warnHandler(errors.New("non fatal error, failed to save post to all"))
+ 	}
+ 
+ 	data, err := json.Marshal(
+diff --git a/comments.go b/comments.go
+index 38961b6..336fe63 100644
+--- a/comments.go
++++ b/comments.go
+@@ -140,7 +140,6 @@ func (comments *Comments) Next() bool {
+ func (comments *Comments) Sync() {
+ 	endpoint := fmt.Sprintf(urlCommentSync, comments.item.ID)
+ 	comments.endpoint = endpoint
+-	return
+ }
+ 
+ // Add push a comment in media.
+@@ -231,7 +230,6 @@ floop:
+ // Comment is a type of Media retrieved by the Comments methods
+ type Comment struct {
+ 	insta *Instagram
+-	idstr string
+ 	item  *Item
+ 
+ 	ID                             interface{} `json:"pk"`
+diff --git a/const.go b/const.go
+index 5a53bd3..19cc118 100644
+--- a/const.go
++++ b/const.go
+@@ -253,6 +253,7 @@ const (
+ 	urlUploadVideo      = "rupload_igvideo/%s"
+ 	urlUploadFinishVid  = "media/upload_finish/?video=1"
+ 	urlConfigure        = "media/configure/"
++	urlConfigureClip    = "media/configure_to_clips/"
+ 	urlConfigureSidecar = "media/configure_sidecar/"
+ 	urlConfigureIGTV    = "media/configure_to_igtv/?video=1"
+ 	urlConfigureStory   = "media/configure_to_story/"
+@@ -267,27 +268,29 @@ var (
+ 	RespErr2FA = "two_factor_required"
+ 
+ 	// Account & Login Errors
+-	ErrBadPassword     = errors.New("Password is incorrect")
+-	ErrTooManyRequests = errors.New("Too many requests, please wait a few minutes before you try again")
+-	ErrLoggedOut       = errors.New("You have been logged out, please log back in.")
+-	ErrLoginRequired   = errors.New("You are not logged in, please login")
+-
+-	ErrChallengeRequired  = errors.New("Challenge required")
+-	ErrCheckpointRequired = errors.New("Checkpoint required")
+-	ErrCheckpointPassed   = errors.New("A checkpoint was thrown, but goinsta managed to solve it. Please call the function again")
+-	ErrChallengeFailed    = errors.New("Failed to solve challenge automatically")
+-
+-	Err2FARequired = errors.New("Two Factor Autentication required. Please call insta.TwoFactorInfo.Login2FA(code)")
++	ErrBadPassword     = errors.New("password is incorrect")
++	ErrTooManyRequests = errors.New("too many requests, please wait a few minutes before you try again")
++	ErrLoggedOut       = errors.New("you have been logged out, please log back in")
++	ErrLoginRequired   = errors.New("you are not logged in, please login")
++	ErrSessionNotSet   = errors.New("session identifier is not set, please log in again to set it")
++	ErrLogoutFailed    = errors.New("failed to logout")
++
++	ErrChallengeRequired  = errors.New("challenge required")
++	ErrCheckpointRequired = errors.New("checkpoint required")
++	ErrCheckpointPassed   = errors.New("a checkpoint was thrown, but goinsta managed to solve it. Please call the function again")
++	ErrChallengeFailed    = errors.New("failed to solve challenge automatically")
++
++	Err2FARequired = errors.New("two Factor Autentication required. Please call insta.TwoFactorInfo.Login2FA(code)")
+ 	Err2FANoCode   = errors.New("2FA seed is not set, and no code was provided. Please do atleast one of them")
+-	ErrInvalidCode = errors.New("The security code provided is incorrect")
++	ErrInvalidCode = errors.New("the security code provided is incorrect")
+ 
+ 	// Upload Errors
+-	ErrInvalidFormat      = errors.New("Invalid file type, please use one of jpeg, jpg, mp4")
+-	ErrInvalidImage       = errors.New("Invalid file type, please use a jpeg or jpg image")
++	ErrInvalidFormat      = errors.New("invalid file type, please use one of jpeg, jpg, mp4")
++	ErrInvalidImage       = errors.New("invalid file type, please use a jpeg or jpg image")
+ 	ErrCarouselType       = ErrInvalidImage
+-	ErrCarouselMediaLimit = errors.New("Carousel media limit of 10 exceeded")
+-	ErrStoryBadMediaType  = errors.New("When uploading multiple items to your story at once, all have to be mp4")
+-	ErrStoryMediaTooLong  = errors.New("Story media must not exceed 15 seconds per item")
++	ErrCarouselMediaLimit = errors.New("carousel media limit of 10 exceeded")
++	ErrStoryBadMediaType  = errors.New("when uploading multiple items to your story at once, all have to be mp4")
++	ErrStoryMediaTooLong  = errors.New("story media must not exceed 15 seconds per item")
+ 
+ 	// Search Errors
+ 	ErrSearchUserNotFound = errors.New("User not found in search result")
+@@ -298,26 +301,26 @@ var (
+ 	)
+ 
+ 	// Feed Errors
+-	ErrInvalidTab   = errors.New("Invalid tab, please select top or recent")
+-	ErrNoMore       = errors.New("No more posts availible, page end has been reached")
+-	ErrNotHighlight = errors.New("Unable to sync, Reel is not of type highlight")
+-	ErrMediaDeleted = errors.New("Sorry, this media has been deleted")
++	ErrInvalidTab   = errors.New("invalid tab, please select top or recent")
++	ErrNoMore       = errors.New("no more posts availible, page end has been reached")
++	ErrNotHighlight = errors.New("unable to sync, Reel is not of type highlight")
++	ErrMediaDeleted = errors.New("sorry, this media has been deleted")
+ 
+ 	// Inbox
+-	ErrConvNotPending = errors.New("Unable to perform action, conversation is not pending")
++	ErrConvNotPending = errors.New("unable to perform action, conversation is not pending")
+ 
+ 	// Misc
+-	ErrByteIndexNotFound = errors.New("Failed to index byte slice, delim not found")
+-	ErrNoMedia           = errors.New("Failed to download, no media found")
++	ErrByteIndexNotFound = errors.New("failed to index byte slice, delim not found")
++	ErrNoMedia           = errors.New("failed to download, no media found")
+ 	ErrInstaNotDefined   = errors.New(
+-		"Insta has not been defined, this is most likely a bug in the code. Please backtrack which call this error came from, and open an issue detailing exactly how you got to this error.",
++		"insta has not been defined, this is most likely a bug in the code. Please backtrack which call this error came from, and open an issue detailing exactly how you got to this error",
+ 	)
+-	ErrNoValidLogin    = errors.New("No valid login found")
+-	ErrNoProfilePicUrl = errors.New("No profile picture url was found. Please fetch the profile first")
++	ErrNoValidLogin    = errors.New("no valid login found")
++	ErrNoProfilePicURL = errors.New("no profile picture url was found. Please fetch the profile first")
+ 
+ 	// Users
+-	ErrNoPendingFriendship = errors.New("Unable to approve or ignore friendship for user, as there is no pending friendship request")
++	ErrNoPendingFriendship = errors.New("unable to approve or ignore friendship for user, as there is no pending friendship request")
+ 
+ 	// Headless
+-	ErrChromeNotFound = errors.New("To solve challenges a (headless) Chrome browser is used, but none was found. Please install Chromium or Google Chrome, and try again.")
++	ErrChromeNotFound = errors.New("to solve challenges a (headless) Chrome browser is used, but none was found. Please install Chromium or Google Chrome, and try again")
+ )
+diff --git a/contacts.go b/contacts.go
+index d3be07a..13cff84 100644
+--- a/contacts.go
++++ b/contacts.go
+@@ -61,7 +61,9 @@ func (c *Contacts) SyncContacts(contacts *[]Contact) (*SyncAnswer, error) {
+ 	}
+ 
+ 	answ := &SyncAnswer{}
+-	json.Unmarshal(body, answ)
++	if err := json.Unmarshal(body, answ); err != nil {
++		return nil, err
++	}
+ 	return answ, nil
+ }
+ 
+diff --git a/env.go b/env.go
+index 93b5a04..b4a27d6 100644
+--- a/env.go
++++ b/env.go
+@@ -4,7 +4,6 @@ import (
+ 	"bytes"
+ 	"errors"
+ 	"fmt"
+-	"io/ioutil"
+ 	"math/rand"
+ 	"os"
+ 	"strings"
+@@ -40,7 +39,7 @@ type EnvAcc struct {
+ }
+ 
+ var (
+-	errNoAcc = errors.New("No Account Found")
++	errNoAcc = errors.New("no account found")
+ )
+ 
+ // EnvRandAcc will check the environment variables, and the .env file in
+@@ -110,13 +109,10 @@ func EnvRandLogin(path ...string) (string, string, error) {
+ //
+ func EnvProvision(path string, refresh ...bool) error {
+ 	// By default, skip exisitng accounts
+-	refreshFlag := false
+-	if len(refresh) == 0 || (len(refresh) > 0 && !refresh[0]) {
+-		refreshFlag = true
+-	}
++	refreshFlag := len(refresh) == 0 || (len(refresh) > 0 && !refresh[0])
+ 	fmt.Printf("Force refresh is set to %v\n", refreshFlag)
+ 
+-	accs, other, err := envLoadAccs(path)
++	accs, _, err := envLoadAccs(path)
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -132,10 +128,11 @@ func EnvProvision(path string, refresh ...bool) error {
+ 		password := acc.Plain.Password
+ 		fmt.Println("Processing", username)
+ 		insta := New(username, password)
+-		err := insta.Login()
+-		if err != nil {
++
++		if err := insta.Login(); err != nil {
+ 			return err
+ 		}
++
+ 		// Export Config
+ 		enc, err := insta.ExportAsBase64String()
+ 		if err != nil {
+@@ -145,7 +142,7 @@ func EnvProvision(path string, refresh ...bool) error {
+ 		fmt.Println("Sleeping...")
+ 		time.Sleep(20 * time.Second)
+ 	}
+-	err = accsToFile(path, accs, other)
++	err = accsToFile(path, accs)
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -188,7 +185,7 @@ func EnvUpdatePlain(path string, newAccs []*EnvPlainAcc) error {
+ }
+ 
+ func envUpdateAccs(path string, newAccs interface{}) error {
+-	accs, other, err := dotenv(path)
++	accs, _, err := dotenv(path)
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -205,7 +202,7 @@ func envUpdateAccs(path string, newAccs interface{}) error {
+ 		}
+ 	}
+ 
+-	return accsToFile(path, accs, other)
++	return accsToFile(path, accs)
+ }
+ 
+ // checkEnv will check the env variables for accounts that do have a login,
+@@ -224,7 +221,9 @@ func checkEnv(path ...string) error {
+ 			if len(path) > 0 {
+ 				p = path[0]
+ 			}
+-			EnvProvision(p, true)
++			if err := EnvProvision(p, true); err != nil {
++				return err
++			}
+ 		}
+ 	}
+ 	return nil
+@@ -354,7 +353,7 @@ func dotenv(path string) ([]*EnvAcc, []string, error) {
+ 	if err != nil {
+ 		return nil, nil, err
+ 	}
+-	lines := strings.Split(string(buf.Bytes()), "\n")
++	lines := strings.Split(buf.String(), "\n")
+ 	accs, other, err := parseAccs(lines)
+ 	if err != nil {
+ 		return nil, nil, err
+@@ -477,8 +476,9 @@ func addOrUpdateAcc(accs []*EnvAcc, toAdd interface{}) []*EnvAcc {
+ 	return accs
+ }
+ 
+-func accsToFile(path string, accs []*EnvAcc, other []string) error {
++func accsToFile(path string, accs []*EnvAcc) error {
+ 	newBuf := new(bytes.Buffer)
++
+ 	for _, acc := range accs {
+ 		if acc.Plain != nil {
+ 			line := fmt.Sprintf("INSTAGRAM_ACT_%s=\"%s:%s\"\n", acc.Plain.Name, acc.Plain.Username, acc.Plain.Password)
+@@ -497,10 +497,10 @@ func accsToFile(path string, accs []*EnvAcc, other []string) error {
+ 		}
+ 	}
+ 
+-	err := ioutil.WriteFile(path, newBuf.Bytes(), 0o644)
+-	if err != nil {
++	if err := os.WriteFile(path, newBuf.Bytes(), 0o644); err != nil {
+ 		return err
+ 	}
++
+ 	return nil
+ }
+ 
+diff --git a/examples/README.md b/examples/README.md
+deleted file mode 100644
+index 0f917ff..0000000
+--- a/examples/README.md
++++ /dev/null
+@@ -1,5 +0,0 @@
+-## A list of examples related to GoInsta
+-
+-#### Follow Tag Bot
+-
+-This example will login as your account and start following users that has some posts about `#golang`.
+\ No newline at end of file
+diff --git a/examples/account/main.go b/examples/account/main.go
+deleted file mode 100644
+index 86987f2..0000000
+--- a/examples/account/main.go
++++ /dev/null
+@@ -1,32 +0,0 @@
+-package main
+-
+-import (
+-	"flag"
+-	"log"
+-
+-	"github.com/Davincible/goinsta/v3"
+-)
+-
+-var session = flag.String("session", "/tmp/session", "instagram session")
+-
+-func main() {
+-	flag.Parse()
+-	insta, err := goinsta.Import(*session)
+-	if err != nil {
+-		log.Fatal(err)
+-	}
+-	followerUser := make([]goinsta.User, 0)
+-	followingUser := make([]goinsta.User, 0)
+-	followers := insta.Account.Followers()
+-	following := insta.Account.Following()
+-
+-	for followers.Next() {
+-		followerUser = append(followerUser, followers.Users...)
+-	}
+-
+-	for following.Next() {
+-		followingUser = append(followingUser, following.Users...)
+-	}
+-
+-	log.Printf("Followers: %d Following: %d", len(followerUser), len(followingUser))
+-}
+diff --git a/examples/change-profile-pic/main.go b/examples/change-profile-pic/main.go
+deleted file mode 100644
+index a82cf7e..0000000
+--- a/examples/change-profile-pic/main.go
++++ /dev/null
+@@ -1,39 +0,0 @@
+-package main
+-
+-import (
+-	"log"
+-	"net/http"
+-	"os"
+-
+-	"github.com/Davincible/goinsta/v3"
+-)
+-
+-func main() {
+-	insta := goinsta.New(
+-		os.Getenv("INSTAGRAM_USERNAME"),
+-		os.Getenv("INSTAGRAM_PASSWORD"),
+-	)
+-	if err := insta.Login(); err != nil {
+-		log.Fatal(err)
+-	}
+-
+-	defer insta.Logout()
+-
+-	log.Println("Download random photo")
+-	var client http.Client
+-	request, err := http.NewRequest("GET", "https://picsum.photos/800/800", nil)
+-	if err != nil {
+-		log.Fatal(err)
+-	}
+-	resp, err := client.Do(request)
+-	if err != nil {
+-		log.Fatal(err)
+-	}
+-
+-	defer resp.Body.Close()
+-
+-	err = insta.Account.ChangeProfilePic(resp.Body)
+-	if err != nil {
+-		log.Fatal(err)
+-	}
+-}
+diff --git a/examples/follow-tag-bot/main.go b/examples/follow-tag-bot/main.go
+deleted file mode 100644
+index dab8772..0000000
+--- a/examples/follow-tag-bot/main.go
++++ /dev/null
+@@ -1,37 +0,0 @@
+-package main
+-
+-import (
+-	"log"
+-	"os"
+-
+-	"github.com/Davincible/goinsta/v3"
+-)
+-
+-func main() {
+-	insta := goinsta.New(
+-		os.Getenv("INSTAGRAM_USERNAME"),
+-		os.Getenv("INSTAGRAM_PASSWORD"),
+-	)
+-	if err := insta.Login(); err != nil {
+-		log.Println(err)
+-		return
+-	}
+-	defer insta.Logout()
+-
+-	feedTag, err := insta.Feed.Tags("golang")
+-	if err != nil {
+-		log.Println(err)
+-		return
+-	}
+-	for _, item := range feedTag.RankedItems {
+-		user := item.User
+-		user.SetInstagram(insta)
+-
+-		err = user.Follow()
+-		if err != nil {
+-			log.Printf("error on following user %s, %v", user.Username, err)
+-		} else {
+-			log.Printf("start following user %s", user.Username)
+-		}
+-	}
+-}
+diff --git a/examples/import-export/main.go b/examples/import-export/main.go
+deleted file mode 100644
+index 883f695..0000000
+--- a/examples/import-export/main.go
++++ /dev/null
+@@ -1,35 +0,0 @@
+-package main
+-
+-import (
+-	"fmt"
+-	"os"
+-
+-	"github.com/Davincible/goinsta/v3"
+-	"github.com/Davincible/goinsta/v3/utilities"
+-)
+-
+-func main() {
+-	var (
+-		insta *goinsta.Instagram
+-		err   error
+-	)
+-	encodedAccount := os.Getenv("INSTAGRAM_ENCODED")
+-	if encodedAccount != "" {
+-		insta, err = utilities.ImportFromBase64String(encodedAccount)
+-		if err != nil {
+-			panic(err)
+-		}
+-	} else {
+-		insta = goinsta.New(os.Getenv("INSTAGRAM_USERNAME"), os.Getenv("INSTAGRAM_PASSWORD"))
+-		if err = insta.Login(); err != nil {
+-			panic(err)
+-		}
+-		result, err := utilities.ExportAsBase64String(insta)
+-		if err != nil {
+-			panic(err)
+-		}
+-		fmt.Println(result)
+-	}
+-
+-	fmt.Printf("Logged in as %s\n", insta.Account.Username)
+-}
+diff --git a/examples/tag-liker-bot/main.go b/examples/tag-liker-bot/main.go
+deleted file mode 100644
+index c0b6c57..0000000
+--- a/examples/tag-liker-bot/main.go
++++ /dev/null
+@@ -1,46 +0,0 @@
+-package main
+-
+-import (
+-	"log"
+-	"os"
+-
+-	"github.com/Davincible/goinsta/v3"
+-)
+-
+-func fetchTag(insta *goinsta.Instagram, tag string) error {
+-	feedTag, err := insta.Feed.Tags(tag)
+-	if err != nil {
+-		return err
+-	}
+-	for _, item := range feedTag.RankedItems {
+-		err = item.Like()
+-		if err != nil {
+-			log.Printf("error on liking item %s, %v", item.ID, err)
+-		} else {
+-			log.Printf("item %s liked", item.ID)
+-		}
+-	}
+-	return nil
+-}
+-
+-func main() {
+-	insta := goinsta.New(
+-		os.Getenv("INSTAGRAM_USERNAME"),
+-		os.Getenv("INSTAGRAM_PASSWORD"),
+-	)
+-	if err := insta.Login(); err != nil {
+-		log.Println(err)
+-		return
+-	}
+-	defer insta.Logout()
+-
+-	for _, tag := range []string{
+-		"golang",
+-		"pizza",
+-		"google",
+-	} {
+-		if err := fetchTag(insta, tag); err != nil {
+-			log.Println(tag, err)
+-		}
+-	}
+-}
+diff --git a/examples/upload-photo/main.go b/examples/upload-photo/main.go
+deleted file mode 100644
+index c60d0c6..0000000
+--- a/examples/upload-photo/main.go
++++ /dev/null
+@@ -1,41 +0,0 @@
+-package main
+-
+-import (
+-	"log"
+-	"net/http"
+-	"os"
+-
+-	"github.com/Davincible/goinsta/v3"
+-)
+-
+-func main() {
+-	insta := goinsta.New(
+-		os.Getenv("INSTAGRAM_USERNAME"),
+-		os.Getenv("INSTAGRAM_PASSWORD"),
+-	)
+-	if err := insta.Login(); err != nil {
+-		log.Fatal(err)
+-	}
+-
+-	defer insta.Logout()
+-
+-	log.Println("Download random photo")
+-	var client http.Client
+-	request, err := http.NewRequest("GET", "https://picsum.photos/800/800", nil)
+-	if err != nil {
+-		log.Fatal(err)
+-	}
+-	resp, err := client.Do(request)
+-	if err != nil {
+-		log.Fatal(err)
+-	}
+-
+-	defer resp.Body.Close()
+-
+-	postedPhoto, err := insta.UploadPhoto(resp.Body, "awesome! :)", 1, 1)
+-	if err != nil {
+-		log.Fatal(err)
+-	}
+-
+-	log.Printf("Success upload photo %s", postedPhoto.ID)
+-}
+diff --git a/examples/upload-video/main.go b/examples/upload-video/main.go
+deleted file mode 100644
+index 6b0c06c..0000000
+--- a/examples/upload-video/main.go
++++ /dev/null
+@@ -1,55 +0,0 @@
+-package main
+-
+-import (
+-	"bufio"
+-	"flag"
+-	"log"
+-	"net/http"
+-	"os"
+-
+-	"github.com/Davincible/goinsta/v3"
+-)
+-
+-var (
+-	filepath = flag.String("filepath", "video.mp4", "Video file path")
+-)
+-
+-func main() {
+-	flag.Parse()
+-	log.Println("filepath", *filepath)
+-	insta := goinsta.New(
+-		os.Getenv("INSTAGRAM_USERNAME"),
+-		os.Getenv("INSTAGRAM_PASSWORD"),
+-	)
+-	if err := insta.Login(); err != nil {
+-		log.Fatal(err)
+-	}
+-
+-	defer insta.Logout()
+-
+-	log.Println("Download random photo")
+-	var client http.Client
+-	request, err := http.NewRequest("GET", "https://picsum.photos/800/800", nil)
+-	if err != nil {
+-		log.Fatal(err)
+-	}
+-	thumbnail, err := client.Do(request)
+-	if err != nil {
+-		log.Fatal(err)
+-	}
+-
+-	defer thumbnail.Body.Close()
+-
+-	log.Println("Read video file")
+-	file, err := os.Open(*filepath)
+-	if err != nil {
+-		log.Fatal(err)
+-	}
+-
+-	postedVideo, err := insta.UploadVideo(bufio.NewReader(file), "awesomeVID", "awesome! :)", thumbnail.Body)
+-	if err != nil {
+-		log.Fatal(err)
+-	}
+-
+-	log.Printf("Success upload video %s", postedVideo.ID)
+-}
+diff --git a/examples/verification/main.go b/examples/verification/main.go
+deleted file mode 100644
+index 129b307..0000000
+--- a/examples/verification/main.go
++++ /dev/null
+@@ -1,53 +0,0 @@
+-package main
+-
+-import (
+-	"log"
+-	"os"
+-
+-	"github.com/Davincible/goinsta/v3"
+-	"github.com/tcnksm/go-input"
+-)
+-
+-func main() {
+-	insta := goinsta.New(
+-		os.Getenv("INSTAGRAM_USERNAME"),
+-		os.Getenv("INSTAGRAM_PASSWORD"),
+-	)
+-	if err := insta.Login(); err != nil {
+-		switch v := err.(type) {
+-		case goinsta.ChallengeError:
+-			err := insta.Challenge.ProcessOld(v.Challenge.APIPath)
+-			if err != nil {
+-				log.Fatalln(err)
+-			}
+-
+-			ui := &input.UI{
+-				Writer: os.Stdout,
+-				Reader: os.Stdin,
+-			}
+-
+-			query := "What is SMS code for instagram?"
+-			code, err := ui.Ask(query, &input.Options{
+-				Default:  "000000",
+-				Required: true,
+-				Loop:     true,
+-			})
+-			if err != nil {
+-				log.Fatalln(err)
+-			}
+-
+-			err = insta.Challenge.SendSecurityCode(code)
+-			if err != nil {
+-				log.Fatalln(err)
+-			}
+-
+-			insta.Account = insta.Challenge.LoggedInUser
+-		default:
+-			log.Fatalln(err)
+-		}
+-
+-		log.Printf("logged in as %s \n", insta.Account.Username)
+-	}
+-
+-	defer insta.Logout()
+-}
+diff --git a/go.mod b/go.mod
+index ee1bff5..ced6146 100644
+--- a/go.mod
++++ b/go.mod
+@@ -3,9 +3,8 @@ module github.com/Davincible/goinsta/v3
+ go 1.18
+ 
+ require (
+-	github.com/chromedp/cdproto v0.0.0-20220530001853-c0f376d894d1
+-	github.com/chromedp/chromedp v0.8.2
+-	github.com/tcnksm/go-input v0.0.0-20180404061846-548a7d7a8ee8
++	github.com/chromedp/cdproto v0.0.0-20220901095120-1a01299a2163
++	github.com/chromedp/chromedp v0.8.5
+ )
+ 
+ require (
+@@ -16,7 +15,5 @@ require (
+ 	github.com/josharian/intern v1.0.0 // indirect
+ 	github.com/mailru/easyjson v0.7.7 // indirect
+ 	github.com/pkg/errors v0.9.1
+-	golang.org/x/crypto v0.0.0-20220112180741-5e0467b6c7ce // indirect
+-	golang.org/x/sys v0.0.0-20220608164250-635b8c9b7f68 // indirect
+-	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 // indirect
++	golang.org/x/sys v0.0.0-20220908164124-27713097b956 // indirect
+ )
+diff --git a/go.sum b/go.sum
+index 8c0423a..4e70d8b 100644
+--- a/go.sum
++++ b/go.sum
+@@ -1,7 +1,7 @@
+-github.com/chromedp/cdproto v0.0.0-20220530001853-c0f376d894d1 h1:dl8AS1mmnSC7kTpRKD4mrDrV3HJqFAm975HWap3HGg0=
+-github.com/chromedp/cdproto v0.0.0-20220530001853-c0f376d894d1/go.mod h1:5Y4sD/eXpwrChIuxhSr/G20n9CdbCmoerOHnuAf0Zr0=
+-github.com/chromedp/chromedp v0.8.2 h1:EYSsSqWuKYwyHZEJpU00kOGOMz5DE0qDVckelzauMFA=
+-github.com/chromedp/chromedp v0.8.2/go.mod h1:vpbCNtfYeOUo2q5reuwX6ZmPpbHRf5PZfAqNR2ObB+g=
++github.com/chromedp/cdproto v0.0.0-20220901095120-1a01299a2163 h1:d3i/+z+spo9ieg6L5FWdGmcgvAzsyFNl1vsr68RjzBc=
++github.com/chromedp/cdproto v0.0.0-20220901095120-1a01299a2163/go.mod h1:5Y4sD/eXpwrChIuxhSr/G20n9CdbCmoerOHnuAf0Zr0=
++github.com/chromedp/chromedp v0.8.5 h1:HAVg54yQFcn7sg5reVjXtoI1eQaFxhjAjflHACicUFw=
++github.com/chromedp/chromedp v0.8.5/go.mod h1:xal2XY5Di7m/bzlGwtoYpmgIOfDqCakOIVg5OfdkPZ4=
+ github.com/chromedp/sysutil v1.0.0 h1:+ZxhTpfpZlmchB58ih/LBHX52ky7w2VhQVKQMucy3Ic=
+ github.com/chromedp/sysutil v1.0.0/go.mod h1:kgWmDdq8fTzXYcKIBqIYvRRTnYb9aNS9moAV0xufSww=
+ github.com/gobwas/httphead v0.1.0 h1:exrUm0f4YX0L7EBwZHuCF4GDp8aJfVeBrlLQrs6NqWU=
+@@ -12,18 +12,12 @@ github.com/gobwas/ws v1.1.0 h1:7RFti/xnNkMJnrK7D1yQ/iCIB5OrrY/54/H930kIbHA=
+ github.com/gobwas/ws v1.1.0/go.mod h1:nzvNcVha5eUziGrbxFCo6qFIojQHjJV5cLYIbezhfL0=
+ github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=
+ github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
++github.com/ledongthuc/pdf v0.0.0-20220302134840-0c2507a12d80 h1:6Yzfa6GP0rIo/kULo2bwGEkFvCePZ3qHDDTC3/J9Swo=
+ github.com/mailru/easyjson v0.7.7 h1:UGYAvKxe3sBsEDzO8ZeWOSlIQfWFlxbzLZe7hwFURr0=
+ github.com/mailru/easyjson v0.7.7/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=
+-github.com/orisano/pixelmatch v0.0.0-20210112091706-4fa4c7ba91d5 h1:1SoBaSPudixRecmlHXb/GxmaD3fLMtHIDN13QujwQuc=
++github.com/orisano/pixelmatch v0.0.0-20220722002657-fb0b55479cde h1:x0TT0RDC7UhAVbbWWBzr41ElhJx5tXPWkIHA2HWPRuw=
+ github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
+ github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+-github.com/tcnksm/go-input v0.0.0-20180404061846-548a7d7a8ee8 h1:RB0v+/pc8oMzPsN97aZYEwNuJ6ouRJ2uhjxemJ9zvrY=
+-github.com/tcnksm/go-input v0.0.0-20180404061846-548a7d7a8ee8/go.mod h1:IlWNj9v/13q7xFbaK4mbyzMNwrZLaWSHx/aibKIZuIg=
+-golang.org/x/crypto v0.0.0-20220112180741-5e0467b6c7ce h1:Roh6XWxHFKrPgC/EQhVubSAGQ6Ozk6IdxHSzt1mR0EI=
+-golang.org/x/crypto v0.0.0-20220112180741-5e0467b6c7ce/go.mod h1:IxCIyHEi3zRg3s0A5j5BB6A9Jmi73HwBIUl50j+osU4=
+-golang.org/x/sys v0.0.0-20201119102817-f84b799fce68/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20201207223542-d4d67f95c62d/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+-golang.org/x/sys v0.0.0-20220608164250-635b8c9b7f68 h1:z8Hj/bl9cOV2grsOpEaQFUaly0JWN3i97mo3jXKJNp0=
+-golang.org/x/sys v0.0.0-20220608164250-635b8c9b7f68/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+-golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 h1:v+OssWQX+hTHEmOBgwxdZxK4zHq3yOs8F9J7mk0PY8E=
+-golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
++golang.org/x/sys v0.0.0-20220908164124-27713097b956 h1:XeJjHH1KiLpKGb6lvMiksZ9l0fVUh+AmGcm0nOMEBOY=
++golang.org/x/sys v0.0.0-20220908164124-27713097b956/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+diff --git a/goinsta.go b/goinsta.go
+index 4476010..7775aa0 100644
+--- a/goinsta.go
++++ b/goinsta.go
+@@ -6,7 +6,6 @@ import (
+ 	"errors"
+ 	"fmt"
+ 	"io"
+-	"io/ioutil"
+ 	"net/http"
+ 	"net/http/cookiejar"
+ 	neturl "net/url"
+@@ -68,6 +67,7 @@ type Instagram struct {
+ 	headerOptions sync.Map
+ 	// expiry of X-Mid cookie
+ 	xmidExpiry int64
++	xmidMu     *sync.RWMutex
+ 	// Public Key
+ 	pubKey string
+ 	// Public Key ID
+@@ -76,6 +76,8 @@ type Instagram struct {
+ 	device Device
+ 	// User-Agent
+ 	userAgent string
++	// Session Nonce
++	session string
+ 
+ 	// Instagram objects
+ 
+@@ -235,6 +237,7 @@ func New(username, password string, totp_seed ...string) *Instagram {
+ 		psID:          "UFS-" + generateUUID() + "-0",
+ 		headerOptions: sync.Map{},
+ 		xmidExpiry:    -1,
++		xmidMu:        &sync.RWMutex{},
+ 		device:        GalaxyS10,
+ 		userAgent:     createUserAgent(GalaxyS10),
+ 		c: &http.Client{
+@@ -334,6 +337,7 @@ func (insta *Instagram) ExportConfig() ConfigFile {
+ 		Account:       insta.Account,
+ 		Device:        insta.device,
+ 		TOTP:          insta.totp,
++		SessionNonce:  insta.session,
+ 	}
+ 
+ 	setHeaders := func(key, value interface{}) bool {
+@@ -354,7 +358,7 @@ func (insta *Instagram) Export(path string) error {
+ 		return err
+ 	}
+ 
+-	return ioutil.WriteFile(path, bytes, 0o644)
++	return os.WriteFile(path, bytes, 0o644)
+ }
+ 
+ // Export exports selected *Instagram object options to an io.Writer
+@@ -373,7 +377,7 @@ func (insta *Instagram) ExportIO(writer io.Writer) error {
+ //
+ // This function does not set proxy automatically. Use SetProxy after this call.
+ func ImportReader(r io.Reader, args ...interface{}) (*Instagram, error) {
+-	bytes, err := ioutil.ReadAll(r)
++	bytes, err := io.ReadAll(r)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+@@ -397,11 +401,13 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
+ 		totp:          config.TOTP,
+ 		dID:           config.DeviceID,
+ 		fID:           config.FamilyID,
++		psID:          "UFS-" + generateUUID() + "-0",
+ 		uuid:          config.UUID,
+ 		rankToken:     config.RankToken,
+ 		token:         config.Token,
+ 		pid:           config.PhoneID,
+ 		xmidExpiry:    config.XmidExpiry,
++		xmidMu:        &sync.RWMutex{},
+ 		headerOptions: sync.Map{},
+ 		device:        config.Device,
+ 		c: &http.Client{
+@@ -419,6 +425,7 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
+ 		privacyCalled:    utilities.NewABool(),
+ 		privacyRequested: utilities.NewABool(),
+ 		pubKeyID:         -1,
++		session:          config.SessionNonce,
+ 	}
+ 	insta.userAgent = createUserAgent(insta.device)
+ 
+@@ -524,7 +531,31 @@ func (insta *Instagram) Login(password ...string) (err error) {
+ 
+ // Logout closes current session
+ func (insta *Instagram) Logout() error {
+-	_, err := insta.sendSimpleRequest(urlLogout)
++	if insta.session == "" {
++		return ErrSessionNotSet
++	}
++
++	body, _, err := insta.sendRequest(&reqOptions{
++		Endpoint: urlLogout,
++		IsPost:   true,
++		Query: map[string]string{
++			"session_flush_nonce": insta.session,
++			"phone_id":            insta.fID,
++			"guid":                insta.uuid,
++			"device_id":           insta.dID,
++			"_uuid":               insta.uuid,
++		},
++	})
++
++	var resp ErrorN
++	if err := json.Unmarshal(body, &resp); err != nil {
++		return err
++	}
++
++	if resp.Status != "ok" {
++		return ErrLogoutFailed
++	}
++
+ 	insta.c.Jar = nil
+ 	insta.c = nil
+ 	return err
+@@ -532,13 +563,12 @@ func (insta *Instagram) Logout() error {
+ 
+ func (insta *Instagram) OpenApp() (err error) {
+ 	// First refresh tokens after being logged in
+-	err = insta.zrToken()
+-	if err != nil {
++	if err = insta.zrToken(); err != nil {
+ 		return
+ 	}
+ 
+-	if err := insta.sync(); err != nil {
+-		return err
++	if err = insta.sync(); err != nil {
++		return
+ 	}
+ 
+ 	// Second start open app routine async
+@@ -549,20 +579,19 @@ func (insta *Instagram) OpenApp() (err error) {
+ 	errChan := make(chan error, 15)
+ 
+ 	wg.Add(1)
+-	go func() {
++	go func(wg *sync.WaitGroup) {
+ 		defer wg.Done()
+-		err := insta.getAccountFamily()
+-		if err != nil {
++		if err := insta.getAccountFamily(); err != nil {
+ 			if errIsFatal(err) {
+ 				errChan <- err
+ 				return
+ 			}
+ 			insta.warnHandler("Non fatal error while fetching account family:", err)
+ 		}
+-	}()
++	}(wg)
+ 
+ 	wg.Add(1)
+-	go func() {
++	go func(wg *sync.WaitGroup) {
+ 		defer wg.Done()
+ 		if err := insta.getNdxSteps(); err != nil {
+ 			if errIsFatal(err) {
+@@ -571,22 +600,21 @@ func (insta *Instagram) OpenApp() (err error) {
+ 			}
+ 			insta.warnHandler("Non fatal error while fetching ndx steps:", err)
+ 		}
+-	}()
++	}(wg)
+ 
+ 	wg.Add(1)
+-	go func() {
++	go func(wg *sync.WaitGroup) {
+ 		defer wg.Done()
+ 		if !insta.Timeline.Next() {
+-			err := insta.Timeline.Error()
+-			if err != ErrNoMore {
++			if err := insta.Timeline.Error(); err != ErrNoMore {
+ 				errChan <- errors.New("Failed to fetch timeline: " +
+ 					err.Error())
+ 			}
+ 		}
+-	}()
++	}(wg)
+ 
+ 	wg.Add(1)
+-	go func() {
++	go func(wg *sync.WaitGroup) {
+ 		defer wg.Done()
+ 		if err := insta.callNotifBadge(); err != nil {
+ 			if errIsFatal(err) {
+@@ -595,10 +623,10 @@ func (insta *Instagram) OpenApp() (err error) {
+ 			}
+ 			insta.warnHandler("Non fatal error while fetching notify badge", err)
+ 		}
+-	}()
++	}(wg)
+ 
+ 	wg.Add(1)
+-	go func() {
++	go func(wg *sync.WaitGroup) {
+ 		defer wg.Done()
+ 		if err := insta.banyan(); err != nil {
+ 			if errIsFatal(err) {
+@@ -607,36 +635,35 @@ func (insta *Instagram) OpenApp() (err error) {
+ 			}
+ 			insta.warnHandler("Non fatal error while fetching banyan", err)
+ 		}
+-	}()
++	}(wg)
+ 
+ 	wg.Add(1)
+-	go func() {
++	go func(wg *sync.WaitGroup) {
+ 		defer wg.Done()
+-		if err = insta.callMediaBlocked(); err != nil {
++		if err := insta.callMediaBlocked(); err != nil {
+ 			if errIsFatal(err) {
+ 				errChan <- err
+ 				return
+ 			}
+ 			insta.warnHandler("Non fatal error while fetching blocked media", err)
+ 		}
+-	}()
++	}(wg)
+ 
+ 	wg.Add(1)
+-	go func() {
++	go func(wg *sync.WaitGroup) {
+ 		defer wg.Done()
+ 		// no clue what theses values could be used for
+-		_, err = insta.getCooldowns()
+-		if err != nil {
++		if _, err := insta.getCooldowns(); err != nil {
+ 			if errIsFatal(err) {
+ 				errChan <- err
+ 				return
+ 			}
+ 			insta.warnHandler("Non fatal error while fetching cool downs", err)
+ 		}
+-	}()
++	}(wg)
+ 
+ 	wg.Add(1)
+-	go func() {
++	go func(wg *sync.WaitGroup) {
+ 		defer wg.Done()
+ 		if !insta.Discover.Next() {
+ 			if errIsFatal(err) {
+@@ -646,10 +673,10 @@ func (insta *Instagram) OpenApp() (err error) {
+ 			insta.warnHandler("Non fatal error while fetching explore page",
+ 				insta.Discover.Error())
+ 		}
+-	}()
++	}(wg)
+ 
+ 	wg.Add(1)
+-	go func() {
++	go func(wg *sync.WaitGroup) {
+ 		defer wg.Done()
+ 		if err := insta.getConfig(); err != nil {
+ 			if errIsFatal(err) {
+@@ -658,36 +685,34 @@ func (insta *Instagram) OpenApp() (err error) {
+ 			}
+ 			insta.warnHandler("Non fatal error while fetching config", err)
+ 		}
+-	}()
++	}(wg)
+ 
+ 	wg.Add(1)
+-	go func() {
++	go func(wg *sync.WaitGroup) {
+ 		defer wg.Done()
+ 		// no clue what theses values could be used for
+-		_, err = insta.getScoresBootstrapUsers()
+-		if err != nil {
++		if _, err := insta.getScoresBootstrapUsers(); err != nil {
+ 			if errIsFatal(err) {
+ 				errChan <- err
+ 				return
+ 			}
+ 			insta.warnHandler("Non fatal error while fetching bootstrap user scores", err)
+ 		}
+-	}()
++	}(wg)
+ 
+ 	wg.Add(1)
+-	go func() {
++	go func(wg *sync.WaitGroup) {
+ 		defer wg.Done()
+ 		if !insta.Activity.Next() {
+-			err := insta.Activity.Error()
+-			if err != ErrNoMore {
++			if err := insta.Activity.Error(); err != ErrNoMore {
+ 				errChan <- errors.New("Failed to fetch recent activity: " +
+ 					err.Error())
+ 			}
+ 		}
+-	}()
++	}(wg)
+ 
+ 	wg.Add(1)
+-	go func() {
++	go func(wg *sync.WaitGroup) {
+ 		defer wg.Done()
+ 		if err := insta.sendAdID(); err != nil {
+ 			if errIsFatal(err) {
+@@ -696,10 +721,10 @@ func (insta *Instagram) OpenApp() (err error) {
+ 			}
+ 			insta.warnHandler("Non fatal error while sending ad id", err)
+ 		}
+-	}()
++	}(wg)
+ 
+ 	wg.Add(1)
+-	go func() {
++	go func(wg *sync.WaitGroup) {
+ 		defer wg.Done()
+ 		if err := insta.callStClPushPerm(); err != nil {
+ 			if errIsFatal(err) {
+@@ -708,22 +733,21 @@ func (insta *Instagram) OpenApp() (err error) {
+ 			}
+ 			insta.warnHandler("Non fatal error while calling store client push permissions", err)
+ 		}
+-	}()
++	}(wg)
+ 
+ 	wg.Add(1)
+-	go func() {
++	go func(wg *sync.WaitGroup) {
+ 		defer wg.Done()
+ 		if !insta.Inbox.InitialSnapshot() {
+-			err := insta.Inbox.Error()
+-			if err != ErrNoMore {
++			if err := insta.Inbox.Error(); err != ErrNoMore {
+ 				errChan <- errors.New("Failed to fetch initial messages inbox snapshot: " +
+ 					err.Error())
+ 			}
+ 		}
+-	}()
++	}(wg)
+ 
+ 	wg.Add(1)
+-	go func() {
++	go func(wg *sync.WaitGroup) {
+ 		defer wg.Done()
+ 		if err := insta.callContPointSig(); err != nil {
+ 			if errIsFatal(err) {
+@@ -732,9 +756,10 @@ func (insta *Instagram) OpenApp() (err error) {
+ 			}
+ 			insta.warnHandler("Non fatal error while calling contact point signal:", err)
+ 		}
+-	}()
++	}(wg)
+ 
+ 	wg.Wait()
++
+ 	select {
+ 	case err := <-errChan:
+ 		return err
+@@ -799,17 +824,19 @@ func (insta *Instagram) login() error {
+ // parseLogin gets called from Login and Login2FA
+ func (insta *Instagram) parseLogin(body []byte) error {
+ 	var res struct {
+-		Status  string   `json:"status"`
+-		Account *Account `json:"logged_in_user"`
++		Status       string   `json:"status"`
++		Account      *Account `json:"logged_in_user"`
++		SessionNonce string   `json:"session_flush_nonce"`
+ 	}
+ 
+ 	err := json.Unmarshal(body, &res)
+ 	if err != nil {
+-		return fmt.Errorf("Failed to parse json from login response with err: %w", err)
++		return fmt.Errorf("failed to parse json from login response with err: %w", err)
+ 	}
+ 
+ 	insta.Account = res.Account
+ 	insta.Account.insta = insta
++	insta.session = res.SessionNonce
+ 	insta.rankToken = strconv.FormatInt(insta.Account.ID, 10) + "_" + insta.uuid
+ 
+ 	return nil
+@@ -902,7 +929,10 @@ func (insta *Instagram) zrToken() error {
+ 	token := res["token"].(map[string]interface{})
+ 	ttl := token["ttl"].(float64)
+ 	t := token["request_time"].(float64)
++
++	insta.xmidMu.Lock()
+ 	insta.xmidExpiry = int64(t + ttl)
++	insta.xmidMu.Unlock()
+ 
+ 	return err
+ }
+diff --git a/hashtags.go b/hashtags.go
+index 321bfdc..5ad1cb7 100644
+--- a/hashtags.go
++++ b/hashtags.go
+@@ -71,7 +71,10 @@ type hashtagPageInfo struct {
+ }
+ 
+ func (h *Hashtag) setValues() {
+-	h.PageInfo = make(map[string]hashtagPageInfo)
++	if h.PageInfo == nil {
++		h.PageInfo = make(map[string]hashtagPageInfo)
++	}
++
+ 	for _, s := range h.Sections {
+ 		for _, m := range s.LayoutContent.Medias {
+ 			setToItem(m.Item, h)
+@@ -137,7 +140,7 @@ func (h *Hashtag) next(tab string) bool {
+ 		return false
+ 	}
+ 
+-	if !(tab == "top" || tab == "recent" || tab == "clips") {
++	if tab != "top" && tab != "recent" && tab != "clips" {
+ 		h.err = ErrInvalidTab
+ 		return false
+ 	}
+@@ -173,9 +176,9 @@ func (h *Hashtag) next(tab string) bool {
+ 		h.err = err
+ 		return false
+ 	}
++
+ 	res := &Hashtag{}
+-	err = json.Unmarshal(body, res)
+-	if err != nil {
++	if err := json.Unmarshal(body, res); err != nil {
+ 		h.err = err
+ 		return false
+ 	}
+diff --git a/headless.go b/headless.go
+index 0d40fca..0f67d3b 100644
+--- a/headless.go
++++ b/headless.go
+@@ -4,7 +4,7 @@ import (
+ 	"context"
+ 	"errors"
+ 	"fmt"
+-	"io/ioutil"
++	"os"
+ 	"strings"
+ 	"time"
+ 
+@@ -75,7 +75,7 @@ func takeScreenshot(fn string) chromedp.Action {
+ 			if err != nil {
+ 				return err
+ 			}
+-			if err := ioutil.WriteFile(fn, buf, 0o644); err != nil {
++			if err := os.WriteFile(fn, buf, 0o644); err != nil {
+ 				return err
+ 			}
+ 			return nil
+diff --git a/inbox.go b/inbox.go
+index 48ad609..8448319 100644
+--- a/inbox.go
++++ b/inbox.go
+@@ -22,7 +22,7 @@ type Inbox struct {
+ 	HasOlder            bool   `json:"has_older"`
+ 	Cursor              string `json:"oldest_cursor"`
+ 	UnseenCount         int    `json:"unseen_count"`
+-	UnseenCountTs       int64  `json:"unseen_count_ts"`
++	UnseenCountTS       int64  `json:"unseen_count_ts"`
+ 	MostRecentInviter   User   `json:"most_recent_inviter"`
+ 	BlendedInboxEnabled bool   `json:"blended_inbox_enabled"`
+ 	NextCursor          struct {
+@@ -44,7 +44,6 @@ type Inbox struct {
+ type Conversation struct {
+ 	insta     *Instagram
+ 	err       error
+-	firstRun  bool
+ 	isPending bool
+ 
+ 	ID   string `json:"thread_id"`
+@@ -97,7 +96,7 @@ type InboxItem struct {
+ 	TqSeqID       int    `json:"tq_seq_id"`
+ 
+ 	// Type there are a few types:
+-	// text, like, raven_media, action_log, media_share, reel_share, link
++	// text, like, raven_media, action_log, media_share, reel_share, link, clip
+ 	Type string `json:"item_type"`
+ 
+ 	// Text is message text.
+@@ -108,6 +107,7 @@ type InboxItem struct {
+ 
+ 	Like string `json:"like"`
+ 
++	Clip          *clip          `json:"clip"`
+ 	Reel          *reelShare     `json:"reel_share"`
+ 	Media         *Item          `json:"media"`
+ 	MediaShare    *Item          `json:"media_share"`
+@@ -118,10 +118,10 @@ type InboxItem struct {
+ 	Link          struct {
+ 		Text    string `json:"text"`
+ 		Context struct {
+-			Url      string `json:"link_url"`
++			URL      string `json:"link_url"`
+ 			Title    string `json:"link_title"`
+ 			Summary  string `json:"link_summary"`
+-			ImageUrl string `json:"link_image_url"`
++			ImageURL string `json:"link_image_url"`
+ 		} `json:"link_context"`
+ 	} `json:"link"`
+ }
+@@ -164,6 +164,10 @@ type reelShare struct {
+ 	Media       Item   `json:"media"`
+ }
+ 
++type clip struct {
++	Media Item `json:"clip"`
++}
++
+ type actionLog struct {
+ 	Description string `json:"description"`
+ }
+@@ -303,7 +307,7 @@ func (inbox *Inbox) Sync() error {
+ 			"limit":                      "0",
+ 		})
+ 	} else {
+-		if inbox.InitialSnapshot() == false {
++		if !inbox.InitialSnapshot() {
+ 			if inbox.err != ErrNoMore {
+ 				return inbox.err
+ 			}
+@@ -451,8 +455,14 @@ func (c *Conversation) Approve() error {
+ 	// Add to conv list
+ 	insta.Inbox.updateConv(c)
+ 
+-	c.GetItems()
+-	c.MarkAsSeen(*c.Items[len(c.Items)-1])
++	if err := c.GetItems(); err != nil {
++		return err
++	}
++
++	if err := c.MarkAsSeen(*c.Items[len(c.Items)-1]); err != nil {
++		return err
++	}
++
+ 	return nil
+ }
+ 
+@@ -479,10 +489,15 @@ func (conv *Conversation) approve() error {
+ 	var resp struct {
+ 		Status string `json:"status"`
+ 	}
+-	err = json.Unmarshal(body, &resp)
++
++	if err := json.Unmarshal(body, &resp); err != nil {
++		return err
++	}
++
+ 	if resp.Status != "ok" {
+-		return fmt.Errorf("Failed to approve conversation with status: %s", resp.Status)
++		return fmt.Errorf("failed to approve conversation with status: %s", resp.Status)
+ 	}
++
+ 	return nil
+ }
+ 
+@@ -508,10 +523,15 @@ func (conv *Conversation) Hide() error {
+ 	var resp struct {
+ 		Status string `json:"status"`
+ 	}
+-	err = json.Unmarshal(body, &resp)
++
++	if err = json.Unmarshal(body, &resp); err != nil {
++		return err
++	}
++
+ 	if resp.Status != "ok" {
+-		return fmt.Errorf("Failed to hide conversation with status: %s", resp.Status)
++		return fmt.Errorf("failed to hide conversation with status: %s", resp.Status)
+ 	}
++
+ 	return nil
+ }
+ 
+@@ -700,7 +720,7 @@ func (c *Conversation) MarkAsSeen(msg InboxItem) error {
+ 		return err
+ 	}
+ 	if resp.Status != "ok" {
+-		return fmt.Errorf("Status not ok while calling msg seen, '%s'", resp.Status)
++		return fmt.Errorf("status not ok while calling msg seen, '%s'", resp.Status)
+ 	}
+ 	return nil
+ }
+diff --git a/media.go b/media.go
+index ad449e8..f70d0d6 100644
+--- a/media.go
++++ b/media.go
+@@ -3,7 +3,6 @@ package goinsta
+ import (
+ 	"bytes"
+ 	"encoding/json"
+-	"errors"
+ 	"fmt"
+ 	"io"
+ 	neturl "net/url"
+@@ -11,6 +10,8 @@ import (
+ 	"path"
+ 	"regexp"
+ 	"strings"
++
++	"github.com/pkg/errors"
+ )
+ 
+ // Media interface defines methods for both StoryMedia and FeedMedia.
+@@ -125,6 +126,7 @@ type Item struct {
+ 	HasAudio          bool    `json:"has_audio,omitempty"`
+ 	VideoDuration     float64 `json:"video_duration,omitempty"`
+ 	ViewCount         float64 `json:"view_count,omitempty"`
++	PlayCount         float64 `json:"play_count,omitempty"`
+ 	IsDashEligible    int     `json:"is_dash_eligible,omitempty"`
+ 	IsUnifiedVideo    bool    `json:"is_unified_video"`
+ 	VideoDashManifest string  `json:"video_dash_manifest,omitempty"`
+@@ -378,6 +380,10 @@ func (item *Item) Reply(text string) error {
+ 			},
+ 		},
+ 	)
++	if err != nil {
++		return err
++	}
++
+ 	return nil
+ }
+ 
+@@ -661,7 +667,10 @@ func (item *Item) changeLike(endpoint string) error {
+ func (item *Item) DownloadTo(dst string) error {
+ 	insta := item.insta
+ 	folder, file := path.Split(dst)
+-	os.MkdirAll(folder, 0o777)
++
++	if err := os.MkdirAll(folder, 0o777); err != nil {
++		return err
++	}
+ 
+ 	switch item.MediaType {
+ 	case 1:
+@@ -793,6 +802,14 @@ func (item *Item) PreviewComments() []Comment {
+ 		}
+ 
+ 		switch s[0].(type) {
++		case string:
++			comments := make([]Comment, 0)
++			for i := range s {
++				comments = append(comments, Comment{
++					Text: s[i].(string),
++				})
++			}
++			return comments
+ 		case interface{}:
+ 			comments := make([]Comment, 0)
+ 			for i := range s {
+@@ -809,14 +826,6 @@ func (item *Item) PreviewComments() []Comment {
+ 				}
+ 			}
+ 			return comments
+-		case string:
+-			comments := make([]Comment, 0)
+-			for i := range s {
+-				comments = append(comments, Comment{
+-					Text: s[i].(string),
+-				})
+-			}
+-			return comments
+ 		}
+ 	case string:
+ 		comments := []Comment{
+@@ -866,7 +875,9 @@ type FeedMedia struct {
+ // See example: examples/media/mediaDelete.go
+ func (media *FeedMedia) Delete() error {
+ 	for i := range media.Items {
+-		media.Items[i].Delete()
++		if err := media.Items[i].Delete(); err != nil {
++			return errors.Wrap(err, "failed to delete item")
++		}
+ 	}
+ 	return nil
+ }
+diff --git a/profiles.go b/profiles.go
+index 5ab619a..0194148 100644
+--- a/profiles.go
++++ b/profiles.go
+@@ -17,8 +17,6 @@ type Profiles struct {
+ //   Highlights, IGTV posts, and friendship status.
+ //
+ type Profile struct {
+-	insta *Instagram
+-
+ 	User       *User
+ 	Friendship *Friendship
+ 
+@@ -73,14 +71,14 @@ func (user *User) VisitProfile() (*Profile, error) {
+ 
+ 	// Fetch Profile Info
+ 	wg.Add(1)
+-	go func(wg *sync.WaitGroup) {
+-		info.Add(1)
++	info.Add(1)
++	go func(wg, info *sync.WaitGroup) {
+ 		defer wg.Done()
+ 		defer info.Done()
+ 		if err := user.Info("entry_point", "profile", "from_module", "blended_search"); err != nil {
+ 			errChan <- err
+ 		}
+-	}(wg)
++	}(wg, info)
+ 
+ 	// Fetch Friendship
+ 	wg.Add(1)
+@@ -138,7 +136,7 @@ func (user *User) VisitProfile() (*Profile, error) {
+ 
+ 	// Fetch IGTV
+ 	wg.Add(1)
+-	go func(wg *sync.WaitGroup) {
++	go func(wg, info *sync.WaitGroup) {
+ 		defer wg.Done()
+ 		info.Wait()
+ 		if user.IGTVCount > 0 {
+@@ -148,7 +146,7 @@ func (user *User) VisitProfile() (*Profile, error) {
+ 			}
+ 			p.IGTV = igtv
+ 		}
+-	}(wg)
++	}(wg, info)
+ 
+ 	wg.Wait()
+ 	select {
+@@ -196,7 +194,7 @@ func (prof *Profiles) ByID(id_ interface{}) (*User, error) {
+ 	case string:
+ 		id = x
+ 	default:
+-		return nil, errors.New("Invalid id, please provide a string or int(64)")
++		return nil, errors.New("invalid id, please provide a string or int(64)")
+ 	}
+ 
+ 	body, _, err := prof.insta.sendRequest(
+diff --git a/request.go b/request.go
+index 41c21e2..b4f1450 100644
+--- a/request.go
++++ b/request.go
+@@ -5,15 +5,16 @@ import (
+ 	"compress/gzip"
+ 	"context"
+ 	"encoding/json"
+-	"errors"
+ 	"fmt"
+-	"io/ioutil"
++	"io"
+ 	"math/rand"
+ 	"net/http"
+ 	"net/url"
+ 	"strconv"
+ 	"strings"
+ 	"time"
++
++	"github.com/pkg/errors"
+ )
+ 
+ type reqOptions struct {
+@@ -241,7 +242,7 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header,
+ 	defer resp.Body.Close()
+ 
+ 	insta.extractHeaders(resp.Header)
+-	body, err = ioutil.ReadAll(resp.Body)
++	body, err = io.ReadAll(resp.Body)
+ 	if err != nil {
+ 		return nil, nil, err
+ 	}
+@@ -257,10 +258,12 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header,
+ 		if err != nil {
+ 			return nil, nil, err
+ 		}
+-		body, err = ioutil.ReadAll(zr)
++
++		body, err = io.ReadAll(zr)
+ 		if err != nil {
+ 			return nil, nil, err
+ 		}
++
+ 		if err := zr.Close(); err != nil {
+ 			return nil, nil, err
+ 		}
+@@ -299,10 +302,18 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header,
+ }
+ 
+ func (insta *Instagram) checkXmidExpiry() {
++	insta.xmidMu.RLock()
++	expiry := insta.xmidExpiry
++	insta.xmidMu.RUnlock()
++
+ 	t := time.Now().Unix()
+-	if insta.xmidExpiry != -1 && t > insta.xmidExpiry-10 {
++	if expiry != -1 && t > expiry-10 {
++		insta.xmidMu.Lock()
+ 		insta.xmidExpiry = -1
+-		insta.zrToken()
++		insta.xmidMu.Unlock()
++		if err := insta.zrToken(); err != nil {
++			insta.warnHandler(errors.Wrap(err, "failed to refresh xmid cookie"))
++		}
+ 	}
+ }
+ 
+@@ -445,7 +456,7 @@ func (insta *Instagram) isError(code int, body []byte, status, endpoint string)
+ 			Message:   string(body),
+ 			ErrorType: status,
+ 		}
+-		err = json.Unmarshal(body, &ierr)
++		json.Unmarshal(body, &ierr)
+ 		if ierr.Message == "Transcode not finished yet." {
+ 			return nil
+ 		}
+@@ -454,39 +465,6 @@ func (insta *Instagram) isError(code int, body []byte, status, endpoint string)
+ 	return nil
+ }
+ 
+-func (insta *Instagram) prepareData(other ...map[string]interface{}) (string, error) {
+-	data := map[string]interface{}{
+-		"_uuid": insta.uuid,
+-	}
+-	if insta.Account != nil && insta.Account.ID != 0 {
+-		data["_uid"] = strconv.FormatInt(insta.Account.ID, 10)
+-	}
+-
+-	for i := range other {
+-		for key, value := range other[i] {
+-			data[key] = value
+-		}
+-	}
+-	b, err := json.Marshal(data)
+-	if err == nil {
+-		return string(b), err
+-	}
+-	return "", err
+-}
+-
+-func (insta *Instagram) prepareDataQuery(other ...map[string]interface{}) map[string]string {
+-	data := map[string]string{
+-		"_uuid":     insta.uuid,
+-		"device_id": insta.dID,
+-	}
+-	for i := range other {
+-		for key, value := range other[i] {
+-			data[key] = toString(value)
+-		}
+-	}
+-	return data
+-}
+-
+ func random(min, max int64) int64 {
+ 	rand.Seed(time.Now().UnixNano())
+ 	return rand.Int63n(max-min) + min
+diff --git a/search.go b/search.go
+index c45cf3b..1eec577 100644
+--- a/search.go
++++ b/search.go
+@@ -28,7 +28,6 @@ type SearchResult struct {
+ 	SearchSurface string
+ 	context       string
+ 	queryParam    string
+-	entityType    string
+ 
+ 	// Regular Search Results
+ 	Results []*TopSearchItem `json:"list"`
+diff --git a/shortid.go b/shortid.go
+index 00a1f92..38aad54 100644
+--- a/shortid.go
++++ b/shortid.go
+@@ -7,8 +7,7 @@ import (
+ )
+ 
+ func leftPad2Len(s string, padStr string, overallLen int) string {
+-	var padCountInt int
+-	padCountInt = 1 + ((overallLen - len(padStr)) / len(padStr))
++	padCountInt := 1 + ((overallLen - len(padStr)) / len(padStr))
+ 	var retStr = strings.Repeat(padStr, padCountInt) + s
+ 	return retStr[(len(retStr) - overallLen):]
+ }
+diff --git a/tests/account_test.go b/tests/account_test.go
+index b194f3e..af44685 100644
+--- a/tests/account_test.go
++++ b/tests/account_test.go
+@@ -18,7 +18,7 @@ func TestPendingFriendships(t *testing.T) {
+ 		t.Fatal(err)
+ 	}
+ 	if count == 0 {
+-		t.Fatal("No pending friend requests found")
++		t.Skip("No pending friend requests found")
+ 	}
+ 	t.Logf("Found %d pending frienships\n", count)
+ 
+@@ -47,3 +47,38 @@ func TestPendingFriendships(t *testing.T) {
+ 	}
+ 	t.Logf("After approving there are %d pending friendships remaining\n", count)
+ }
++
++func TestFollowList(t *testing.T) {
++	insta, err := goinsta.EnvRandAcc()
++	if err != nil {
++		t.Fatal(err)
++	}
++	t.Logf("Logged in as %s\n", insta.Account.Username)
++
++	users := insta.Account.Following("", goinsta.DefaultOrder)
++	for users.Next() {
++		t.Logf("Fetched %d following", len(users.Users))
++	}
++	t.Logf("Fetched %d following", len(users.Users))
++	if users.Error() != goinsta.ErrNoMore {
++		t.Fatal(users.Error())
++	}
++
++	users = insta.Account.Following("", goinsta.LatestOrder)
++	for users.Next() {
++		t.Logf("Fetched %d following (latest order)", len(users.Users))
++	}
++	t.Logf("Fetched %d following (latest order)", len(users.Users))
++	if users.Error() != goinsta.ErrNoMore {
++		t.Fatal(users.Error())
++	}
++
++	users = insta.Account.Followers("")
++	for users.Next() {
++		t.Logf("Fetched %d followers", len(users.Users))
++	}
++	t.Logf("Fetched %d followers", len(users.Users))
++	if users.Error() != goinsta.ErrNoMore {
++		t.Fatal(users.Error())
++	}
++}
+diff --git a/tests/feed_test.go b/tests/feed_test.go
+index 04211ad..4cf52ba 100644
+--- a/tests/feed_test.go
++++ b/tests/feed_test.go
+@@ -15,8 +15,6 @@ func TestFeedUser(t *testing.T) {
+ 	}
+ 	t.Logf("Logged in as %s\n", insta.Account.Username)
+ 
+-	insta.SetProxy("http://localhost:8080", false, true)
+-
+ 	sr, err := insta.Searchbar.SearchUser("elonrmuskk")
+ 	if err != nil {
+ 		t.Fatal(err)
+@@ -26,6 +24,7 @@ func TestFeedUser(t *testing.T) {
+ 
+ 	next := feed.NextID
+ 	for i := 0; feed.Next(); i++ {
++		t.Logf("Fetched feed page %d/5", i)
+ 		if feed.NextID == next {
+ 			t.Fatal("Next ID must be different after each request")
+ 		}
+@@ -37,10 +36,6 @@ func TestFeedUser(t *testing.T) {
+ 			t.Fatalf("Failed to fetch comment info: %v", err)
+ 		}
+ 
+-		for _, post := range feed.Latest() {
+-			t.Logf("%d comments found", post.CommentInfo.CommentCount)
+-		}
+-
+ 		next = feed.NextID
+ 		if i == 5 {
+ 			break
+diff --git a/tests/igtv_test.go b/tests/igtv_test.go
+index 259ccff..3e0fd2b 100644
+--- a/tests/igtv_test.go
++++ b/tests/igtv_test.go
+@@ -116,6 +116,8 @@ func TestIGTVLive(t *testing.T) {
+ }
+ 
+ func TestIGTVDiscover(t *testing.T) {
++	t.Skip("Skipping IGTV Discover, depricated")
++
+ 	insta, err := goinsta.EnvRandAcc()
+ 	if err != nil {
+ 		t.Fatal(err)
+diff --git a/tests/inbox_test.go b/tests/inbox_test.go
+index cc69054..f668589 100644
+--- a/tests/inbox_test.go
++++ b/tests/inbox_test.go
+@@ -19,7 +19,6 @@ var possibleUsers = []string{
+ 	"dualipa",
+ 	"stassiebaby",
+ 	"kourtneykardash",
+-	"kendallsamore",
+ 	"f1",
+ 	"madscandids",
+ 	"9gag",
+@@ -64,12 +63,11 @@ func TestInboxSync(t *testing.T) {
+ 	t.Logf("Logged in as %s\n", insta.Account.Username)
+ 	insta.SetWarnHandler(t.Log)
+ 
+-	if !insta.Inbox.InitialSnapshot() {
++	if !insta.Inbox.InitialSnapshot() && insta.Inbox.Error() != goinsta.ErrNoMore {
+ 		t.Fatal(insta.Inbox.Error())
+ 	}
+ 
+-	err = insta.Inbox.Sync()
+-	if err != nil {
++	if err := insta.Inbox.Sync(); err != nil {
+ 		t.Fatal(err)
+ 	}
+ 	t.Logf("Fetched %d conversations", len(insta.Inbox.Conversations))
+diff --git a/tests/login_test.go b/tests/login_test.go
+index 377888e..85010f4 100644
+--- a/tests/login_test.go
++++ b/tests/login_test.go
+@@ -12,7 +12,10 @@ func TestImportAccount(t *testing.T) {
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+-	insta.OpenApp()
++	if err := insta.OpenApp(); err != nil {
++		t.Fatal(err)
++	}
++
+ 	t.Logf("logged into Instagram as user '%s'", insta.Account.Username)
+ 	logPosts(t, insta)
+ }
+@@ -23,14 +26,23 @@ func TestLogin(t *testing.T) {
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
++	t.Logf("Attempting to login as %s\n", user)
++	if user == "codebrewernl" {
++		t.Skip()
++	}
+ 
+ 	insta := goinsta.New(user, pass)
+-	err = insta.Login()
+-	if err != nil {
++	if err = insta.Login(); err != nil {
+ 		t.Fatal(err)
+ 	}
+-	t.Logf("Logged in successfully as %s\n", user)
++	t.Log("Logged in successfully")
+ 	logPosts(t, insta)
++
++	// Test Logout
++	if err := insta.Logout(); err != nil {
++		t.Fatal(err)
++	}
++	t.Log("Logged out successfully")
+ }
+ 
+ func logPosts(t *testing.T, insta *goinsta.Instagram) {
+diff --git a/tests/search_test.go b/tests/search_test.go
+index 67198fd..79454e7 100644
+--- a/tests/search_test.go
++++ b/tests/search_test.go
+@@ -16,7 +16,7 @@ func TestSearchUser(t *testing.T) {
+ 	t.Logf("Logged in as %s\n", insta.Account.Username)
+ 
+ 	// Search for users
+-	result, err := insta.Searchbar.SearchUser("crownme_delisamarie")
++	result, err := insta.Searchbar.SearchUser("nicky")
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+@@ -26,6 +26,9 @@ func TestSearchUser(t *testing.T) {
+ 	t.Logf("Result length is %d", len(result.Users))
+ 
+ 	// Select a random user
++	if len(result.Users) == 0 {
++		t.Fatal("No search results found! Change search query or fix api")
++	}
+ 	user := result.Users[rand.Intn(len(result.Users))]
+ 	err = result.RegisterUserClick(user)
+ 	if err != nil {
+@@ -40,8 +43,7 @@ func TestSearchUser(t *testing.T) {
+ 
+ 	// Get user feed
+ 	feed := user.Feed()
+-	s := feed.Next()
+-	if !s {
++	if !feed.Next() {
+ 		t.Fatalf("Failed to get feed: %s", feed.Error())
+ 	}
+ 	t.Logf("Found %d posts", len(feed.Items))
+diff --git a/tests/sysacc_test.go b/tests/sysacc_test.go
+index 85c6805..9279815 100644
+--- a/tests/sysacc_test.go
++++ b/tests/sysacc_test.go
+@@ -16,7 +16,7 @@ import (
+ 	"github.com/Davincible/goinsta/v3"
+ )
+ 
+-var errNoAPIKEY = errors.New("No API Key has been found. Please add one to .env")
++var errNoAPIKEY = errors.New("No Pixabay API Key has been found. Please add one to .env as PIXABAY_API_KEY")
+ 
+ type pixaBayRes struct {
+ 	Total     int `json:"total"`
+@@ -38,30 +38,11 @@ type pixaBayRes struct {
+ }
+ 
+ type video struct {
+-	URL    string `json:"url"`
+-	Width  int    `json:"width"`
+-	Height int    `json:"height"`
+-	Size   int    `json:"size"`
+-}
+-
+-func TestGetRandomAccount(t *testing.T) {
+-	for i := 0; i < 50; i++ {
+-		insta, err := goinsta.EnvRandAcc()
+-		if err != nil {
+-			t.Fatal(err)
+-		}
+-		t.Log(insta.Account.Username)
+-	}
+-}
+-
+-func TestGetRandomLogin(t *testing.T) {
+-	for i := 0; i < 50; i++ {
+-		uname, pw, err := goinsta.EnvRandLogin()
+-		if err != nil {
+-			t.Fatal(err)
+-		}
+-		t.Log(uname, pw)
+-	}
++	URL     string `json:"url"`
++	Width   int    `json:"width"`
++	Height  int    `json:"height"`
++	Size    int    `json:"size"`
++	Content []byte
+ }
+ 
+ func TestEnvLoadAccs(t *testing.T) {
+@@ -125,7 +106,35 @@ func getPixabayAPIKey() (string, error) {
+ 	return "", errNoAPIKEY
+ }
+ 
+-func getVideo(o ...map[string]interface{}) ([]byte, error) {
++func getPhoto(width, height int, i ...int) (io.Reader, error) {
++	url := fmt.Sprintf("https://picsum.photos/%d/%d", width, height)
++	resp, err := http.Get(url)
++	if err != nil {
++		return nil, err
++	}
++	defer resp.Body.Close()
++
++	if resp.StatusCode != 200 {
++		// Retry on failure
++		if len(i) == 0 || i[0] < 5 {
++			c := 0
++			if len(i) > 0 {
++				c = i[0] + 1
++			}
++			fmt.Println("Failed to get photo, retrying...")
++			time.Sleep(5 * time.Second)
++			return getPhoto(width, height, c)
++		}
++		return nil, fmt.Errorf("Get image status code %d", resp.StatusCode)
++	}
++
++	buf := new(bytes.Buffer)
++	_, err = buf.ReadFrom(resp.Body)
++
++	return buf, err
++}
++
++func getVideo(o ...map[string]interface{}) (*video, error) {
+ 	key, err := getPixabayAPIKey()
+ 	if err != nil {
+ 		return nil, err
+@@ -183,5 +192,6 @@ func getVideo(o ...map[string]interface{}) ([]byte, error) {
+ 	if err := resp.Body.Close(); err != nil {
+ 		return nil, err
+ 	}
+-	return video, nil
++	vid.Content = video
++	return &vid, nil
+ }
+diff --git a/tests/upload_test.go b/tests/upload_test.go
+index e5b1a10..c675ab5 100644
+--- a/tests/upload_test.go
++++ b/tests/upload_test.go
+@@ -5,7 +5,6 @@ import (
+ 	"errors"
+ 	"io"
+ 	"log"
+-	"net/http"
+ 	"os"
+ 	"testing"
+ 
+@@ -21,11 +20,10 @@ func TestUploadPhoto(t *testing.T) {
+ 	insta.SetWarnHandler(t.Log)
+ 
+ 	// Get random photo
+-	resp, err := http.Get("https://picsum.photos/1400/1400")
++	photo, err := getPhoto(1400, 1400)
+ 	if err != nil {
+ 		log.Fatal(err)
+ 	}
+-	defer resp.Body.Close()
+ 
+ 	results, err := insta.Searchbar.SearchLocation("New York")
+ 	if err != nil {
+@@ -35,11 +33,13 @@ func TestUploadPhoto(t *testing.T) {
+ 		t.Fatal(errors.New("No search result found"))
+ 	}
+ 	location := results.Places[0].Location
+-	results.RegisterLocationClick(location)
++	if err := results.RegisterLocationClick(location); err != nil {
++		t.Fatal(err)
++	}
+ 
+ 	item, err := insta.Upload(
+ 		&goinsta.UploadOptions{
+-			File:     resp.Body,
++			File:     photo,
+ 			Caption:  "awesome! :) #41",
+ 			Location: location.NewPostTag(),
+ 			UserTags: &[]goinsta.UserTag{
+@@ -70,14 +70,13 @@ func TestUploadThumbVideo(t *testing.T) {
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+-	size := float64(len(video)) / 1000000.0
++	size := float64(len(video.Content)) / 1000000.0
+ 	t.Logf("Video size: %.2f Mb", size)
+ 
+-	resp, err := http.Get("https://picsum.photos/1400/1400")
++	photo, err := getPhoto(1920, 1080)
+ 	if err != nil {
+ 		log.Fatal(err)
+ 	}
+-	defer resp.Body.Close()
+ 
+ 	// Find location
+ 	results, err := insta.Searchbar.SearchLocation("Chicago")
+@@ -87,13 +86,16 @@ func TestUploadThumbVideo(t *testing.T) {
+ 	if len(results.Places) == 0 {
+ 		t.Fatal(errors.New("No search result found"))
+ 	}
++
+ 	location := results.Places[1].Location
+-	results.RegisterLocationClick(location)
++	if err := results.RegisterLocationClick(location); err != nil {
++		t.Fatal(err)
++	}
+ 
+ 	item, err := insta.Upload(
+ 		&goinsta.UploadOptions{
+-			File:      bytes.NewReader(video),
+-			Thumbnail: resp.Body,
++			File:      bytes.NewReader(video.Content),
++			Thumbnail: photo,
+ 			Caption:   "What a terrific video! #art",
+ 			Location:  location.NewPostTag(),
+ 			UserTags: &[]goinsta.UserTag{
+@@ -124,7 +126,7 @@ func TestUploadVideo(t *testing.T) {
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+-	size := float64(len(video)) / 1000000.0
++	size := float64(len(video.Content)) / 1000000.0
+ 	t.Logf("Video size: %.2f Mb", size)
+ 
+ 	// Find location
+@@ -136,11 +138,13 @@ func TestUploadVideo(t *testing.T) {
+ 		t.Fatal(errors.New("No search result found"))
+ 	}
+ 	location := results.Places[1].Location
+-	results.RegisterLocationClick(location)
++	if err := results.RegisterLocationClick(location); err != nil {
++		t.Fatal(err)
++	}
+ 
+ 	item, err := insta.Upload(
+ 		&goinsta.UploadOptions{
+-			File:     bytes.NewReader(video),
++			File:     bytes.NewReader(video.Content),
+ 			Caption:  "What a terrific video! #art",
+ 			Location: location.NewPostTag(),
+ 			UserTags: &[]goinsta.UserTag{
+@@ -167,15 +171,14 @@ func TestUploadStoryPhoto(t *testing.T) {
+ 	insta.SetWarnHandler(t.Log)
+ 
+ 	// Get random photo
+-	resp, err := http.Get("https://picsum.photos/1400/1400")
++	photo, err := getPhoto(1400, 1400)
+ 	if err != nil {
+ 		log.Fatal(err)
+ 	}
+-	defer resp.Body.Close()
+ 
+ 	item, err := insta.Upload(
+ 		&goinsta.UploadOptions{
+-			File:    resp.Body,
++			File:    photo,
+ 			IsStory: true,
+ 		},
+ 	)
+@@ -198,12 +201,12 @@ func TestUploadStoryVideo(t *testing.T) {
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+-	size := float64(len(video)) / 1000000.0
++	size := float64(len(video.Content)) / 1000000.0
+ 	t.Logf("Video size: %.2f Mb", size)
+ 
+ 	item, err := insta.Upload(
+ 		&goinsta.UploadOptions{
+-			File:    bytes.NewReader(video),
++			File:    bytes.NewReader(video.Content),
+ 			IsStory: true,
+ 		},
+ 	)
+@@ -228,9 +231,9 @@ func TestUploadStoryMultiVideo(t *testing.T) {
+ 		if err != nil {
+ 			t.Fatal(err)
+ 		}
+-		size := float64(len(video)) / 1000000.0
++		size := float64(len(video.Content)) / 1000000.0
+ 		t.Logf("Video size: %.2f Mb", size)
+-		album = append(album, bytes.NewReader(video))
++		album = append(album, bytes.NewReader(video.Content))
+ 	}
+ 
+ 	item, err := insta.Upload(
+@@ -256,19 +259,12 @@ func TestUploadCarousel(t *testing.T) {
+ 	// Get random photos
+ 	album := []io.Reader{}
+ 	for i := 0; i < 5; i++ {
+-		resp, err := http.Get("https://picsum.photos/1400/1400")
++		photo, err := getPhoto(1920, 1080)
+ 		if err != nil {
+ 			log.Fatal(err)
+ 		}
+-		bodyBytes, err := io.ReadAll(resp.Body)
+-		if err != nil {
+-			t.Fatal(err)
+-		}
+-		if err := resp.Body.Close(); err != nil {
+-			t.Fatal(err)
+-		}
+-		buf := bytes.NewReader(bodyBytes)
+-		album = append(album, buf)
++
++		album = append(album, photo)
+ 	}
+ 
+ 	// Add video to album
+@@ -276,9 +272,9 @@ func TestUploadCarousel(t *testing.T) {
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+-	size := float64(len(video)) / 1000000.0
++	size := float64(len(video.Content)) / 1000000.0
+ 	t.Logf("Video size: %.2f Mb", size)
+-	album = append(album, bytes.NewReader(video))
++	album = append(album, bytes.NewReader(video.Content))
+ 
+ 	results, err := insta.Searchbar.SearchLocation("New York")
+ 	if err != nil {
+@@ -288,7 +284,9 @@ func TestUploadCarousel(t *testing.T) {
+ 		t.Fatal(errors.New("No search result found"))
+ 	}
+ 	location := results.Places[1].Location
+-	results.RegisterLocationClick(location)
++	if err := results.RegisterLocationClick(location); err != nil {
++		t.Fatal(err)
++	}
+ 
+ 	// Upload Album
+ 	item, err := insta.Upload(
+@@ -311,36 +309,6 @@ func TestUploadCarousel(t *testing.T) {
+ 	t.Logf("The ID of the new upload is %s", item.ID)
+ }
+ 
+-func TestUploadIGTV(t *testing.T) {
+-	insta, err := goinsta.EnvRandAcc()
+-	if err != nil {
+-		t.Fatal(err)
+-	}
+-	t.Logf("Logged in as %s\n", insta.Account.Username)
+-	insta.SetWarnHandler(t.Log)
+-
+-	// Get random video
+-	video, err := getVideo()
+-	if err != nil {
+-		t.Fatal(err)
+-	}
+-	size := float64(len(video)) / 1000000.0
+-	t.Logf("Video size: %.2f Mb", size)
+-
+-	item, err := insta.Upload(
+-		&goinsta.UploadOptions{
+-			File:    bytes.NewReader(video),
+-			IsIGTV:  true,
+-			Title:   "IGTV Videos are so cool",
+-			Caption: "What a terrific video! #art",
+-		},
+-	)
+-	if err != nil {
+-		t.Fatal(err)
+-	}
+-	t.Logf("The ID of the new upload is %s", item.ID)
+-}
+-
+ func TestUploadProfilePicture(t *testing.T) {
+ 	insta, err := goinsta.EnvRandAcc()
+ 	if err != nil {
+diff --git a/timeline.go b/timeline.go
+index ceea5de..796fefb 100644
+--- a/timeline.go
++++ b/timeline.go
+@@ -4,6 +4,7 @@ import (
+ 	"bytes"
+ 	"encoding/json"
+ 	"math/rand"
++	"sync"
+ 	"time"
+ )
+ 
+@@ -137,10 +138,16 @@ func (tl *Timeline) Next(p ...interface{}) bool {
+ 		query["max_id"] = tl.NextID
+ 	}
+ 
++	wg := &sync.WaitGroup{}
++	defer wg.Wait()
+ 	errChan := make(chan error)
++
+ 	if reason != PAGINATION {
+ 		tl.sessionID = generateUUID()
++
++		wg.Add(1)
+ 		go func() {
++			defer wg.Done()
+ 			err := tl.FetchTray(reason)
+ 			if err != nil {
+ 				errChan <- err
+diff --git a/twofactor.go b/twofactor.go
+index df0b0b7..57ab1a6 100644
+--- a/twofactor.go
++++ b/twofactor.go
+@@ -2,7 +2,6 @@ package goinsta
+ 
+ import (
+ 	"encoding/json"
+-	"errors"
+ 	"fmt"
+ 
+ 	"github.com/Davincible/goinsta/v3/utilities"
+@@ -122,13 +121,16 @@ func (info *TwoFactorInfo) Check2FATrusted() error {
+ 		return err
+ 	}
+ 
+-	stat := struct {
++	var stat struct {
+ 		ReviewStatus int    `json:"review_status"`
+ 		Status       string `json:"status"`
+-	}{}
+-	err = json.Unmarshal(body, &stat)
++	}
++	if err = json.Unmarshal(body, &stat); err != nil {
++		return err
++	}
++
+ 	if stat.ReviewStatus == 0 {
+-		return errors.New("Two factor authentication not yet verified")
++		return fmt.Errorf("two factor authentication not yet verified")
+ 	}
+ 
+ 	err = info.Login2FA("")
+diff --git a/types.go b/types.go
+index 765dcd1..22c6ec5 100644
+--- a/types.go
++++ b/types.go
+@@ -20,6 +20,7 @@ type ConfigFile struct {
+ 	Account       *Account          `json:"account"`
+ 	Device        Device            `json:"device"`
+ 	TOTP          *TOTP             `json:"totp"`
++	SessionNonce  string            `json:"session"`
+ }
+ 
+ type Device struct {
+@@ -140,8 +141,6 @@ func (e *Error400) GetMessage() string {
+ 
+ // ChallengeError is error returned by HTTP 400 status code.
+ type ChallengeError struct {
+-	insta *Instagram
+-
+ 	Challenge struct {
+ 		URL               string `json:"url"`
+ 		APIPath           string `json:"api_path"`
+@@ -191,7 +190,18 @@ type Location struct {
+ type SuggestedUsers struct {
+ 	Type        int `json:"type"`
+ 	Suggestions []struct {
+-		User            User          `json:"user"`
++		User struct {
++			ID                         interface{}   `json:"pk"`
++			Username                   string        `json:"username"`
++			FullName                   string        `json:"full_name"`
++			IsVerified                 bool          `json:"is_verified"`
++			IsPrivate                  bool          `json:"is_private"`
++			HasHighlightReels          bool          `json:"has_highlight_reels"`
++			HasAnonymousProfilePicture bool          `json:"has_anonymous_profile_picture"`
++			ProfilePicID               string        `json:"profile_pic_id"`
++			ProfilePicURL              string        `json:"profile_pic_url"`
++			AccountBadges              []interface{} `json:"account_badges"`
++		} `json:"user"`
+ 		Algorithm       string        `json:"algorithm"`
+ 		SocialContext   string        `json:"social_context"`
+ 		Icon            string        `json:"icon"`
+diff --git a/uploads.go b/uploads.go
+index 1a4d5c8..7f5fa2d 100644
+--- a/uploads.go
++++ b/uploads.go
+@@ -12,6 +12,8 @@ import (
+ 	"strconv"
+ 	"strings"
+ 	"time"
++
++	"github.com/pkg/errors"
+ )
+ 
+ type UploadOptions struct {
+@@ -19,25 +21,15 @@ type UploadOptions struct {
+ 
+ 	// File to upload, can be one of jpeg, jpg, mp4
+ 	File io.Reader
+-
+ 	// Thumbnail to use for videos, one of jpeg or jpg. If not set a thumbnail
+ 	//   will be extracted automatically
+ 	Thumbnail io.Reader
+-
+ 	// Multiple images, to post a carousel or multiple stories at once
+ 	Album []io.Reader
+-
+-	// Caption text, or decription if IGTV
++	// Caption text for posts
+ 	Caption string
+-
+ 	// Set to true if you want to post a story
+ 	IsStory bool
+-
+-	// IGTV settings
+-	IsIGTV      bool
+-	Title       string
+-	IGTVPreview bool
+-
+ 	// Option flags, set to true disable
+ 	MuteAudio            bool
+ 	DisableComments      bool
+@@ -50,13 +42,7 @@ type UploadOptions struct {
+ 
+ 	// Used to provide a location for a post
+ 	Location     *LocationTag
+-	locationJson string
+-
+-	// File properties
+-	width     int
+-	height    int
+-	duration  int
+-	mediaType int
++	locationJSON string
+ 
+ 	// Internal config
+ 	config         map[string]interface{}
+@@ -71,6 +57,10 @@ type UploadOptions struct {
+ 	index          int    // used for story multi-video upload
+ 	offset         int
+ 	segmentType    int
++	width          int
++	height         int
++	duration       int
++	mediaType      int
+ 	isSidecar      bool
+ 	useXSharingIDs bool
+ 	isThumbnail    bool
+@@ -81,7 +71,7 @@ type UploadOptions struct {
+ 
+ 	// Formatted UserTags
+ 	userTags *postTags
+-	tagsJson string
++	tagsJSON string
+ }
+ 
+ // UserTag represents a user post tag. Position is optional, a random
+@@ -114,14 +104,12 @@ type LocationTag struct {
+ // Upload is the single function used for all upload in goinsta.
+ // You can specify the options of your upload with the single parameter &UploadOptions{}
+ // See the UploadOptions struct for more details.
+-//
+ func (insta *Instagram) Upload(o *UploadOptions) (*Item, error) {
+ 	o.insta = insta
+ 	o.startTime = toString(time.Now().Unix())
+ 
+ 	// Format User & Location Tags
+-	err := o.processTags()
+-	if err != nil {
++	if err := o.processTags(); err != nil {
+ 		return nil, err
+ 	}
+ 
+@@ -135,7 +123,6 @@ func (insta *Instagram) Upload(o *UploadOptions) (*Item, error) {
+ 	}
+ 
+ 	// Single file uploads
+-	// Read file into memory
+ 	buf, err := readFile(o.File)
+ 	if err != nil {
+ 		return nil, err
+@@ -143,23 +130,21 @@ func (insta *Instagram) Upload(o *UploadOptions) (*Item, error) {
+ 	o.buf = buf
+ 
+ 	// Check file type
+-	t := http.DetectContentType(buf.Bytes())
+-	if t == "image/jpeg" {
+-		err := o.uploadPhoto()
+-		if err != nil {
++	switch t := http.DetectContentType(buf.Bytes()); t {
++	case "image/jpeg":
++		if err := o.uploadPhoto(); err != nil {
+ 			return nil, err
+ 		}
+ 		return o.configureImage()
+-	} else if t == "video/mp4" {
+-		err := o.uploadVideo()
+-		if err != nil {
++	case "video/mp4":
++		if err := o.uploadVideo(); err != nil {
+ 			return nil, err
+ 		}
+ 		return o.configureVideo()
++	default:
++		insta.infoHandler(fmt.Errorf("unable to handle file upload with format %s", t))
++		return nil, ErrInvalidFormat
+ 	}
+-
+-	insta.infoHandler(fmt.Errorf("Unable to handle file upload with format %s", t))
+-	return nil, ErrInvalidFormat
+ }
+ 
+ func formatUserTags(tags []UserTag, isVideo bool) *postTags {
+@@ -242,20 +227,20 @@ func (o *UploadOptions) uploadPhoto() error {
+ 	}
+ 	o.width, o.height = width, height
+ 
+-	// Create Rupload header params
+ 	if err := o.createRUploadParams(); err != nil {
+ 		return err
+ 	}
+ 
+-	if err = o.postPhoto(); err != nil {
++	if err := o.postPhoto(); err != nil {
+ 		return fmt.Errorf("postPhoto: %w", err)
+ 	}
+ 
+ 	o.createPhotoConfig()
++
+ 	return nil
+ }
+ 
+-func (o *UploadOptions) configurePost(video bool) (*Item, error) {
++func (o *UploadOptions) configurePost() (*Item, error) {
+ 	insta := o.insta
+ 
+ 	query := MergeMapI(
+@@ -272,61 +257,61 @@ func (o *UploadOptions) configurePost(video bool) (*Item, error) {
+ 		},
+ 	)
+ 
+-	if o.locationJson != "" {
+-		query["location"] = o.locationJson
++	if o.locationJSON != "" {
++		query["location"] = o.locationJSON
+ 	}
++
+ 	o.config = query
+ 	o.configURL = urlConfigure
+-	if video {
+-		origUrl := o.configURL + "?video=1"
+-		o.configURL = urlUploadFinishVid
+-		_, err := o.configure()
+-		if err != nil {
+-			return nil, err
+-		}
+-		o.configURL = origUrl
+-	}
+-
+ 	return o.configure()
+ }
+ 
+ func (o *UploadOptions) configureVideo() (*Item, error) {
+-	if o.IsIGTV {
+-		return o.configureIGTV()
+-	} else if o.IsStory {
+-		return o.configureStory(true)
+-	}
+-	return o.configurePost(true)
+-}
+-
+-func (o *UploadOptions) configureImage() (*Item, error) {
+ 	if o.IsStory {
+-		return o.configureStory(false)
++		return o.configureStory(true)
+ 	}
+-	return o.configurePost(false)
++	return o.configureClip()
+ }
+ 
+-func (o *UploadOptions) configureIGTV() (*Item, error) {
++func (o *UploadOptions) configureClip() (*Item, error) {
+ 	insta := o.insta
+ 
+ 	query := MergeMapI(
+ 		o.config,
+ 		map[string]interface{}{
++			"camera_entry_point":         "256",
+ 			"_uid":                       toString(insta.Account.ID),
+ 			"_uuid":                      insta.uuid,
+ 			"device_id":                  insta.dID,
+ 			"creation_logger_session_id": generateUUID(),
+ 			"nav_chain":                  "",
+ 			"multi_sharing":              "1",
++
++			"camera_session_id":                     generateUUID(),
++			"is_creator_requesting_mashup":          "0",
++			"capture_type":                          "clips_v2",
++			"template_clips_media_id":               "null",
++			"camera_position":                       "unknown",
++			"is_created_with_contextual_music_recs": "0",
++			"clips_creation_entry_point":            "feed",
++
++			"is_clips_edited": "0",
+ 		},
+ 	)
+ 
+ 	o.config = query
+-	o.configURL = urlConfigureIGTV
++	o.configURL = urlConfigureClip
+ 
+ 	return o.configure()
+ }
+ 
++func (o *UploadOptions) configureImage() (*Item, error) {
++	if o.IsStory {
++		return o.configureStory(false)
++	}
++	return o.configurePost()
++}
++
+ func (o *UploadOptions) configureStory(video bool) (*Item, error) {
+ 	insta := o.insta
+ 
+@@ -360,11 +345,11 @@ func (o *UploadOptions) postThumbnail() error {
+ 	o.name = o.uploadID + "_0_" + toString(rand)
+ 	o.waterfallID = generateUUID()
+ 
+-	// Create Rupload header params
+-	o.createRUploadParams()
++	if err := o.createRUploadParams(); err != nil {
++		return err
++	}
+ 
+-	err = o.postPhoto()
+-	if err != nil {
++	if err := o.postPhoto(); err != nil {
+ 		return err
+ 	}
+ 
+@@ -440,6 +425,11 @@ func (o *UploadOptions) postVideoGET() error {
+ func (o *UploadOptions) postPhoto() error {
+ 	insta := o.insta
+ 
++	contentType := http.DetectContentType(o.buf.Bytes())
++	if contentType == "text/plain" {
++		return errors.Wrap(ErrInvalidImage, "thumbnail invalid")
++	}
++
+ 	// Upload Photo
+ 	body, _, err := insta.sendRequest(
+ 		&reqOptions{
+@@ -449,7 +439,7 @@ func (o *UploadOptions) postPhoto() error {
+ 			DataBytes: o.buf,
+ 			ExtraHeaders: map[string]string{
+ 				"X-Entity-Name":              o.name,
+-				"X-Entity-Type":              http.DetectContentType(o.buf.Bytes()),
++				"X-Entity-Type":              contentType,
+ 				"X-Entity-Length":            toString(o.buf.Len()),
+ 				"X-Instagram-Rupload-Params": o.ruploadParams,
+ 				"Offset":                     "0",
+@@ -503,9 +493,6 @@ func (o *UploadOptions) createRUploadParams(extra ...map[string]string) error {
+ 			"upload_media_width":       toString(o.width),
+ 			"upload_media_duration_ms": toString(o.duration),
+ 		})
+-		if o.IsIGTV {
+-			params["is_igtv_video"] = "1"
+-		}
+ 		if o.Thumbnail == nil {
+ 			params["content_tags"] = "use_default_cover"
+ 			params["extract_cover_frame"] = "1" // test this out
+@@ -574,8 +561,8 @@ func (o *UploadOptions) createPhotoConfig() {
+ 		},
+ 	}
+ 
+-	if o.tagsJson != "" {
+-		config["usertags"] = o.tagsJson
++	if o.tagsJSON != "" {
++		config["usertags"] = o.tagsJSON
+ 	}
+ 	if o.IsStory {
+ 		supCap, _ := getSupCap()
+@@ -634,7 +621,7 @@ func (o *UploadOptions) createVideoConfig() error {
+ 		"poster_frame_index": 0, // TODO: look into this (testing to see if it matters which index is used)
+ 	}
+ 
+-	if o.UserTags != nil && !(o.IsIGTV || o.IsStory) {
++	if o.UserTags != nil && !o.IsStory {
+ 		tags := formatUserTags(*o.UserTags, true)
+ 		b, err := json.Marshal(tags)
+ 		if err != nil {
+@@ -642,7 +629,7 @@ func (o *UploadOptions) createVideoConfig() error {
+ 		}
+ 		config["usertags"] = string(b)
+ 	}
+-	if o.DisableLikeViewCount && !(o.IsIGTV || o.IsStory) {
++	if o.DisableLikeViewCount && !o.IsStory {
+ 		config["like_and_view_counts_disabled"] = "1"
+ 	}
+ 	if o.DisableSubtitles && !o.IsStory {
+@@ -651,17 +638,6 @@ func (o *UploadOptions) createVideoConfig() error {
+ 	if !o.isSidecar {
+ 		config["camera_entry_point"] = "34"
+ 	}
+-	if o.IsIGTV {
+-		config["camera_entry_point"] = "171"
+-		config["title"] = o.Title
+-		config["igtv_ads_toggled_on"] = "0"
+-		config["keep_shoppable_products"] = "0"
+-		config["igtv_composer_session_id"] = generateUUID()
+-		config["igtv_share_preview_to_feed"] = "0"
+-		if o.IGTVPreview {
+-			config["igtv_share_preview_to_feed"] = "1"
+-		}
+-	}
+ 	if o.IsStory {
+ 		supCap, err := getSupCap()
+ 		if err != nil {
+@@ -719,13 +695,6 @@ func (o *UploadOptions) uploadAlbum() (*Item, error) {
+ 		}
+ 		o.buf = buf
+ 
+-		// Validate file type
+-		t := http.DetectContentType(buf.Bytes())
+-		if !(t == "image/jpeg" || t == "video/mp4") {
+-			insta.infoHandler(fmt.Errorf("Unable to handle file upload with format %s", t))
+-			return nil, ErrInvalidFormat
+-		}
+-
+ 		// Use album tags if available
+ 		if o.UserTags == nil && o.AlbumTags != nil && len(*o.AlbumTags) == len(o.Album) {
+ 			o.UserTags = &(*o.AlbumTags)[index]
+@@ -735,7 +704,8 @@ func (o *UploadOptions) uploadAlbum() (*Item, error) {
+ 		}
+ 
+ 		// Upload Media
+-		if t == "image/jpeg" {
++		switch t := http.DetectContentType(buf.Bytes()); t {
++		case "image/jpeg":
+ 			// Create upload id & name
+ 			o.newUploadID()
+ 			rand := random(1000000000, 9999999999)
+@@ -745,11 +715,14 @@ func (o *UploadOptions) uploadAlbum() (*Item, error) {
+ 			if err != nil {
+ 				return nil, err
+ 			}
+-		} else if t == "video/mp4" {
++		case "video/mp4":
+ 			err := o.uploadVideo()
+ 			if err != nil {
+ 				return nil, err
+ 			}
++		default:
++			insta.infoHandler(fmt.Errorf("unable to handle file upload with format %s", t))
++			return nil, ErrInvalidFormat
+ 		}
+ 
+ 		metadata = append(metadata, o.config)
+@@ -773,8 +746,8 @@ func (o *UploadOptions) uploadAlbum() (*Item, error) {
+ 		"children_metadata":  metadata,
+ 	}
+ 
+-	if o.locationJson != "" {
+-		query["location"] = o.locationJson
++	if o.locationJSON != "" {
++		query["location"] = o.locationJSON
+ 	}
+ 	o.config = query
+ 	o.configURL = urlConfigureSidecar
+@@ -819,11 +792,11 @@ func (o *UploadOptions) configure() (*Item, error) {
+ 	if res.Status != "ok" {
+ 		switch res.Message {
+ 		case "Transcode not finished yet.":
+-			insta.infoHandler(fmt.Errorf("%s, %s. Please wait.", res.Status, res.Message))
++			insta.infoHandler("Waiting for transcode to finish...")
+ 			time.Sleep(6 * time.Second)
+ 			return o.configure()
+ 		case "media_needs_reupload":
+-			insta.infoHandler(fmt.Errorf("Instagram asks for the video to be reuploaded, please wait."))
++			insta.infoHandler(fmt.Errorf("instagram asks for the video to be reuploaded, please wait"))
+ 			err := o.postVideo()
+ 			if err != nil {
+ 				return nil, err
+@@ -866,7 +839,9 @@ func (o *UploadOptions) uploadMultiStory() (*Item, error) {
+ 	}
+ 
+ 	s := make([]byte, 6)
+-	cryptRand.Read(s)
++	if _, err := cryptRand.Read(s); err != nil {
++		return nil, err
++	}
+ 	suffix := fmt.Sprintf("_%X_Mixed_0", s)
+ 
+ 	// Upload Media
+@@ -924,16 +899,28 @@ func (o *UploadOptions) uploadMultiStory() (*Item, error) {
+ func (o *UploadOptions) uploadVideo() error {
+ 	// Set media type to video
+ 	o.mediaType = 2
+-	o.useXSharingIDs = true
+ 	o.newUploadID()
+ 
+-	// Get video info
+ 	width, height, duration, err := getVideoInfo(o.buf.Bytes())
+ 	if err != nil {
+ 		return err
+ 	}
+ 	o.width, o.height, o.duration = width, height, duration
+ 
++	// Verify Thumbnail content type
++	if o.Thumbnail != nil {
++		thumb, err := readFile(o.Thumbnail)
++		if err != nil {
++			return err
++		}
++
++		contentType := http.DetectContentType(thumb.Bytes())
++		if contentType == "text/plain" {
++			return ErrInvalidImage
++		}
++		o.Thumbnail = bytes.NewReader(thumb.Bytes())
++	}
++
+ 	size := float64(len(o.buf.Bytes())) / 1000000.0
+ 	o.insta.infoHandler(
+ 		fmt.Sprintf(
+@@ -942,36 +929,27 @@ func (o *UploadOptions) uploadVideo() error {
+ 		),
+ 	)
+ 
+-	// Create Rupload header params
+-	err = o.createRUploadParams()
+-	if err != nil {
++	if err := o.createRUploadParams(); err != nil {
+ 		return err
+ 	}
+ 
+-	// If video size greater than twice the threshold, use segments
++	// Warn on large video size
+ 	t := 1 << 22
+-	if o.buf.Len() > 2*t {
+-		err := o.segmentVideo(t)
+-		if err != nil {
+-			return err
+-		}
+-	} else {
+-		// If not segmented, upload video directly
+-		// Create unique upload id and name
+-		rand := random(1000000000, 9999999999)
+-		o.name = fmt.Sprintf("%s_0_%d", o.uploadID, rand)
+-		o.waterfallID = generateUUID()
++	if o.buf.Len() > t*4 {
++		o.insta.warnHandler("Video size is fairy large, if you have trouble uploading, try a smaller video.")
++	}
+ 
+-		// Initialize the upload with a get request
+-		err = o.postVideoGET()
+-		if err != nil {
+-			return err
+-		}
++	rand := random(1000000000, 9999999999)
++	o.name = fmt.Sprintf("%s_0_%d", o.uploadID, rand)
++	o.waterfallID = generateUUID()
+ 
+-		err = o.postVideo()
+-		if err != nil {
+-			return err
+-		}
++	// Initialize the upload with a get request
++	if err := o.postVideoGET(); err != nil {
++		return err
++	}
++
++	if err := o.postVideo(); err != nil {
++		return err
+ 	}
+ 
+ 	if o.Thumbnail != nil {
+@@ -981,45 +959,11 @@ func (o *UploadOptions) uploadVideo() error {
+ 		}
+ 	}
+ 
+-	err = o.createVideoConfig()
+-	return err
+-}
+-
+-func (o *UploadOptions) segmentVideo(t int) error {
+-	o.waterfallID = toString(time.Now().Unix())
+-
+-	err := o.segmentPhase("start")
+-	if err != nil {
++	if err := o.createVideoConfig(); err != nil {
+ 		return err
+ 	}
+ 
+-	segments := o.createSegments(t)
+-	length := len(*segments)
+-	o.segmentType = 2
+-	for i, segment := range *segments {
+-		if i == length-1 {
+-			o.segmentType = 1
+-		}
+-
+-		// Create new name for each request
+-		o.newSegmentName(len(segment))
+-
+-		err = o.postVideoGET()
+-		if err != nil {
+-			return err
+-		}
+-
+-		err = o.segmentTransfer(segment)
+-		if err != nil {
+-			return err
+-		}
+-		o.offset += len(segment)
+-		o.insta.infoHandler(fmt.Sprintf("Uploaded video segment [%d/%d]", i+1, length))
+-
+-	}
+-
+-	err = o.segmentPhase("end")
+-	return err
++	return nil
+ }
+ 
+ func (o *UploadOptions) newSegmentName(l int) {
+@@ -1077,59 +1021,6 @@ func (o *UploadOptions) segmentTransfer(segment []byte) error {
+ 	return nil
+ }
+ 
+-func (o *UploadOptions) segmentPhase(phase string) error {
+-	insta := o.insta
+-	url := fmt.Sprintf(urlUploadVideo, generateUUID())
+-	headers := map[string]string{
+-		"X-Instagram-Rupload-Params": o.ruploadParams,
+-	}
+-	if phase == "end" {
+-		headers["Stream-Id"] = o.streamID
+-	}
+-
+-	body, _, err := insta.sendRequest(
+-		&reqOptions{
+-			Endpoint:     fmt.Sprintf("%s?segmented=true&phase=%s", url, phase),
+-			OmitAPI:      true,
+-			IsPost:       true,
+-			ExtraHeaders: headers,
+-		},
+-	)
+-	if err != nil {
+-		return err
+-	}
+-	var res struct {
+-		StreamID int64  `json:"stream_id"`
+-		Status   string `json:"status"`
+-	}
+-	err = json.Unmarshal(body, &res)
+-	if err != nil {
+-		return err
+-	}
+-	if res.Status != "ok" {
+-		return fmt.Errorf("invalid status, result: %s", res.Status)
+-	}
+-	if phase == "start" {
+-		o.streamID = toString(res.StreamID)
+-	}
+-	return nil
+-}
+-
+-func (o *UploadOptions) createSegments(t int) *[][]byte {
+-	var segments [][]byte
+-	for o.buf.Len() != 0 {
+-		// For some reason the byte lengths the insta app uploads are never
+-		//   the same, so adding a random difference to the segment sizes.
+-		r := random(0, 10000)
+-		if rand.Float64() < 0.65 {
+-			segments = append(segments, o.buf.Next(t-int(r)))
+-		} else {
+-			segments = append(segments, o.buf.Next(t+int(r)))
+-		}
+-	}
+-	return &segments
+-}
+-
+ func readFile(f io.Reader) (*bytes.Buffer, error) {
+ 	buf := new(bytes.Buffer)
+ 	_, err := buf.ReadFrom(f)
+@@ -1143,7 +1034,7 @@ func (o *UploadOptions) processTags() error {
+ 		if err != nil {
+ 			return err
+ 		}
+-		o.tagsJson = string(b)
++		o.tagsJSON = string(b)
+ 	}
+ 
+ 	if o.Location != nil {
+@@ -1151,7 +1042,7 @@ func (o *UploadOptions) processTags() error {
+ 		if err != nil {
+ 			return err
+ 		}
+-		o.locationJson = string(b)
++		o.locationJSON = string(b)
+ 	}
+ 	return nil
+ }
+diff --git a/users.go b/users.go
+index d9cd7e8..748501e 100644
+--- a/users.go
++++ b/users.go
+@@ -8,16 +8,25 @@ import (
+ 	"time"
+ )
+ 
++type FollowOrder string
++
++const (
++	DefaultOrder  FollowOrder = "default"
++	LatestOrder   FollowOrder = "date_followed_latest"
++	EarliestOrder FollowOrder = "date_followed_earliest"
++)
++
+ // Users is a struct that stores many user's returned by many different methods.
+ type Users struct {
+ 	insta *Instagram
+ 
+-	// It's a bit confusing have the same structure
++	// It's a bit confusing to have the same structure
+ 	// in the Instagram strucure and in the multiple users
+ 	// calls
+ 
+ 	err      error
+ 	endpoint string
++	query    map[string]string
+ 
+ 	Status    string          `json:"status"`
+ 	BigList   bool            `json:"big_list"`
+@@ -27,12 +36,6 @@ type Users struct {
+ 	NextID    string          `json:"-"`
+ }
+ 
+-func newUsers(insta *Instagram) *Users {
+-	users := &Users{insta: insta}
+-
+-	return users
+-}
+-
+ // SetInstagram sets new instagram to user structure
+ func (users *Users) SetInstagram(insta *Instagram) {
+ 	users.insta = insta
+@@ -52,47 +55,64 @@ func (users *Users) Next() bool {
+ 	insta := users.insta
+ 	endpoint := users.endpoint
+ 
++	query := map[string]string{}
++	if users.NextID != "" {
++		query["max_id"] = users.NextID
++	}
++
++	if _, ok := users.query["rank_token"]; !ok {
++		users.query["rank_token"] = generateUUID()
++	}
++
++	for key, value := range users.query {
++		query[key] = value
++	}
++
+ 	body, _, err := insta.sendRequest(
+ 		&reqOptions{
+ 			Endpoint: endpoint,
+-			Query: map[string]string{
+-				"max_id":             users.NextID,
+-				"ig_sig_key_version": instaSigKeyVersion,
+-				"rank_token":         insta.rankToken,
+-			},
++			Query:    query,
+ 		},
+ 	)
+ 	if err != nil {
+ 		users.err = err
+ 		return false
+ 	}
+-	usrs := Users{}
+-	err = json.Unmarshal(body, &usrs)
+-	if err != nil {
++
++	var newUsers Users
++	if err := json.Unmarshal(body, &newUsers); err != nil {
+ 		users.err = err
+ 		return false
+ 	}
+ 
+-	if len(usrs.RawNextID) > 0 && usrs.RawNextID[0] == '"' && usrs.RawNextID[len(usrs.RawNextID)-1] == '"' {
+-		if err := json.Unmarshal(usrs.RawNextID, &usrs.NextID); err != nil {
++	// check whether the nextID contains quotes (string type) or not (int64 type)
++	if len(newUsers.RawNextID) > 0 && newUsers.RawNextID[0] == '"' && newUsers.RawNextID[len(newUsers.RawNextID)-1] == '"' {
++		if err := json.Unmarshal(newUsers.RawNextID, &users.NextID); err != nil {
+ 			users.err = err
+ 			return false
+ 		}
+-	} else if usrs.RawNextID != nil {
++	} else if newUsers.RawNextID != nil {
+ 		var nextID int64
+-		if err := json.Unmarshal(usrs.RawNextID, &nextID); err != nil {
++		if err := json.Unmarshal(newUsers.RawNextID, &nextID); err != nil {
+ 			users.err = err
+ 			return false
+ 		}
+-		usrs.NextID = strconv.FormatInt(nextID, 10)
++		users.NextID = strconv.FormatInt(nextID, 10)
+ 	}
+-	*users = usrs
+-	if usrs.NextID == "" {
++
++	users.Status = newUsers.Status
++	users.BigList = newUsers.BigList
++	users.Users = newUsers.Users
++	users.PageSize = newUsers.PageSize
++	users.RawNextID = newUsers.RawNextID
++
++	users.setValues()
++
++	// Dont't return false on first error otherwise for loop won't run
++	if users.NextID == "" {
+ 		users.err = ErrNoMore
+ 	}
+-	users.insta = insta
+-	users.endpoint = endpoint
+-	users.setValues()
++
+ 	return true
+ }
+ 
+@@ -157,7 +177,7 @@ type User struct {
+ 	RecentlyBestiedByCount         int           `json:"recently_bestied_by_count"`
+ 	AccountType                    int           `json:"account_type"`
+ 	AccountBadges                  []interface{} `json:"account_badges,omitempty"`
+-	FbIdV2                         int64         `json:"fbid_v2"`
++	FbIdV2                         int64         `json:"fbid_"`
+ 	IsUnpublished                  bool          `json:"is_unpublished"`
+ 	UserTagsCount                  int           `json:"usertags_count"`
+ 	UserTagReviewEnabled           bool          `json:"usertag_review_enabled"`
+@@ -345,26 +365,48 @@ func (user *User) Sync(params ...interface{}) error {
+ 
+ // Following returns a list of user following.
+ //
+-// Users.Next can be used to paginate
++// Query can be used to search for a specific user.
++// Be aware that it only matches from the start, e.g.
++// "theprimeagen" will only match "theprime" not "prime".
++// To fetch all user an empty string "".
+ //
+-// See example: examples/user/following.go
+-func (user *User) Following() *Users {
+-	users := &Users{}
+-	users.insta = user.insta
+-	users.endpoint = fmt.Sprintf(urlFollowing, user.ID)
+-	return users
++// Users.Next can be used to paginate
++func (user *User) Following(query string, order FollowOrder) *Users {
++	return user.followList(urlFollowing, query, order)
+ }
+ 
+ // Followers returns a list of user followers.
+ //
+-// Users.Next can be used to paginate
++// Query can be used to search for a specific user.
++// Be aware that it only matches from the start, e.g.
++// "theprimeagen" will only match "theprime" not "prime".
++// To fetch all user an empty string "".
+ //
+-// See example: examples/user/followers.go
+-func (user *User) Followers() *Users {
+-	users := &Users{}
+-	users.insta = user.insta
+-	users.endpoint = fmt.Sprintf(urlFollowers, user.ID)
+-	return users
++// Users.Next can be used to paginate
++func (user *User) Followers(query string) *Users {
++	return user.followList(urlFollowers, query, DefaultOrder)
++}
++
++func (user *User) followList(url, query string, order FollowOrder) *Users {
++	users := Users{
++		insta:    user.insta,
++		endpoint: fmt.Sprintf(url, user.ID),
++		query: map[string]string{
++			"search_surface": "follow_list_page",
++			"query":          query,
++			"enable_groups":  "true",
++		},
++	}
++
++	if order != DefaultOrder {
++		users.query["order"] = string(order)
++	}
++
++	if url == urlFollowing {
++		users.query["includes_hashtags"] = "true"
++	}
++
++	return &users
+ }
+ 
+ // Block blocks user
+@@ -710,7 +752,7 @@ func (user *User) Tags(minTimestamp []byte) (*FeedMedia, error) {
+ //   return it as a byte slice.
+ func (user *User) DownloadProfilePic() ([]byte, error) {
+ 	if user.ProfilePicURL == "" {
+-		return nil, ErrNoProfilePicUrl
++		return nil, ErrNoProfilePicURL
+ 	}
+ 	insta := user.insta
+ 	b, err := insta.download(user.ProfilePicURL)
+diff --git a/utilities/encryption.go b/utilities/encryption.go
+index e2edbb8..aea0c3c 100644
+--- a/utilities/encryption.go
++++ b/utilities/encryption.go
+@@ -30,7 +30,9 @@ func RSADecodePublicKeyFromBase64(pubKeyBase64 string) (*rsa.PublicKey, error) {
+ 
+ func AESGCMEncrypt(key, data, additionalData []byte) (iv, encrypted, tag []byte, err error) {
+ 	iv = make([]byte, 12)
+-	rand.Read(iv)
++	if _, err = rand.Read(iv); err != nil {
++		return
++	}
+ 
+ 	var block cipher.Block
+ 	block, err = aes.NewCipher(key)
+@@ -70,7 +72,9 @@ func EncryptPassword(password, pubKeyEncoded string, pubKeyVersion int, t string
+ 
+ 	// Data to be encrypted by RSA PKCS1
+ 	randKey := make([]byte, 32)
+-	rand.Read(randKey)
++	if _, err := rand.Read(randKey); err != nil {
++		return "", err
++	}
+ 
+ 	// Encrypt the random key that will be used to encrypt the password
+ 	randKeyEncrypted, err := RSAPublicKeyPKCS1Encrypt(publicKey, randKey)
+diff --git a/utils.go b/utils.go
+index 43daa47..1cc5934 100644
+--- a/utils.go
++++ b/utils.go
+@@ -120,6 +120,12 @@ func getMP4Duration(b []byte) (int, error) {
+ 	if err != nil {
+ 		return -1, err
+ 	}
++
++	// If timescale failed to read a value, return -1 * 1000
++	if timescale == 0 {
++		return -1000, nil
++	}
++
+ 	length, err := read32(b, keys, 12+4)
+ 	if err != nil {
+ 		return -1, err
+diff --git a/wrapper.go b/wrapper.go
+index e944e31..2e13d92 100644
+--- a/wrapper.go
++++ b/wrapper.go
+@@ -4,6 +4,11 @@ import (
+ 	"errors"
+ 	"fmt"
+ 	"net/http"
++	"time"
++)
++
++const (
++	TooManyRequestsTimeout = 60 * time.Second
+ )
+ 
+ type ReqWrapper interface {
+@@ -19,6 +24,10 @@ type ReqWrapperArgs struct {
+ 	Error   error
+ }
+ 
++type Wrapper struct {
++	o *ReqWrapperArgs
++}
++
+ func (w *ReqWrapperArgs) RetryRequest() (body []byte, h http.Header, err error) {
+ 	return w.insta.sendRequest(w.reqOptions)
+ }
+@@ -43,10 +52,6 @@ func (w *ReqWrapperArgs) Ignore429() bool {
+ 	return w.reqOptions.Ignore429
+ }
+ 
+-type Wrapper struct {
+-	o *ReqWrapperArgs
+-}
+-
+ func DefaultWrapper() *Wrapper {
+ 	return &Wrapper{}
+ }
+@@ -72,9 +77,8 @@ func (w *Wrapper) GoInstaWrapper(o *ReqWrapperArgs) ([]byte, http.Header, error)
+ 		if o.Ignore429() {
+ 			return o.Body, o.Headers, nil
+ 		}
+-		// Possible implementation, instead of returning:
+-		// time.Sleep(60 * time.Second)
+-		return o.Body, o.Headers, o.Error
++			insta.warnHandler("Too many requests, sleeping for %d seconds", TooManyRequestsTimeout)
++			time.Sleep(TooManyRequestsTimeout)
+ 
+ 	case errors.Is(o.Error, Err2FARequired):
+ 		// Attempt auto 2FA login with TOTP code generation
+@@ -95,7 +99,7 @@ func (w *Wrapper) GoInstaWrapper(o *ReqWrapperArgs) ([]byte, http.Header, error)
+ 		err := insta.Checkpoint.Process()
+ 		if err != nil {
+ 			return o.Body, o.Headers, fmt.Errorf(
+-				"Failed to automatically process status code 400 'checkpoint_required' with checkpoint url '%s', please report this on github. Error provided: %w",
++				"failed to automatically process status code 400 'checkpoint_required' with checkpoint url '%s', please report this on github. Error provided: %w",
+ 				insta.Checkpoint.URL,
+ 				err,
+ 			)
+@@ -110,7 +114,7 @@ func (w *Wrapper) GoInstaWrapper(o *ReqWrapperArgs) ([]byte, http.Header, error)
+ 
+ 	case errors.Is(o.Error, ErrChallengeRequired):
+ 		if err := insta.Challenge.Process(); err != nil {
+-			return o.Body, o.Headers, fmt.Errorf("Failed to process challenge automatically with: %w", err)
++			return o.Body, o.Headers, fmt.Errorf("failed to process challenge automatically with: %w", err)
+ 		}
+ 	default:
+ 		// Unhandeled errors should be passed on

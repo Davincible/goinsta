@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-var ErrAllSaved = errors.New("Unable to call function for collection all posts")
+var ErrAllSaved = errors.New("unable to call function for collection all posts")
 
 // MediaItem defines a item media for the
 // SavedMedia struct
@@ -40,18 +40,21 @@ type Collections struct {
 	insta *Instagram
 	err   error
 
-	AutoLoadMoreEnabled bool         `json:"auto_load_more_enabled"`
-	Items               []Collection `json:"items"`
-	MoreAvailable       bool         `json:"more_available"`
-	NextID              string       `json:"next_max_id"`
+	AutoLoadMoreEnabled bool          `json:"auto_load_more_enabled"`
+	Items               []*Collection `json:"items"`
+	MoreAvailable       bool          `json:"more_available"`
+	NextID              string        `json:"next_max_id"`
 	NumResults          int
 	Status              string `json:"status"`
 }
 
 // Collection represents a single collection. All collections will not load
-//   any posts by default. To load the posts you need to call Collection.Next()
+//
+//	any posts by default. To load the posts you need to call Collection.Next()
+//
 // You can edit your collections with their respective methods. e.g. edit the name
-//   or change the thumbnail.
+//
+//	or change the thumbnail.
 type Collection struct {
 	insta *Instagram
 	err   error
@@ -59,10 +62,10 @@ type Collection struct {
 
 	ID         string `json:"collection_id"`
 	MediaCount int    `json:"collection_media_count"`
-	Name       string `json:"name"`
+	Name       string `json:"collection_name"`
 	Type       string `json:"collection_type"`
 	Cover      struct {
-		ID             int64  `json:"id"`
+		ID             string `json:"id"`
 		Images         Images `json:"image_versions2"`
 		OriginalWidth  int    `json:"original_width"`
 		OriginalHeight int    `json:"original_height"`
@@ -90,7 +93,8 @@ func newCollections(insta *Instagram) *Collections {
 
 // Next allows you to fetch and paginate your list of collections.
 // This method will cumulatively add to the collections. To get the latest
-//   fetched collections, call Collections.Latest(), or index with Collections.LastCount
+//
+//	fetched collections, call Collections.Latest(), or index with Collections.LastCount
 func (c *Collections) Next() bool {
 	// Check if prev returned error
 	if c.err != nil {
@@ -101,13 +105,16 @@ func (c *Collections) Next() bool {
 	if len(c.Items) > 0 && !c.MoreAvailable {
 		return false
 	}
+
 	insta := c.insta
 	query := map[string]string{
 		"collection_types": "[\"ALL_MEDIA_AUTO_COLLECTION\",\"PRODUCT_AUTO_COLLECTION\",\"MEDIA\",\"AUDIO_AUTO_COLLECTION\",\"GUIDES_AUTO_COLLECTION\"]",
 	}
+
 	if c.NextID != "" {
-		query["next_max_id"] = c.NextID
+		query["max_id"] = c.NextID
 	}
+
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlCollectionsList,
@@ -133,9 +140,11 @@ func (c *Collections) Next() bool {
 	for _, i := range tmp.Items {
 		i.insta = insta
 	}
+
 	c.Items = append(c.Items, tmp.Items...)
+
 	if !c.MoreAvailable {
-		err = ErrNoMore
+		c.err = ErrNoMore
 	}
 
 	return c.MoreAvailable
@@ -143,7 +152,7 @@ func (c *Collections) Next() bool {
 
 // Latest will return the last fetched items by indexing with Collections.LastCount.
 // Collections.Next keeps adding to the items, this method only returns the latest items.
-func (c *Collections) Latest() []Collection {
+func (c *Collections) Latest() []*Collection {
 	return c.Items[len(c.Items)-c.NumResults:]
 }
 
@@ -221,15 +230,18 @@ func (c *Collection) Delete() error {
 			Query:    generateSignature(data),
 		},
 	)
+
 	return err
 }
 
 // ChangeCover will change to cover of the collection. The item parameter must
-//   must be an item that is present inside the collection.
+//
+//	must be an item that is present inside the collection.
 func (c *Collection) ChangeCover(item Item) error {
 	if c.Name == "ALL_MEDIA_AUTO_COLLECTION" {
 		return ErrAllSaved
 	}
+
 	insta := c.insta
 
 	data, err := json.Marshal(
@@ -244,6 +256,7 @@ func (c *Collection) ChangeCover(item Item) error {
 	if err != nil {
 		return err
 	}
+
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlCollectionEdit, c.ID),
@@ -251,15 +264,23 @@ func (c *Collection) ChangeCover(item Item) error {
 			Query:    generateSignature(data),
 		},
 	)
-	err = json.Unmarshal(body, c)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(body, c); err != nil {
+		return err
+	}
+
 	return err
 }
 
-// ChangeName will change the name of the collection
+// ChangeName will change the name of the collection.
 func (c *Collection) ChangeName(name string) error {
 	if c.Name == "ALL_MEDIA_AUTO_COLLECTION" {
 		return ErrAllSaved
 	}
+
 	insta := c.insta
 
 	data, err := json.Marshal(
@@ -274,6 +295,7 @@ func (c *Collection) ChangeName(name string) error {
 	if err != nil {
 		return err
 	}
+
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlCollectionEdit, c.ID),
@@ -281,7 +303,14 @@ func (c *Collection) ChangeName(name string) error {
 			Query:    generateSignature(data),
 		},
 	)
-	err = json.Unmarshal(body, c)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(body, c); err != nil {
+		return err
+	}
+
 	return err
 }
 
@@ -320,12 +349,20 @@ func (c *Collection) AddCollaborators(colab ...User) error {
 			Query:    generateSignature(data),
 		},
 	)
-	err = json.Unmarshal(body, c)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(body, c); err != nil {
+		return err
+	}
+
 	return err
 }
 
 // RemoveMedia will remove media from a collection. The items provided must be
-//   inside the collection
+//
+//	inside the collection
 func (c *Collection) RemoveMedia(items ...Item) error {
 	if c.Name == "ALL_MEDIA_AUTO_COLLECTION" {
 		return ErrAllSaved
@@ -359,13 +396,21 @@ func (c *Collection) RemoveMedia(items ...Item) error {
 			Query:    generateSignature(data),
 		},
 	)
-	err = json.Unmarshal(body, c)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(body, c); err != nil {
+		return err
+	}
+
 	return err
 }
 
 // Sync will fetch the initial items inside a collection.
 // The first call to fetch posts will always be sync, however you can also only
-//   call Collection.Next() as Sync() will automatically be called if required.
+//
+//	call Collection.Next() as Sync() will automatically be called if required.
 func (c *Collection) Sync() error {
 	if c.Name == "ALL_MEDIA_AUTO_COLLECTION" {
 		if !c.Next() {
@@ -446,7 +491,7 @@ func (c *Collection) Next(params ...interface{}) bool {
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlCollectionFeedPosts, c.ID),
 			Query: map[string]string{
-				"next_max_id": c.GetNextID(),
+				"max_id": c.GetNextID(),
 			},
 		},
 	)
@@ -454,14 +499,17 @@ func (c *Collection) Next(params ...interface{}) bool {
 		c.err = err
 		return false
 	}
+
 	tmp := SavedMedia{}
-	err = json.Unmarshal(body, &tmp)
+	if err := json.Unmarshal(body, &tmp); err != nil {
+		c.err = err
+		return false
+	}
 
 	c.NextID = tmp.NextID
 	c.MoreAvailable = tmp.MoreAvailable
 	c.NumResults = tmp.NumResults
 
-	c.Items = []Item{}
 	for _, i := range tmp.Items {
 		c.Items = append(c.Items, i.Media)
 	}
@@ -512,7 +560,7 @@ func (item *Item) SaveTo(c *Collection) error {
 		if errIsFatal(err) {
 			return err
 		}
-		insta.warnHandler(errors.New("Non fatal error, failed to save post to all"))
+		insta.warnHandler(errors.New("non fatal error, failed to save post to all"))
 	}
 
 	data, err := json.Marshal(
@@ -575,12 +623,14 @@ func (item *Item) changeSave(endpoint string) error {
 			IsPost:   true,
 		},
 	)
+
 	return err
 }
 
 // Sync will fetch the initial saved items.
 // The first call to fetch posts will always be sync, however you can also only
-//   call SavedMedia.Next() as Sync() will automatically be called if required.
+//
+//	call SavedMedia.Next() as Sync() will automatically be called if required.
 func (media *SavedMedia) Sync() error {
 	insta := media.insta
 	body, _, err := insta.sendRequest(

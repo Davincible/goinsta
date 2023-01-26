@@ -19,7 +19,6 @@ var possibleUsers = []string{
 	"dualipa",
 	"stassiebaby",
 	"kourtneykardash",
-	"kendallsamore",
 	"f1",
 	"madscandids",
 	"9gag",
@@ -64,12 +63,11 @@ func TestInboxSync(t *testing.T) {
 	t.Logf("Logged in as %s\n", insta.Account.Username)
 	insta.SetWarnHandler(t.Log)
 
-	if !insta.Inbox.InitialSnapshot() {
+	if !insta.Inbox.InitialSnapshot() && insta.Inbox.Error() != goinsta.ErrNoMore {
 		t.Fatal(insta.Inbox.Error())
 	}
 
-	err = insta.Inbox.Sync()
-	if err != nil {
+	if err := insta.Inbox.Sync(); err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("Fetched %d conversations", len(insta.Inbox.Conversations))

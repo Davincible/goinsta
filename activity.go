@@ -128,25 +128,36 @@ func (act *Activity) Next() bool {
 
 	act2 := Activity{}
 	err = json.Unmarshal(body, &act2)
+
 	if err == nil {
 		*act = act2
 		act.insta = insta
+
 		if first {
-			act.MarkAsSeen()
+			if err := act.MarkAsSeen(); err != nil {
+				act.err = err
+
+				return false
+			}
 		}
 
 		if act.NextID == "" {
 			act.err = ErrNoMore
+
 			return false
 		}
+
 		return true
 	}
+
 	act.err = err
+
 	return false
 }
 
 // MarkAsSeen will let instagram know you visited the activity page, and mark
-//   current items as seen.
+//
+//	current items as seen.
 func (act *Activity) MarkAsSeen() error {
 	insta := act.insta
 	_, _, err := insta.sendRequest(

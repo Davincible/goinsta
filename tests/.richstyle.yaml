@@ -1,0 +1,11 @@
+labelType: long
+buildStyle:
+  bold: true
+  foreground: "#f7bf23"
+startStyle:
+  foreground: "#454440"
+passStyle:
+  foreground: "#25bf0d"
+failStyle:
+  bold: true
+  foreground: "#b80d0d"

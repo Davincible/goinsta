@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -72,12 +72,15 @@ func takeScreenshot(fn string) chromedp.Action {
 		func(ctx context.Context) error {
 			var buf []byte
 			err := chromedp.FullScreenshot(&buf, 90).Do(ctx)
+
 			if err != nil {
 				return err
 			}
-			if err := ioutil.WriteFile(fn, buf, 0o644); err != nil {
+
+			if err := os.WriteFile(fn, buf, 0o644); err != nil {
 				return err
 			}
+
 			return nil
 		})
 }
@@ -144,12 +147,14 @@ func (insta *Instagram) openChallenge(url string) error {
 	if !success {
 		return ErrChallengeFailed
 	}
+
 	return nil
 }
 
 // runHeadless takes a list of chromedp actions to perform, wrapped around default
-//   actions that will need to be run for every headless request, such as setting
-//   the cookies and user-agent.
+//
+//	actions that will need to be run for every headless request, such as setting
+//	the cookies and user-agent.
 func (insta *Instagram) runHeadless(options *headlessOptions) error {
 	if insta.privacyCalled.Get() {
 		return errors.New("Accept privacy cookie method has already been called. Did it not work? please report on a github issue")

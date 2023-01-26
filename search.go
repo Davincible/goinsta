@@ -28,7 +28,6 @@ type SearchResult struct {
 	SearchSurface string
 	context       string
 	queryParam    string
-	entityType    string
 
 	// Regular Search Results
 	Results []*TopSearchItem `json:"list"`

@@ -16,7 +16,7 @@ import (
 	"github.com/Davincible/goinsta/v3"
 )
 
-var errNoAPIKEY = errors.New("No API Key has been found. Please add one to .env")
+var errNoAPIKEY = errors.New("No Pixabay API Key has been found. Please add one to .env as PIXABAY_API_KEY")
 
 type pixaBayRes struct {
 	Total     int `json:"total"`
@@ -38,30 +38,11 @@ type pixaBayRes struct {
 }
 
 type video struct {
-	URL    string `json:"url"`
-	Width  int    `json:"width"`
-	Height int    `json:"height"`
-	Size   int    `json:"size"`
-}
-
-func TestGetRandomAccount(t *testing.T) {
-	for i := 0; i < 50; i++ {
-		insta, err := goinsta.EnvRandAcc()
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Log(insta.Account.Username)
-	}
-}
-
-func TestGetRandomLogin(t *testing.T) {
-	for i := 0; i < 50; i++ {
-		uname, pw, err := goinsta.EnvRandLogin()
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Log(uname, pw)
-	}
+	URL     string `json:"url"`
+	Width   int    `json:"width"`
+	Height  int    `json:"height"`
+	Size    int    `json:"size"`
+	Content []byte
 }
 
 func TestEnvLoadAccs(t *testing.T) {
@@ -125,7 +106,35 @@ func getPixabayAPIKey() (string, error) {
 	return "", errNoAPIKEY
 }
 
-func getVideo(o ...map[string]interface{}) ([]byte, error) {
+func getPhoto(width, height int, i ...int) (io.Reader, error) {
+	url := fmt.Sprintf("https://picsum.photos/%d/%d", width, height)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		// Retry on failure
+		if len(i) == 0 || i[0] < 5 {
+			c := 0
+			if len(i) > 0 {
+				c = i[0] + 1
+			}
+			fmt.Println("Failed to get photo, retrying...")
+			time.Sleep(5 * time.Second)
+			return getPhoto(width, height, c)
+		}
+		return nil, fmt.Errorf("Get image status code %d", resp.StatusCode)
+	}
+
+	buf := new(bytes.Buffer)
+	_, err = buf.ReadFrom(resp.Body)
+
+	return buf, err
+}
+
+func getVideo(o ...map[string]interface{}) (*video, error) {
 	key, err := getPixabayAPIKey()
 	if err != nil {
 		return nil, err
@@ -183,5 +192,6 @@ func getVideo(o ...map[string]interface{}) ([]byte, error) {
 	if err := resp.Body.Close(); err != nil {
 		return nil, err
 	}
-	return video, nil
+	vid.Content = video
+	return &vid, nil
 }

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
 	neturl "net/url"
@@ -40,7 +39,6 @@ import (
 //
 // Also you can use SetProxy and UnsetProxy to set and unset proxy.
 // Golang also provides the option to set a proxy using HTTP_PROXY env var.
-//
 type Instagram struct {
 	user string
 	pass string
@@ -68,6 +66,7 @@ type Instagram struct {
 	headerOptions sync.Map
 	// expiry of X-Mid cookie
 	xmidExpiry int64
+	xmidMu     *sync.RWMutex
 	// Public Key
 	pubKey string
 	// Public Key ID
@@ -76,6 +75,8 @@ type Instagram struct {
 	device Device
 	// User-Agent
 	userAgent string
+	// Session Nonce
+	session string
 
 	// Instagram objects
 
@@ -193,7 +194,8 @@ func (insta *Instagram) SetAdID(id string) {
 }
 
 // SetDevice allows you to set a custom device. This will also change the
-//   user agent based on the new device.
+//
+//	user agent based on the new device.
 func (insta *Instagram) SetDevice(device Device) {
 	insta.device = device
 	insta.userAgent = createUserAgent(device)
@@ -216,10 +218,11 @@ func (insta *Instagram) SetCookieJar(jar http.CookieJar) error {
 // New creates Instagram structure.
 //
 // :params:
-//   username:string
-//   password:string
-//   totp:string  -- OPTIONAL: 2FA private key, aka seed, used to generate 2FA codes
-//                   checks for empty string, so it's safe to pass in an empty string.
+//
+//	username:string
+//	password:string
+//	totp:string  -- OPTIONAL: 2FA private key, aka seed, used to generate 2FA codes
+//	                checks for empty string, so it's safe to pass in an empty string.
 func New(username, password string, totp_seed ...string) *Instagram {
 	// this call never returns error
 	jar, _ := cookiejar.New(nil)
@@ -235,6 +238,7 @@ func New(username, password string, totp_seed ...string) *Instagram {
 		psID:          "UFS-" + generateUUID() + "-0",
 		headerOptions: sync.Map{},
 		xmidExpiry:    -1,
+		xmidMu:        &sync.RWMutex{},
 		device:        GalaxyS10,
 		userAgent:     createUserAgent(GalaxyS10),
 		c: &http.Client{
@@ -334,6 +338,7 @@ func (insta *Instagram) ExportConfig() ConfigFile {
 		Account:       insta.Account,
 		Device:        insta.device,
 		TOTP:          insta.totp,
+		SessionNonce:  insta.session,
 	}
 
 	setHeaders := func(key, value interface{}) bool {
@@ -354,7 +359,7 @@ func (insta *Instagram) Export(path string) error {
 		return err
 	}
 
-	return ioutil.WriteFile(path, bytes, 0o644)
+	return os.WriteFile(path, bytes, 0o644)
 }
 
 // Export exports selected *Instagram object options to an io.Writer
@@ -373,7 +378,7 @@ func (insta *Instagram) ExportIO(writer io.Writer) error {
 //
 // This function does not set proxy automatically. Use SetProxy after this call.
 func ImportReader(r io.Reader, args ...interface{}) (*Instagram, error) {
-	bytes, err := ioutil.ReadAll(r)
+	bytes, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
@@ -397,11 +402,13 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 		totp:          config.TOTP,
 		dID:           config.DeviceID,
 		fID:           config.FamilyID,
+		psID:          "UFS-" + generateUUID() + "-0",
 		uuid:          config.UUID,
 		rankToken:     config.RankToken,
 		token:         config.Token,
 		pid:           config.PhoneID,
 		xmidExpiry:    config.XmidExpiry,
+		xmidMu:        &sync.RWMutex{},
 		headerOptions: sync.Map{},
 		device:        config.Device,
 		c: &http.Client{
@@ -419,6 +426,7 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 		privacyCalled:    utilities.NewABool(),
 		privacyRequested: utilities.NewABool(),
 		pubKeyID:         -1,
+		session:          config.SessionNonce,
 	}
 	insta.userAgent = createUserAgent(insta.device)
 
@@ -522,23 +530,47 @@ func (insta *Instagram) Login(password ...string) (err error) {
 	return
 }
 
-// Logout closes current session
+// Logout closes current session.
 func (insta *Instagram) Logout() error {
-	_, err := insta.sendSimpleRequest(urlLogout)
+	if insta.session == "" {
+		return ErrSessionNotSet
+	}
+
+	body, _, err := insta.sendRequest(&reqOptions{
+		Endpoint: urlLogout,
+		IsPost:   true,
+		Query: map[string]string{
+			"session_flush_nonce": insta.session,
+			"phone_id":            insta.fID,
+			"guid":                insta.uuid,
+			"device_id":           insta.dID,
+			"_uuid":               insta.uuid,
+		},
+	})
+
+	var resp ErrorN
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return err
+	}
+
+	if resp.Status != "ok" {
+		return ErrLogoutFailed
+	}
+
 	insta.c.Jar = nil
 	insta.c = nil
+
 	return err
 }
 
 func (insta *Instagram) OpenApp() (err error) {
 	// First refresh tokens after being logged in
-	err = insta.zrToken()
-	if err != nil {
+	if err = insta.zrToken(); err != nil {
 		return
 	}
 
-	if err := insta.sync(); err != nil {
-		return err
+	if err = insta.sync(); err != nil {
+		return
 	}
 
 	// Second start open app routine async
@@ -549,21 +581,22 @@ func (insta *Instagram) OpenApp() (err error) {
 	errChan := make(chan error, 15)
 
 	wg.Add(1)
-	go func() {
+	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
-		err := insta.getAccountFamily()
-		if err != nil {
+
+		if err := insta.getAccountFamily(); err != nil {
 			if errIsFatal(err) {
 				errChan <- err
 				return
 			}
 			insta.warnHandler("Non fatal error while fetching account family:", err)
 		}
-	}()
+	}(wg)
 
 	wg.Add(1)
-	go func() {
+	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
+
 		if err := insta.getNdxSteps(); err != nil {
 			if errIsFatal(err) {
 				errChan <- err
@@ -571,23 +604,23 @@ func (insta *Instagram) OpenApp() (err error) {
 			}
 			insta.warnHandler("Non fatal error while fetching ndx steps:", err)
 		}
-	}()
+	}(wg)
 
 	wg.Add(1)
-	go func() {
+	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
 		if !insta.Timeline.Next() {
-			err := insta.Timeline.Error()
-			if err != ErrNoMore {
+			if err := insta.Timeline.Error(); err != ErrNoMore {
 				errChan <- errors.New("Failed to fetch timeline: " +
 					err.Error())
 			}
 		}
-	}()
+	}(wg)
 
 	wg.Add(1)
-	go func() {
+	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
+
 		if err := insta.callNotifBadge(); err != nil {
 			if errIsFatal(err) {
 				errChan <- err
@@ -595,11 +628,12 @@ func (insta *Instagram) OpenApp() (err error) {
 			}
 			insta.warnHandler("Non fatal error while fetching notify badge", err)
 		}
-	}()
+	}(wg)
 
 	wg.Add(1)
-	go func() {
+	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
+
 		if err := insta.banyan(); err != nil {
 			if errIsFatal(err) {
 				errChan <- err
@@ -607,37 +641,39 @@ func (insta *Instagram) OpenApp() (err error) {
 			}
 			insta.warnHandler("Non fatal error while fetching banyan", err)
 		}
-	}()
+	}(wg)
 
 	wg.Add(1)
-	go func() {
+	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
-		if err = insta.callMediaBlocked(); err != nil {
+
+		if err := insta.callMediaBlocked(); err != nil {
 			if errIsFatal(err) {
 				errChan <- err
 				return
 			}
 			insta.warnHandler("Non fatal error while fetching blocked media", err)
 		}
-	}()
+	}(wg)
 
 	wg.Add(1)
-	go func() {
+	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
+
 		// no clue what theses values could be used for
-		_, err = insta.getCooldowns()
-		if err != nil {
+		if _, err := insta.getCooldowns(); err != nil {
 			if errIsFatal(err) {
 				errChan <- err
 				return
 			}
 			insta.warnHandler("Non fatal error while fetching cool downs", err)
 		}
-	}()
+	}(wg)
 
 	wg.Add(1)
-	go func() {
+	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
+
 		if !insta.Discover.Next() {
 			if errIsFatal(err) {
 				errChan <- err
@@ -646,11 +682,12 @@ func (insta *Instagram) OpenApp() (err error) {
 			insta.warnHandler("Non fatal error while fetching explore page",
 				insta.Discover.Error())
 		}
-	}()
+	}(wg)
 
 	wg.Add(1)
-	go func() {
+	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
+
 		if err := insta.getConfig(); err != nil {
 			if errIsFatal(err) {
 				errChan <- err
@@ -658,37 +695,37 @@ func (insta *Instagram) OpenApp() (err error) {
 			}
 			insta.warnHandler("Non fatal error while fetching config", err)
 		}
-	}()
+	}(wg)
 
 	wg.Add(1)
-	go func() {
+	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
+
 		// no clue what theses values could be used for
-		_, err = insta.getScoresBootstrapUsers()
-		if err != nil {
+		if _, err := insta.getScoresBootstrapUsers(); err != nil {
 			if errIsFatal(err) {
 				errChan <- err
 				return
 			}
 			insta.warnHandler("Non fatal error while fetching bootstrap user scores", err)
 		}
-	}()
+	}(wg)
 
 	wg.Add(1)
-	go func() {
+	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
 		if !insta.Activity.Next() {
-			err := insta.Activity.Error()
-			if err != ErrNoMore {
+			if err := insta.Activity.Error(); err != ErrNoMore {
 				errChan <- errors.New("Failed to fetch recent activity: " +
 					err.Error())
 			}
 		}
-	}()
+	}(wg)
 
 	wg.Add(1)
-	go func() {
+	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
+
 		if err := insta.sendAdID(); err != nil {
 			if errIsFatal(err) {
 				errChan <- err
@@ -696,11 +733,12 @@ func (insta *Instagram) OpenApp() (err error) {
 			}
 			insta.warnHandler("Non fatal error while sending ad id", err)
 		}
-	}()
+	}(wg)
 
 	wg.Add(1)
-	go func() {
+	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
+
 		if err := insta.callStClPushPerm(); err != nil {
 			if errIsFatal(err) {
 				errChan <- err
@@ -708,23 +746,24 @@ func (insta *Instagram) OpenApp() (err error) {
 			}
 			insta.warnHandler("Non fatal error while calling store client push permissions", err)
 		}
-	}()
+	}(wg)
 
 	wg.Add(1)
-	go func() {
+	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
+
 		if !insta.Inbox.InitialSnapshot() {
-			err := insta.Inbox.Error()
-			if err != ErrNoMore {
+			if err := insta.Inbox.Error(); err != ErrNoMore {
 				errChan <- errors.New("Failed to fetch initial messages inbox snapshot: " +
 					err.Error())
 			}
 		}
-	}()
+	}(wg)
 
 	wg.Add(1)
-	go func() {
+	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
+
 		if err := insta.callContPointSig(); err != nil {
 			if errIsFatal(err) {
 				errChan <- err
@@ -732,9 +771,10 @@ func (insta *Instagram) OpenApp() (err error) {
 			}
 			insta.warnHandler("Non fatal error while calling contact point signal:", err)
 		}
-	}()
+	}(wg)
 
 	wg.Wait()
+
 	select {
 	case err := <-errChan:
 		return err
@@ -799,17 +839,19 @@ func (insta *Instagram) login() error {
 // parseLogin gets called from Login and Login2FA
 func (insta *Instagram) parseLogin(body []byte) error {
 	var res struct {
-		Status  string   `json:"status"`
-		Account *Account `json:"logged_in_user"`
+		Status       string   `json:"status"`
+		Account      *Account `json:"logged_in_user"`
+		SessionNonce string   `json:"session_flush_nonce"`
 	}
 
 	err := json.Unmarshal(body, &res)
 	if err != nil {
-		return fmt.Errorf("Failed to parse json from login response with err: %w", err)
+		return fmt.Errorf("failed to parse json from login response with err: %w", err)
 	}
 
 	insta.Account = res.Account
 	insta.Account.insta = insta
+	insta.session = res.SessionNonce
 	insta.rankToken = strconv.FormatInt(insta.Account.ID, 10) + "_" + insta.uuid
 
 	return nil
@@ -902,7 +944,10 @@ func (insta *Instagram) zrToken() error {
 	token := res["token"].(map[string]interface{})
 	ttl := token["ttl"].(float64)
 	t := token["request_time"].(float64)
+
+	insta.xmidMu.Lock()
 	insta.xmidExpiry = int64(t + ttl)
+	insta.xmidMu.Unlock()
 
 	return err
 }
@@ -1135,7 +1180,7 @@ func (insta *Instagram) SetTimeout(t time.Duration) {
 
 // GetMedia returns media specified by id.
 //
-// The argument can be int64 or string
+// # The argument can be int64 or string
 //
 // See example: examples/media/like.go
 func (insta *Instagram) GetMedia(o interface{}) (*FeedMedia, error) {

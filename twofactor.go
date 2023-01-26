@@ -2,7 +2,6 @@ package goinsta
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/Davincible/goinsta/v3/utilities"
@@ -38,7 +37,8 @@ type phoneVerificationSettings struct {
 
 // Login2FA allows for a login through 2FA
 // You can either provide a code directly by passing it as a parameter, or
-//  goinsta can generate one for you as long as the TOTP seed is set.
+//
+//	goinsta can generate one for you as long as the TOTP seed is set.
 func (info *TwoFactorInfo) Login2FA(in ...string) error {
 	insta := info.insta
 
@@ -103,7 +103,9 @@ func (info *TwoFactorInfo) Login2FA(in ...string) error {
 
 // Check2FATrusted checks whether the device has been trusted.
 // When you enable 2FA, you can verify, or trust, the device with one of your
-//   other devices. This method will check if this device has been trusted.
+//
+//	other devices. This method will check if this device has been trusted.
+//
 // if so, it will login, if not, it will return an error.
 // The android app calls this method every 3 seconds
 func (info *TwoFactorInfo) Check2FATrusted() error {
@@ -122,15 +124,19 @@ func (info *TwoFactorInfo) Check2FATrusted() error {
 		return err
 	}
 
-	stat := struct {
+	var stat struct {
 		ReviewStatus int    `json:"review_status"`
 		Status       string `json:"status"`
-	}{}
-	err = json.Unmarshal(body, &stat)
+	}
+	if err = json.Unmarshal(body, &stat); err != nil {
+		return err
+	}
+
 	if stat.ReviewStatus == 0 {
-		return errors.New("Two factor authentication not yet verified")
+		return fmt.Errorf("two factor authentication not yet verified")
 	}
 
 	err = info.Login2FA("")
+
 	return err
 }
