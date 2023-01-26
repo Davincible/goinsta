@@ -99,10 +99,11 @@ func TestSearchHashtag(t *testing.T) {
 	}
 
 	for i := 0; i < 5; i++ {
-		if !hashtag.NextRecent() {
+		if !hashtag.Next(goinsta.PageRecent) {
 			t.Log(hashtag.Error())
 		}
-		t.Logf("Fetched %d recent posts", len(hashtag.ItemsRecent))
+
+		t.Logf("Fetched %d recent posts", len(hashtag.Items))
 	}
 }
 

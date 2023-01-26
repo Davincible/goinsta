@@ -187,14 +187,14 @@ func TestFeedTagNextRecent(t *testing.T) {
 	}
 
 	// First round
-	if s := hashtag.NextRecent(); !s {
+	if s := hashtag.Next(goinsta.PageRecent); !s {
 		t.Fatal(hashtag.Error())
 	}
 
 	initNextID := hashtag.NextID
 
 	// Second round
-	if s := hashtag.NextRecent(); !s {
+	if s := hashtag.Next(goinsta.PageRecent); !s {
 		t.Fatal(hashtag.Error())
 	}
 
@@ -206,5 +206,5 @@ func TestFeedTagNextRecent(t *testing.T) {
 	if gotNextID == initNextID {
 		t.Errorf("NextID must differ after FeedTag.Next() call")
 	}
-	t.Logf("Fetched %d posts", len(hashtag.ItemsRecent))
+	t.Logf("Fetched %d posts", len(hashtag.Items))
 }

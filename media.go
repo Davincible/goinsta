@@ -53,41 +53,41 @@ type Item struct {
 		ProfilePicID       string  `json:"profile_pic_id"`
 		ProfilePicURL      string  `json:"profile_pic_url"`
 		Username           string  `json:"username"`
-	} `json:"facepile_top_likers"`
-	MediaType             int     `json:"media_type"`
-	Code                  string  `json:"code"`
-	ClientCacheKey        string  `json:"client_cache_key"`
-	FilterType            int     `json:"filter_type"`
-	User                  User    `json:"user"`
-	CanReply              bool    `json:"can_reply"`
-	CanReshare            bool    `json:"can_reshare"` // Used for stories
-	CanViewerReshare      bool    `json:"can_viewer_reshare"`
-	Caption               Caption `json:"caption"`
-	CaptionIsEdited       bool    `json:"caption_is_edited"`
-	LikeViewCountDisabled bool    `json:"like_and_view_counts_disabled"`
+	} `json:"facepile_top_likers,omitempty"`
+	MediaType             int          `json:"media_type,omitempty"`
+	Code                  string       `json:"code,omitempty"`
+	ClientCacheKey        string       `json:"client_cache_key,omitempty"`
+	FilterType            int          `json:"filter_type,omitempty"`
+	User                  *UserMinimal `json:"user,omitempty"`
+	CanReply              bool         `json:"can_reply,omitempty"`
+	CanReshare            bool         `json:"can_reshare,omitempty"` // Used for stories
+	CanViewerReshare      bool         `json:"can_viewer_reshare,omitempty"`
+	Caption               Caption      `json:"caption,omitempty"`
+	CaptionIsEdited       bool         `json:"caption_is_edited,omitempty"`
+	LikeViewCountDisabled bool         `json:"like_and_view_counts_disabled,omitempty"`
 	FundraiserTag         struct {
-		HasStandaloneFundraiser bool `json:"has_standalone_fundraiser"`
-	} `json:"fundraiser_tag"`
-	IsSeen                       bool   `json:"is_seen"`
-	InventorySource              string `json:"inventory_source"`
-	ProductType                  string `json:"product_type"`
-	Likes                        int    `json:"like_count"`
-	HasLiked                     bool   `json:"has_liked"`
-	NearlyCompleteCopyRightMatch bool   `json:"nearly_complete_copyright_match"`
+		HasStandaloneFundraiser bool `json:"has_standalone_fundraiser,omitempty"`
+	} `json:"fundraiser_tag,omitempty"`
+	IsSeen                       bool   `json:"is_seen,omitempty"`
+	InventorySource              string `json:"inventory_source,omitempty"`
+	ProductType                  string `json:"product_type,omitempty"`
+	Likes                        int    `json:"like_count,omitempty"`
+	HasLiked                     bool   `json:"has_liked,omitempty"`
+	NearlyCompleteCopyRightMatch bool   `json:"nearly_complete_copyright_match,omitempty"`
 	// Toplikers can be `string` or `[]string`.
 	// Use TopLikers function instead of getting it directly.
-	Toplikers  interface{} `json:"top_likers"`
-	Likers     []*User     `json:"likers"`
-	PhotoOfYou bool        `json:"photo_of_you"`
+	Toplikers  interface{}    `json:"top_likers,omitempty"`
+	Likers     []*UserMinimal `json:"likers,omitempty"`
+	PhotoOfYou bool           `json:"photo_of_you,omitempty"`
 
 	// Comments
-	CommentLikesEnabled          bool `json:"comment_likes_enabled"`
-	CommentThreadingEnabled      bool `json:"comment_threading_enabled"`
-	HasMoreComments              bool `json:"has_more_comments"`
-	MaxNumVisiblePreviewComments int  `json:"max_num_visible_preview_comments"`
+	CommentLikesEnabled          bool `json:"comment_likes_enabled,omitempty"`
+	CommentThreadingEnabled      bool `json:"comment_threading_enabled,omitempty"`
+	HasMoreComments              bool `json:"has_more_comments,omitempty"`
+	MaxNumVisiblePreviewComments int  `json:"max_num_visible_preview_comments,omitempty"`
 
 	// To fetch, call feed.GetCommentInfo(), or item.GetCommentInfo()
-	CommentInfo *CommentInfo
+	CommentInfo *CommentInfo `json:"comment_info,emitempty"`
 
 	// Will always be zero, call feed.GetCommentInfo()
 	CommentCount int `json:"comment_count"`
@@ -100,9 +100,9 @@ type Item struct {
 	Tags struct {
 		In []Tag `json:"in"`
 	} `json:"usertags,omitempty"`
-	FbUserTags           Tag    `json:"fb_user_tags"`
-	CanViewerSave        bool   `json:"can_viewer_save"`
-	OrganicTrackingToken string `json:"organic_tracking_token"`
+	FbUserTags           Tag    `json:"fb_user_tags,omitempty"`
+	CanViewerSave        bool   `json:"can_viewer_save,omitempty"`
+	OrganicTrackingToken string `json:"organic_tracking_token,omitempty"`
 	// Images contains URL images in different versions.
 	// Version = quality.
 	Images          Images   `json:"image_versions2,omitempty"`
@@ -135,122 +135,122 @@ type Item struct {
 	// IGTV
 	Title                    string `json:"title"`
 	IGTVExistsInViewerSeries bool   `json:"igtv_exists_in_viewer_series"`
-	IGTVSeriesInfo           struct {
+	IGTVSeriesInfo           *struct {
 		HasCoverPhoto bool `json:"has_cover_photo"`
 		ID            int64
 		NumEpisodes   int    `json:"num_episodes"`
 		Title         string `json:"title"`
 	} `json:"igtv_series_info"`
-	IGTVAdsInfo struct {
+	IGTVAdsInfo *struct {
 		AdsToggledOn            bool `json:"ads_toggled_on"`
 		ElegibleForInsertingAds bool `json:"is_video_elegible_for_inserting_ads"`
 	} `json:"igtv_ads_info"`
 
 	// Ads
-	IsCommercial        bool   `json:"is_commercial"`
-	IsPaidPartnership   bool   `json:"is_paid_partnership"`
-	CommercialityStatus string `json:"commerciality_status"`
-	AdLink              string `json:"link"`
-	AdLinkText          string `json:"link_text"`
-	AdLinkHint          string `json:"link_hint_text"`
-	AdTitle             string `json:"overlay_title"`
-	AdSubtitle          string `json:"overlay_subtitle"`
-	AdText              string `json:"overlay_text"`
-	AdAction            string `json:"ad_action"`
-	AdHeaderStyle       int    `json:"ad_header_style"`
-	AdLinkType          int    `json:"ad_link_type"`
+	IsCommercial        bool   `json:"is_commercial,omitempty"`
+	IsPaidPartnership   bool   `json:"is_paid_partnership,omitempty"`
+	CommercialityStatus string `json:"commerciality_status,omitempty"`
+	AdLink              string `json:"link,omitempty"`
+	AdLinkText          string `json:"link_text,omitempty"`
+	AdLinkHint          string `json:"link_hint_text,omitempty"`
+	AdTitle             string `json:"overlay_title,omitempty"`
+	AdSubtitle          string `json:"overlay_subtitle,omitempty"`
+	AdText              string `json:"overlay_text,omitempty"`
+	AdAction            string `json:"ad_action,omitempty"`
+	AdHeaderStyle       int    `json:"ad_header_style,omitempty"`
+	AdLinkType          int    `json:"ad_link_type,omitempty"`
 	AdMetadata          []struct {
-		Type  int         `json:"type"`
-		Value interface{} `json:"value"`
-	} `json:"ad_metadata"`
+		Type  int         `json:"type,omitempty"`
+		Value interface{} `json:"value,omitempty"`
+	} `json:"ad_metadata,omitempty"`
 	AndroidLinks []struct {
-		AndroidClass      string `json:"androidClass"`
-		CallToActionTitle string `json:"callToActionTitle"`
-		DeeplinkUri       string `json:"deeplinkUri"`
-		LinkType          int    `json:"linkType"`
-		Package           string `json:"package"`
-		WebUri            string `json:"webUri"`
-	} `json:"android_links"`
+		AndroidClass      string `json:"androidClass,omitempty"`
+		CallToActionTitle string `json:"callToActionTitle,omitempty"`
+		DeeplinkUri       string `json:"deeplinkUri,omitempty"`
+		LinkType          int    `json:"linkType,omitempty"`
+		Package           string `json:"package,omitempty"`
+		WebUri            string `json:"webUri,omitempty"`
+	} `json:"android_links,omitempty"`
 
 	// Only for stories
-	StoryEvents              []interface{}      `json:"story_events"`
-	StoryHashtags            []interface{}      `json:"story_hashtags"`
-	StoryPolls               []interface{}      `json:"story_polls"`
-	StoryFeedMedia           []interface{}      `json:"story_feed_media"`
-	StorySoundOn             []interface{}      `json:"story_sound_on"`
-	CreativeConfig           interface{}        `json:"creative_config"`
-	StoryLocations           []interface{}      `json:"story_locations"`
-	StorySliders             []interface{}      `json:"story_sliders"`
-	StoryQuestions           []interface{}      `json:"story_questions"`
-	StoryProductItems        []interface{}      `json:"story_product_items"`
-	StoryCTA                 []StoryCTA         `json:"story_cta"`
-	IntegrityReviewDecision  string             `json:"integrity_review_decision"`
-	IsReelMedia              bool               `json:"is_reel_media"`
-	ProfileGridControl       bool               `json:"profile_grid_control_enabled"`
-	ReelMentions             []StoryReelMention `json:"reel_mentions"`
-	ExpiringAt               int64              `json:"expiring_at"`
-	CanSendCustomEmojis      bool               `json:"can_send_custom_emojis"`
-	SupportsReelReactions    bool               `json:"supports_reel_reactions"`
-	ShowOneTapFbShareTooltip bool               `json:"show_one_tap_fb_share_tooltip"`
-	HasSharedToFb            int64              `json:"has_shared_to_fb"`
+	StoryEvents              []interface{}      `json:"story_events,omitempty"`
+	StoryHashtags            []interface{}      `json:"story_hashtags,omitempty"`
+	StoryPolls               []interface{}      `json:"story_polls,omitempty"`
+	StoryFeedMedia           []interface{}      `json:"story_feed_media,omitempty"`
+	StorySoundOn             []interface{}      `json:"story_sound_on,omitempty"`
+	CreativeConfig           interface{}        `json:"creative_config,omitempty"`
+	StoryLocations           []interface{}      `json:"story_locations,omitempty"`
+	StorySliders             []interface{}      `json:"story_sliders,omitempty"`
+	StoryQuestions           []interface{}      `json:"story_questions,omitempty"`
+	StoryProductItems        []interface{}      `json:"story_product_items,omitempty"`
+	StoryCTA                 []StoryCTA         `json:"story_cta,omitempty"`
+	IntegrityReviewDecision  string             `json:"integrity_review_decision,omitempty"`
+	IsReelMedia              bool               `json:"is_reel_media,omitempty"`
+	ProfileGridControl       bool               `json:"profile_grid_control_enabled,omitempty"`
+	ReelMentions             []StoryReelMention `json:"reel_mentions,omitempty"`
+	ExpiringAt               int64              `json:"expiring_at,omitempty"`
+	CanSendCustomEmojis      bool               `json:"can_send_custom_emojis,omitempty"`
+	SupportsReelReactions    bool               `json:"supports_reel_reactions,omitempty"`
+	ShowOneTapFbShareTooltip bool               `json:"show_one_tap_fb_share_tooltip,omitempty"`
+	HasSharedToFb            int64              `json:"has_shared_to_fb,omitempty"`
 	Mentions                 []Mentions
 	Audience                 string `json:"audience,omitempty"`
 	StoryMusicStickers       []struct {
-		X              float64 `json:"x"`
-		Y              float64 `json:"y"`
-		Z              int     `json:"z"`
-		Width          float64 `json:"width"`
-		Height         float64 `json:"height"`
-		Rotation       float64 `json:"rotation"`
-		IsPinned       int     `json:"is_pinned"`
-		IsHidden       int     `json:"is_hidden"`
-		IsSticker      int     `json:"is_sticker"`
+		X              float64 `json:"x,omitempty"`
+		Y              float64 `json:"y,omitempty"`
+		Z              int     `json:"z,omitempty"`
+		Width          float64 `json:"width,omitempty"`
+		Height         float64 `json:"height,omitempty"`
+		Rotation       float64 `json:"rotation,omitempty"`
+		IsPinned       int     `json:"is_pinned,omitempty"`
+		IsHidden       int     `json:"is_hidden,omitempty"`
+		IsSticker      int     `json:"is_sticker,omitempty"`
 		MusicAssetInfo struct {
-			ID                       string `json:"id"`
-			Title                    string `json:"title"`
-			Subtitle                 string `json:"subtitle"`
-			DisplayArtist            string `json:"display_artist"`
-			CoverArtworkURI          string `json:"cover_artwork_uri"`
-			CoverArtworkThumbnailURI string `json:"cover_artwork_thumbnail_uri"`
-			ProgressiveDownloadURL   string `json:"progressive_download_url"`
-			HighlightStartTimesInMs  []int  `json:"highlight_start_times_in_ms"`
-			IsExplicit               bool   `json:"is_explicit"`
-			DashManifest             string `json:"dash_manifest"`
-			HasLyrics                bool   `json:"has_lyrics"`
-			AudioAssetID             string `json:"audio_asset_id"`
+			ID                       string `json:"id,omitempty"`
+			Title                    string `json:"title,omitempty"`
+			Subtitle                 string `json:"subtitle,omitempty"`
+			DisplayArtist            string `json:"display_artist,omitempty"`
+			CoverArtworkURI          string `json:"cover_artwork_uri,omitempty"`
+			CoverArtworkThumbnailURI string `json:"cover_artwork_thumbnail_uri,omitempty"`
+			ProgressiveDownloadURL   string `json:"progressive_download_url,omitempty"`
+			HighlightStartTimesInMs  []int  `json:"highlight_start_times_in_ms,omitempty"`
+			IsExplicit               bool   `json:"is_explicit,omitempty"`
+			DashManifest             string `json:"dash_manifest,omitempty"`
+			HasLyrics                bool   `json:"has_lyrics,omitempty"`
+			AudioAssetID             string `json:"audio_asset_id,omitempty"`
 			IgArtist                 struct {
-				Pk            int    `json:"pk"`
-				Username      string `json:"username"`
-				FullName      string `json:"full_name"`
-				IsPrivate     bool   `json:"is_private"`
-				ProfilePicURL string `json:"profile_pic_url"`
-				ProfilePicID  string `json:"profile_pic_id"`
-				IsVerified    bool   `json:"is_verified"`
-			} `json:"ig_artist"`
-			PlaceholderProfilePicURL string `json:"placeholder_profile_pic_url"`
-			ShouldMuteAudio          bool   `json:"should_mute_audio"`
-			ShouldMuteAudioReason    string `json:"should_mute_audio_reason"`
-			OverlapDurationInMs      int    `json:"overlap_duration_in_ms"`
-			AudioAssetStartTimeInMs  int    `json:"audio_asset_start_time_in_ms"`
+				Pk            int    `json:"pk,omitempty"`
+				Username      string `json:"username,omitempty"`
+				FullName      string `json:"full_name,omitempty"`
+				IsPrivate     bool   `json:"is_private,omitempty"`
+				ProfilePicURL string `json:"profile_pic_url,omitempty"`
+				ProfilePicID  string `json:"profile_pic_id,omitempty"`
+				IsVerified    bool   `json:"is_verified,omitempty"`
+			} `json:"ig_artist,omitempty"`
+			PlaceholderProfilePicURL string `json:"placeholder_profile_pic_url,omitempty"`
+			ShouldMuteAudio          bool   `json:"should_mute_audio,omitempty"`
+			ShouldMuteAudioReason    string `json:"should_mute_audio_reason,omitempty"`
+			OverlapDurationInMs      int    `json:"overlap_duration_in_ms,omitempty"`
+			AudioAssetStartTimeInMs  int    `json:"audio_asset_start_time_in_ms,omitempty"`
 			StoryLinkStickers        []struct {
-				X           float64 `json:"x"`
-				Y           float64 `json:"y"`
-				Z           int     `json:"z"`
-				Width       float64 `json:"width"`
-				Height      float64 `json:"height"`
-				Rotation    int     `json:"rotation"`
-				IsPinned    int     `json:"is_pinned"`
-				IsHidden    int     `json:"is_hidden"`
-				IsSticker   int     `json:"is_sticker"`
-				IsFbSticker int     `json:"is_fb_sticker"`
+				X           float64 `json:"x,omitempty"`
+				Y           float64 `json:"y,omitempty"`
+				Z           int     `json:"z,omitempty"`
+				Width       float64 `json:"width,omitempty"`
+				Height      float64 `json:"height,omitempty"`
+				Rotation    int     `json:"rotation,omitempty"`
+				IsPinned    int     `json:"is_pinned,omitempty"`
+				IsHidden    int     `json:"is_hidden,omitempty"`
+				IsSticker   int     `json:"is_sticker,omitempty"`
+				IsFbSticker int     `json:"is_fb_sticker,omitempty"`
 				StoryLink   struct {
-					LinkType   string `json:"link_type"`
-					URL        string `json:"url"`
-					LinkTitle  string `json:"link_title"`
-					DisplayURL string `json:"display_url"`
-				} `json:"story_link"`
-			} `json:"story_link_stickers"`
-		} `json:"music_asset_info"`
+					LinkType   string `json:"link_type,omitempty"`
+					URL        string `json:"url,omitempty"`
+					LinkTitle  string `json:"link_title,omitempty"`
+					DisplayURL string `json:"display_url,omitempty"`
+				} `json:"story_link,omitempty"`
+			} `json:"story_link_stickers,omitempty"`
+		} `json:"music_asset_info,omitempty"`
 	} `json:"story_music_stickers,omitempty"`
 }
 
@@ -268,9 +268,11 @@ func (item *Item) Comment(text string) error {
 	if err != nil {
 		return err
 	}
+
 	if !o.IsOffensive {
 		return item.comment(text)
 	}
+
 	return errors.New("Failed to post comment, flagged as offensive")
 }
 
@@ -288,20 +290,25 @@ func (item *Item) comment(text string) error {
 		"is_carousel_bumped_post": "false", // not sure when this would be true
 		"comment_text":            text,
 	}
+
 	if item.module != "" {
 		query["container_module"] = item.module
 	}
+
 	if item.IsCommercial {
 		query["delivery_class"] = "ad"
 	} else {
 		query["delivery_class"] = "organic"
 	}
+
 	if item.InventorySource != "" {
 		query["inventory_source"] = item.InventorySource
 	}
+
 	if len(item.CarouselMedia) > 0 || item.CarouselParentID != "" {
 		query["carousel_index"] = "0"
 	}
+
 	b, err := json.Marshal(query)
 	if err != nil {
 		return err
@@ -315,6 +322,7 @@ func (item *Item) comment(text string) error {
 			IsPost:   true,
 		},
 	)
+
 	return err
 }
 
@@ -330,6 +338,7 @@ func (item *Item) CommentCheckOffensive(comment string) (*CommentOffensive, erro
 	if err != nil {
 		return nil, err
 	}
+
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlCommentOffensive,
@@ -340,8 +349,10 @@ func (item *Item) CommentCheckOffensive(comment string) (*CommentOffensive, erro
 	if err != nil {
 		return nil, err
 	}
+
 	r := &CommentOffensive{}
 	err = json.Unmarshal(body, r)
+
 	return r, err
 }
 
@@ -415,6 +426,7 @@ func MediaToString(t int) string {
 	case 13:
 		return "guide_facade"
 	}
+
 	return ""
 }
 
@@ -424,6 +436,7 @@ func setToItem(item *Item, media Media) {
 	item.insta = media.getInsta()
 	item.User.insta = media.getInsta()
 	item.Comments = newComments(item)
+
 	for i := range item.CarouselMedia {
 		item.CarouselMedia[i].User = item.User
 		setToItem(&item.CarouselMedia[i], media)
@@ -431,7 +444,7 @@ func setToItem(item *Item, media Media) {
 }
 
 // setToMediaItem is a utility function that
-// mimics the setToItem but for the SavedMedia items
+// mimics the setToItem but for the SavedMedia items.
 func setToMediaItem(item *MediaItem, media Media) {
 	item.Media.media = media
 	item.Media.Comments = newComments(&item.Media)
@@ -445,6 +458,7 @@ func setToMediaItem(item *MediaItem, media Media) {
 func getname(name string) string {
 	nname := name
 	i := 1
+
 	for {
 		ext := path.Ext(name)
 
@@ -452,12 +466,15 @@ func getname(name string) string {
 		if err != nil {
 			break
 		}
+
 		if ext != "" {
 			nname = strings.Replace(nname, ext, "", -1)
 		}
+
 		name = fmt.Sprintf("%s.%d%s", nname, i, ext)
 		i++
 	}
+
 	return name
 }
 
@@ -468,7 +485,7 @@ type bestMedia struct {
 
 // GetBest returns url to best quality image or video.
 //
-// Arguments can be []Video or []Candidate
+// Arguments can be []Video or []Candidate.
 func GetBest(obj interface{}) string {
 	m := bestMedia{}
 
@@ -492,6 +509,7 @@ func GetBest(obj interface{}) string {
 			}
 		}
 	}
+
 	return m.url
 }
 
@@ -508,6 +526,7 @@ func (item *Item) Hashtags() []Hashtag {
 	hsh := make([]Hashtag, len(tags))
 
 	i := 0
+
 	for _, tag := range tags {
 		hsh[i].Name = tag[1:]
 		i++
@@ -561,6 +580,7 @@ func (insta *Instagram) delete(id, media string, mediaType interface{}) error {
 			IsPost:   true,
 		},
 	)
+
 	return err
 }
 
@@ -616,17 +636,21 @@ func (item *Item) changeLike(endpoint string) error {
 		"radio_type":              "wifi-none",
 		"is_carousel_bumped_post": "false", // not sure when this would be true
 	}
+
 	if item.module != "" {
 		query["container_module"] = item.module
 	}
+
 	if item.IsCommercial {
 		query["delivery_class"] = "ad"
 	} else {
 		query["delivery_class"] = "organic"
 	}
+
 	if item.InventorySource != "" {
 		query["inventory_source"] = item.InventorySource
 	}
+
 	if len(item.CarouselMedia) > 0 || item.CarouselParentID != "" {
 		query["carousel_index"] = "0"
 	}
@@ -661,9 +685,9 @@ func (item *Item) changeLike(endpoint string) error {
 //
 // See example: examples/media/itemDownload.go
 
-// func (item *Item) Download(folder, name string) (m []byte, err error) {
-// 	return nil, nil
-// }
+//	func (item *Item) Download(folder, name string) (m []byte, err error) {
+//		return nil, nil
+//	}
 func (item *Item) DownloadTo(dst string) error {
 	insta := item.insta
 	folder, file := path.Split(dst)
@@ -967,7 +991,9 @@ func (media *FeedMedia) GetNextID() string {
 // User.Feed
 // extra query arguments can be passes one after another as func(key, value).
 // Only if an even number of string arguements will be passed, they will be
-//   used in the query.
+//
+//	used in the query.
+//
 // returns false when list reach the end.
 // if FeedMedia.Error() is ErrNoMore no problems have occurred.
 func (media *FeedMedia) Next(params ...interface{}) bool {
@@ -1056,7 +1082,8 @@ func (item *Item) GetCommentInfo() error {
 }
 
 // GetCommentInfo will fetch the item.CommentInfo; e.g. comment counts, and
-//  other comment information for the feed.Latest() items
+//
+//	other comment information for the feed.Latest() items
 func (media *FeedMedia) GetCommentInfo() error {
 	insta := media.insta
 

@@ -2,7 +2,19 @@ package goinsta
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+)
+
+type PageTab string
+
+var (
+	// PageTop fetches the top items.
+	PageTop PageTab = "top"
+	// PageRecent fetches the recent items.
+	PageRecent PageTab = "recent"
+	// PageReels fetches the reels items.
+	PageReels PageTab = "clips"
 )
 
 // Hashtag is used for getting the media that matches a hashtag on instagram.
@@ -10,36 +22,34 @@ type Hashtag struct {
 	insta *Instagram
 	err   error
 
-	Name                string      `json:"name"`
-	ID                  int64       `json:"id"`
-	MediaCount          int         `json:"media_count"`
-	FormattedMediaCount string      `json:"formatted_media_count"`
-	FollowStatus        interface{} `json:"follow_status"`
-	Subtitle            string      `json:"subtitle"`
-	Description         string      `json:"description"`
-	Following           interface{} `json:"following"`
-	AllowFollowing      interface{} `json:"allow_following"`
-	AllowMutingStory    interface{} `json:"allow_muting_story"`
-	ProfilePicURL       interface{} `json:"profile_pic_url"`
-	NonViolating        interface{} `json:"non_violating"`
-	RelatedTags         interface{} `json:"related_tags"`
-	DebugInfo           interface{} `json:"debug_info"`
+	Name                string `json:"name"`
+	ID                  int64  `json:"id"`
+	MediaCount          int    `json:"media_count"`
+	FormattedMediaCount string `json:"formatted_media_count,omitempty"`
+	FollowStatus        any    `json:"follow_status,omitempty"`
+	Subtitle            string `json:"subtitle,omitempty"`
+	Description         string `json:"description,omitempty"`
+	Following           any    `json:"following,omitempty"`
+	AllowFollowing      any    `json:"allow_following,omitempty"`
+	AllowMutingStory    any    `json:"allow_muting_story,omitempty"`
+	ProfilePicURL       any    `json:"profile_pic_url,omitempty"`
+	NonViolating        any    `json:"non_violating,omitempty"`
+	RelatedTags         any    `json:"related_tags,omitempty"`
+	DebugInfo           any    `json:"debug_info,omitempty"`
 	// All Top Items
-	Items []*Item
-	// All ItemsRecent Items
-	ItemsRecent []*Item
-	Story       *StoryMedia
-	NumResults  int
+	Items      []*Item     `json:"items,omitempty"`
+	Story      *StoryMedia `json:"story,omitempty"`
+	NumResults int
 
 	// Sections will always contain the last fetched sections, regardless of tab
-	Sections            []hashtagSection `json:"sections"`
+	Sections            []hashtagSection `json:"sections,omitempty"`
 	PageInfo            map[string]hashtagPageInfo
-	AutoLoadMoreEnabled bool    `json:"auto_load_more_enabled"`
-	MoreAvailable       bool    `json:"more_available"`
-	NextID              string  `json:"next_max_id"`
-	NextPage            int     `json:"next_page"`
-	NextMediaIds        []int64 `json:"next_media_ids"`
-	Status              string  `json:"status"`
+	AutoLoadMoreEnabled bool    `json:"auto_load_more_enabled,omitempty"`
+	MoreAvailable       bool    `json:"more_available,omitempty"`
+	NextID              string  `json:"next_max_id,omitempty"`
+	NextPage            int     `json:"next_page,omitempty"`
+	NextMediaIds        []int64 `json:"next_media_ids,omitempty"`
+	Status              string  `json:"status,omitempty"`
 }
 
 type hashtagSection struct {
@@ -79,13 +89,14 @@ func (h *Hashtag) setValues() {
 		for _, m := range s.LayoutContent.Medias {
 			setToItem(m.Item, h)
 		}
+
 		for _, m := range s.LayoutContent.FillItems {
 			setToItem(m.Item, h)
 		}
 	}
 }
 
-// Delete only a place holder, does nothing
+// Delete only a place holder, does nothing.
 func (h *Hashtag) Delete() error {
 	return nil
 }
@@ -94,8 +105,8 @@ func (h *Hashtag) GetNextID() string {
 	return ""
 }
 
-// NewHashtag returns initialised hashtag structure
-// Name parameter is hashtag name
+// NewHashtag returns initialized hashtag structure.
+// Name parameter is hashtag name.
 func (insta *Instagram) NewHashtag(name string) *Hashtag {
 	return &Hashtag{
 		insta:    insta,
@@ -104,12 +115,12 @@ func (insta *Instagram) NewHashtag(name string) *Hashtag {
 	}
 }
 
-// Sync wraps Hashtag.Info()
+// Sync wraps Hashtag.Info().
 func (h *Hashtag) Sync() error {
 	return h.Info()
 }
 
-// Info updates Hashtag information
+// Info updates Hashtag information.
 func (h *Hashtag) Info() error {
 	insta := h.insta
 
@@ -117,26 +128,35 @@ func (h *Hashtag) Info() error {
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal(body, h)
-	return err
+
+	return json.Unmarshal(body, h)
 }
 
 // Next paginates over hashtag top pages.
-func (h *Hashtag) Next(p ...interface{}) bool {
-	return h.next("top")
+func (h *Hashtag) Next(tab ...interface{}) bool {
+	p := PageTop
+
+	if len(tab) > 0 {
+		page, ok := tab[0].(PageTab)
+		if !ok {
+			h.err = errors.New("can only provide type PageTab")
+			return false
+		}
+
+		if len(page) > 0 {
+			p = page
+		}
+	}
+
+	return h.next(p)
 }
 
-// NextRecent paginates over hashtag top recent pages.
-func (h *Hashtag) NextRecent() bool {
-	return h.next("recent")
-}
+func (h *Hashtag) next(tab PageTab) bool {
+	pageInfo, ok := h.PageInfo[string(tab)]
 
-func (h *Hashtag) next(tab string) bool {
-	pageInfo, ok := h.PageInfo[tab]
-
-	if h.err != nil && h.err != ErrNoMore {
+	if h.err != nil && errors.Is(h.err, ErrNoMore) {
 		return false
-	} else if h.err == ErrNoMore && ok && !pageInfo.MoreAvailable {
+	} else if errors.Is(h.err, ErrNoMore) && ok && !pageInfo.MoreAvailable {
 		return false
 	}
 
@@ -149,7 +169,7 @@ func (h *Hashtag) next(tab string) bool {
 	name := h.Name
 
 	query := map[string]string{
-		"tab":                tab,
+		"tab":                string(tab),
 		"_uuid":              insta.uuid,
 		"include_persistent": "false",
 		"rank_token":         insta.rankToken,
@@ -161,6 +181,7 @@ func (h *Hashtag) next(tab string) bool {
 			h.err = err
 			return false
 		}
+
 		query["max_id"] = pageInfo.NextID
 		query["page"] = toString(pageInfo.NextPage)
 		query["next_media_ids"] = string(nextMediaIds)
@@ -194,7 +215,7 @@ func (h *Hashtag) next(tab string) bool {
 	return true
 }
 
-func (h *Hashtag) fillItems(res *Hashtag, tab string) {
+func (h *Hashtag) fillItems(res *Hashtag, tab PageTab) {
 	h.AutoLoadMoreEnabled = res.AutoLoadMoreEnabled
 	h.NextID = res.NextID
 	h.MoreAvailable = res.MoreAvailable
@@ -202,7 +223,7 @@ func (h *Hashtag) fillItems(res *Hashtag, tab string) {
 	h.Status = res.Status
 	h.Sections = res.Sections
 
-	h.PageInfo[tab] = hashtagPageInfo{
+	h.PageInfo[string(tab)] = hashtagPageInfo{
 		MoreAvailable: res.MoreAvailable,
 		NextID:        res.NextID,
 		NextPage:      res.NextPage,
@@ -210,52 +231,51 @@ func (h *Hashtag) fillItems(res *Hashtag, tab string) {
 	}
 
 	h.setValues()
+
 	count := 0
+
 	for _, s := range res.Sections {
 		for _, m := range s.LayoutContent.Medias {
-			count += 1
-			if tab == "top" {
-				h.Items = append(h.Items, m.Item)
-			} else if tab == "recent" {
-				h.ItemsRecent = append(h.ItemsRecent, m.Item)
-			}
+			count++
+
+			h.Items = append(h.Items, m.Item)
 		}
 
 		for _, m := range s.LayoutContent.FillItems {
-			count += 1
-			if tab == "top" {
-				h.Items = append(h.Items, m.Item)
-			} else if tab == "recent" {
-				h.ItemsRecent = append(h.ItemsRecent, m.Item)
-			}
+			count++
+
+			h.Items = append(h.Items, m.Item)
 		}
 	}
+
 	h.NumResults = count
 }
 
 // Latest will return the last fetched items.
 func (h *Hashtag) Latest() []*Item {
 	var res []*Item
+
 	for _, s := range h.Sections {
 		for _, m := range s.LayoutContent.Medias {
 			res = append(res, m.Item)
 		}
 	}
+
 	return res
 }
 
-// Error returns hashtag error
+// Error returns hashtag error.
 func (h *Hashtag) Error() error {
 	return h.err
 }
 
-// Clears the Hashtag.err error
+// Clears the Hashtag.err error.
 func (h *Hashtag) ClearError() {
 	h.err = nil
 }
 
-func (media *Hashtag) getInsta() *Instagram {
-	return media.insta
+func (h *Hashtag) getInsta() *Instagram {
+	return h.insta
 }
 
 // Stories returns hashtag stories.
@@ -271,10 +291,12 @@ func (h *Hashtag) Stories() error {
 		Story  *StoryMedia `json:"story"`
 		Status string      `json:"status"`
 	}
-	err = json.Unmarshal(body, &resp)
-	if err != nil {
+
+	if err = json.Unmarshal(body, &resp); err != nil {
 		return err
 	}
+
 	h.Story = resp.Story
+
 	return err
 }

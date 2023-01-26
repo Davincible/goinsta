@@ -299,7 +299,7 @@ type Caption struct {
 	ContentType     string      `json:"content_type"`
 	Status          string      `json:"status"`
 	BitFlags        int         `json:"bit_flags"`
-	User            User        `json:"user"`
+	User            UserMinimal `json:"user"`
 	DidReportAsSpam bool        `json:"did_report_as_spam"`
 	MediaID         int64       `json:"media_id"`
 	HasTranslation  bool        `json:"has_translation"`
@@ -444,9 +444,9 @@ type InboxItemLike struct {
 }
 
 type respLikers struct {
-	Users     []*User `json:"users"`
-	UserCount int64   `json:"user_count"`
-	Status    string  `json:"status"`
+	Users     []*UserMinimal `json:"users"`
+	UserCount int64          `json:"user_count"`
+	Status    string         `json:"status"`
 }
 
 type ErrChallengeProcess struct {
