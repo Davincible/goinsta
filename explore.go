@@ -80,7 +80,8 @@ func newDiscover(insta *Instagram) *Discover {
 }
 
 // Next allows you to paginate explore page results. Also use this for your
-//  first fetch
+//
+//	first fetch
 func (disc *Discover) Next() bool {
 	if disc.sessionId == "" {
 		disc.sessionId = generateUUID()
@@ -148,9 +149,17 @@ func (disc *Discover) setValues() {
 			i.Media.insta = disc.insta
 			i.Media.User.insta = disc.insta
 		}
+
 		sec.LayoutContent.OneByOneItem.Media.insta = disc.insta
-		sec.LayoutContent.OneByOneItem.Media.User.insta = disc.insta
+
+		if sec.LayoutContent.OneByOneItem.Media.User != nil {
+			sec.LayoutContent.OneByOneItem.Media.User.insta = disc.insta
+		}
+
 		sec.LayoutContent.TwoByTwoItem.Media.insta = disc.insta
-		sec.LayoutContent.TwoByTwoItem.Media.User.insta = disc.insta
+
+		if sec.LayoutContent.TwoByTwoItem.Media.User != nil {
+			sec.LayoutContent.TwoByTwoItem.Media.User.insta = disc.insta
+		}
 	}
 }
