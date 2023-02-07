@@ -98,6 +98,8 @@ func (users *Users) Next() bool {
 			return false
 		}
 		users.NextID = strconv.FormatInt(nextID, 10)
+	} else {
+		users.NextID = ""
 	}
 
 	users.Status = newUsers.Status
