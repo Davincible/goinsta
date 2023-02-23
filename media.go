@@ -219,7 +219,7 @@ type Item struct {
 			HasLyrics                bool   `json:"has_lyrics"`
 			AudioAssetID             string `json:"audio_asset_id"`
 			IgArtist                 struct {
-				Pk            int    `json:"pk"`
+				Pk            int64  `json:"pk"`
 				Username      string `json:"username"`
 				FullName      string `json:"full_name"`
 				IsPrivate     bool   `json:"is_private"`
