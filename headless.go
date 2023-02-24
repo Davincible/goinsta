@@ -12,6 +12,8 @@ import (
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
+
+	cu "github.com/Davincible/chromedp-undetected"
 )
 
 type headlessOptions struct {
@@ -87,7 +89,8 @@ func takeScreenshot(fn string) chromedp.Action {
 
 func (insta *Instagram) acceptPrivacyCookies(url string) error {
 	// Looks for the "Allow All Cookies button"
-	selector := `//button[contains(text(),"Allow All Cookies")]`
+	// selector := `//button[contains(text(),"Allow All Cookies")]`
+	selector := `//button[translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz') = "allow all cookies"]`
 
 	// This value is not actually used, since its headless, the browser cannot
 	//  be closed easily. If the process is unsuccessful, it will return a timeout error.
@@ -95,8 +98,8 @@ func (insta *Instagram) acceptPrivacyCookies(url string) error {
 
 	return insta.runHeadless(
 		&headlessOptions{
-			timeout:     60,
-			showBrowser: false,
+			timeout:     30,
+			showBrowser: insta.Debug,
 			tasks: chromedp.Tasks{
 				chromedp.Navigate(url),
 
@@ -157,7 +160,7 @@ func (insta *Instagram) openChallenge(url string) error {
 //	the cookies and user-agent.
 func (insta *Instagram) runHeadless(options *headlessOptions) error {
 	if insta.privacyCalled.Get() {
-		return errors.New("Accept privacy cookie method has already been called. Did it not work? please report on a github issue")
+		return errors.New("accept privacy cookie method has already been called. Did it not work? please report on a github issue")
 	}
 
 	if options.timeout <= 0 {
@@ -166,7 +169,7 @@ func (insta *Instagram) runHeadless(options *headlessOptions) error {
 
 	// Extract required headers as cookies
 	cookies := map[string]string{}
-	cookie_list := []string{
+	cookieList := []string{
 		"x-mid",
 		"authorization",
 		"ig-u-shbid",
@@ -174,14 +177,16 @@ func (insta *Instagram) runHeadless(options *headlessOptions) error {
 		"ig-u-ds-user-id",
 		"ig-u-rur",
 	}
+
 	insta.headerOptions.Range(
 		func(key, value interface{}) bool {
 			header := strings.ToLower(key.(string))
-			for _, cookie_name := range cookie_list {
-				if cookie_name == header {
-					cookies[cookie_name] = value.(string)
+			for _, cookieName := range cookieList {
+				if cookieName == header {
+					cookies[cookieName] = value.(string)
 				}
 			}
+
 			return true
 		},
 	)
@@ -194,34 +199,21 @@ func (insta *Instagram) runHeadless(options *headlessOptions) error {
 		insta.userAgent,
 	)
 
-	opts := append(
-		chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.UserAgent(userAgent),
-	)
+	opts := []cu.Option{
+		cu.WithTimeout(time.Duration(options.timeout) * time.Second),
+	}
 
 	if insta.proxy != "" {
-		opts = append(opts, chromedp.ProxyServer(insta.proxy))
+		opts = append(opts, cu.WithChromeFlags(chromedp.ProxyServer(insta.proxy)))
 	}
+
 	if insta.proxyInsecure {
-		opts = append(opts, chromedp.Flag("ignore-certificate-errors", true))
-	}
-	if options.showBrowser {
-		opts = append(opts, chromedp.Flag("headless", false))
+		opts = append(opts, cu.WithChromeFlags(chromedp.Flag("ignore-certificate-errors", true)))
 	}
 
-	ctx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
-	defer cancel()
-
-	// create chrome instance
-	ctx, cancel = chromedp.NewContext(
-		ctx,
-		// chromedp.WithDebugf(log.Printf),
-	)
-	defer cancel()
-
-	// create a timeout
-	ctx, cancel = context.WithTimeout(ctx, time.Duration(options.timeout)*time.Second)
-	defer cancel()
+	if !options.showBrowser {
+		opts = append(opts, cu.WithHeadless())
+	}
 
 	// Size for custom device
 	// res := strings.Split(strings.ToLower(insta.device.ScreenResolution), "x")
@@ -234,7 +226,7 @@ func (insta *Instagram) runHeadless(options *headlessOptions) error {
 	// 	return err
 	// }
 
-	default_actions := chromedp.Tasks{
+	defaultActions := chromedp.Tasks{
 		// Set custom device type
 		chromedp.Tasks{
 			emulation.SetUserAgentOverride(userAgent),
@@ -273,6 +265,11 @@ func (insta *Instagram) runHeadless(options *headlessOptions) error {
 		),
 	}
 
-	err := chromedp.Run(ctx, append(default_actions, options.tasks))
-	return err
+	ctx, cancel, err := cu.New(cu.NewConfig(opts...))
+	if err != nil {
+		panic(err)
+	}
+	defer cancel()
+
+	return chromedp.Run(ctx, append(defaultActions, options.tasks))
 }

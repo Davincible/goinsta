@@ -2,12 +2,14 @@ package goinsta
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"image"
 	"math"
-	"regexp"
+	"strings"
 
 	// Required for getImageDimensionFromReader in jpg and png format
 	"fmt"
@@ -276,6 +278,7 @@ func randNum(l int) string {
 	for i := 0; i < l; i++ {
 		num += toString(random(0, 9))
 	}
+
 	return num
 }
 
@@ -283,25 +286,28 @@ func randNum(l int) string {
 func checkHeadlessErr(err error) error {
 	// Check if err = Chrome not found
 	if err != nil {
-		if matched, reErr := regexp.Match("executable file not found", []byte(err.Error())); reErr != nil {
-			return reErr
-		} else if matched {
+		switch {
+		case errors.Is(err, context.Canceled):
+			return nil
+		case strings.Contains(err.Error(), "executable file not found"):
 			return ErrChromeNotFound
+		default:
+			return err
 		}
-		return err
 	}
+
 	return nil
 }
 
 func errIsFatal(err error) bool {
-	switch err {
-	case ErrBadPassword:
+	switch {
+	case errors.Is(err, ErrBadPassword):
 		fallthrough
-	case Err2FARequired:
+	case errors.Is(err, Err2FARequired):
 		fallthrough
-	case ErrLoggedOut:
+	case errors.Is(err, ErrLoggedOut):
 		fallthrough
-	case ErrLoginRequired:
+	case errors.Is(err, ErrLoginRequired):
 		return true
 	default:
 		return false

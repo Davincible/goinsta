@@ -18,7 +18,8 @@ type ChallengeStepData struct {
 }
 
 // Challenge is a status code 400 error, usually prompting the user to perform
-//   some action.
+//
+//	some action.
 type Challenge struct {
 	insta *Instagram
 
@@ -199,12 +200,14 @@ func (c *Challenge) ProcessOld(apiURL string) error {
 }
 
 // Process will open up the challenge url in a chromium browser and
-//   take a screenshot. Please report the screenshot and printed out struct so challenge
-//   automation can be build in.
+//
+//	take a screenshot. Please report the screenshot and printed out struct so challenge
+//	automation can be build in.
 func (c *Challenge) Process() error {
 	insta := c.insta
 
 	insta.warnHandler("Encountered a captcha challenge, goinsta will attempt to open the challenge in a headless chromium browser, and take a screenshot. Please report the details in a github issue.")
+
 	err := insta.openChallenge(c.URL)
 	err = checkHeadlessErr(err)
 
@@ -212,21 +215,24 @@ func (c *Challenge) Process() error {
 }
 
 // Process will open up the url passed as a checkpoint response (not a challenge)
-//   in a headless browser. This method is experimental, please report if you still
-//   get a /privacy/checks/ checkpoint error.
+//
+//	in a headless browser. This method is experimental, please report if you still
+//	get a /privacy/checks/ checkpoint error.
 func (c *Checkpoint) Process() error {
 	insta := c.insta
 	if insta.privacyRequested.Get() {
-		panic("Privacy request again, it hus failed, panicing")
+		panic("Privacy request again, it thus failed, panicing")
 	}
 
+	insta.infoHandler("Attempting to solve checkpoint and accept cookies, opening up browser")
 	insta.privacyRequested.Set(true)
+
 	err := insta.acceptPrivacyCookies(c.URL)
-	err = checkHeadlessErr(err)
-	if err != nil {
+	if err = checkHeadlessErr(err); err != nil {
 		return err
 	}
 
 	insta.privacyCalled.Set(true)
+
 	return nil
 }

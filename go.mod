@@ -3,8 +3,16 @@ module github.com/Davincible/goinsta/v3
 go 1.18
 
 require (
-	github.com/chromedp/cdproto v0.0.0-20220901095120-1a01299a2163
-	github.com/chromedp/chromedp v0.8.5
+	github.com/Davincible/chromedp-undetected v1.3.4
+	github.com/chromedp/cdproto v0.0.0-20221126224343-3a0787b8dd28
+	github.com/chromedp/chromedp v0.8.6
+)
+
+require (
+	github.com/Xuanwo/go-locale v1.1.0 // indirect
+	github.com/google/uuid v1.3.0 // indirect
+	golang.org/x/exp v0.0.0-20221217163422-3c43f8badb15 // indirect
+	golang.org/x/text v0.5.0 // indirect
 )
 
 require (
@@ -15,5 +23,5 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/pkg/errors v0.9.1
-	golang.org/x/sys v0.0.0-20220908164124-27713097b956 // indirect
+	golang.org/x/sys v0.3.0 // indirect
 )
