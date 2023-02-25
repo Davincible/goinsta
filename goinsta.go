@@ -589,7 +589,7 @@ func (insta *Instagram) OpenApp() (err error) {
 				errChan <- err
 				return
 			}
-			insta.warnHandler("Non fatal error while fetching account family:", err)
+			insta.warnHandler(fmt.Sprintf("Non fatal error while fetching account family: %v", err))
 		}
 	}(wg)
 
@@ -1024,7 +1024,7 @@ func (insta *Instagram) sync(args ...map[string]string) error {
 
 	id, err := strconv.Atoi(keyID)
 	if err != nil {
-		insta.warnHandler(fmt.Errorf("Failed to parse public key id: %s", err))
+		insta.warnHandler(fmt.Errorf("failed to parse public key id: %s", err))
 	}
 	insta.pubKey = key
 	insta.pubKeyID = id

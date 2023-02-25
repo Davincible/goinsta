@@ -69,7 +69,7 @@ func printButtons(insta *Instagram) chromedp.Action {
 		})
 }
 
-func takeScreenshot(fn string) chromedp.Action {
+func saveScreenshotToFile(fn string) chromedp.Action {
 	return chromedp.ActionFunc(
 		func(ctx context.Context) error {
 			var buf []byte
@@ -87,6 +87,19 @@ func takeScreenshot(fn string) chromedp.Action {
 		})
 }
 
+func takeScreenshot(buf *[]byte) chromedp.Action {
+	return chromedp.ActionFunc(
+		func(ctx context.Context) error {
+			err := chromedp.FullScreenshot(buf, 90).Do(ctx)
+
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+}
+
 func (insta *Instagram) acceptPrivacyCookies(url string) error {
 	// Looks for the "Allow All Cookies button"
 	// selector := `//button[contains(text(),"Allow All Cookies")]`
@@ -94,7 +107,7 @@ func (insta *Instagram) acceptPrivacyCookies(url string) error {
 
 	// This value is not actually used, since its headless, the browser cannot
 	//  be closed easily. If the process is unsuccessful, it will return a timeout error.
-	success := false
+	// success := false
 
 	return insta.runHeadless(
 		&headlessOptions{
@@ -107,8 +120,9 @@ func (insta *Instagram) acceptPrivacyCookies(url string) error {
 				chromedp.WaitVisible(selector),
 				chromedp.Sleep(time.Second * 1),
 				chromedp.Click(selector, chromedp.BySearch),
+				chromedp.Sleep(time.Second * 2),
 
-				waitForInstagram(&success),
+				// waitForInstagram(&success),
 			},
 		},
 	)
@@ -129,7 +143,7 @@ func (insta *Instagram) openChallenge(url string) error {
 				// Wait for a few seconds, and screenshot the page after
 				chromedp.Sleep(time.Second * 5),
 				printButtons(insta),
-				takeScreenshot(fname),
+				saveScreenshotToFile(fname),
 
 				// Wait until page gets redirected to instagram home page
 				waitForInstagram(&success),
@@ -147,11 +161,35 @@ func (insta *Instagram) openChallenge(url string) error {
 			fname,
 		))
 
-	if !success {
-		return ErrChallengeFailed
-	}
+	// if !success {
+	// 	return ErrChallengeFailed
+	// }
 
 	return nil
+}
+
+func (insta *Instagram) getChallengeScreenshot(url string) ([]byte, error) {
+	var img []byte
+
+	err := insta.runHeadless(
+		&headlessOptions{
+			timeout:     20,
+			showBrowser: false,
+			tasks: chromedp.Tasks{
+				chromedp.Navigate(url),
+
+				// Wait for a few seconds, and screenshot the page after
+				chromedp.Sleep(time.Second * 5),
+				takeScreenshot(&img),
+				chromedp.Sleep(time.Second),
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return img, nil
 }
 
 // runHeadless takes a list of chromedp actions to perform, wrapped around default

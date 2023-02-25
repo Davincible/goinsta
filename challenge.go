@@ -214,6 +214,17 @@ func (c *Challenge) Process() error {
 	return err
 }
 
+// GetScreenshot will open the challenge in a headless browser, take a screenshot
+// and immediately return.
+func (c *Challenge) GetScreenshot() ([]byte, error) {
+	insta := c.insta
+
+	img, err := insta.getChallengeScreenshot(c.URL)
+	err = checkHeadlessErr(err)
+
+	return img, err
+}
+
 // Process will open up the url passed as a checkpoint response (not a challenge)
 //
 //	in a headless browser. This method is experimental, please report if you still

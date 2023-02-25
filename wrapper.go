@@ -77,8 +77,8 @@ func (w *Wrapper) GoInstaWrapper(o *ReqWrapperArgs) ([]byte, http.Header, error)
 		if o.Ignore429() {
 			return o.Body, o.Headers, nil
 		}
-			insta.warnHandler("Too many requests, sleeping for %d seconds", TooManyRequestsTimeout)
-			time.Sleep(TooManyRequestsTimeout)
+		insta.warnHandler("Too many requests, sleeping for %d seconds", TooManyRequestsTimeout)
+		time.Sleep(TooManyRequestsTimeout)
 
 	case errors.Is(o.Error, Err2FARequired):
 		// Attempt auto 2FA login with TOTP code generation
@@ -96,8 +96,7 @@ func (w *Wrapper) GoInstaWrapper(o *ReqWrapperArgs) ([]byte, http.Header, error)
 
 	case errors.Is(o.Error, ErrCheckpointRequired):
 		// Attempt to accecpt cookies using headless browser
-		err := insta.Checkpoint.Process()
-		if err != nil {
+		if err := insta.Checkpoint.Process(); err != nil {
 			return o.Body, o.Headers, fmt.Errorf(
 				"failed to automatically process status code 400 'checkpoint_required' with checkpoint url '%s', please report this on github. Error provided: %w",
 				insta.Checkpoint.URL,
