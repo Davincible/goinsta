@@ -12,10 +12,19 @@ import (
 	"github.com/Davincible/goinsta/v3/utilities"
 )
 
-// Account is personal account object
-//
-// See examples: examples/account/*
+// Account is personal account object.
 type Account struct {
+	Email                 string `json:"email"`
+	PhoneNumber           string `json:"phone_number"`
+	Gender                int    `json:"gender"`
+	CanSeeOrganicInsights bool   `json:"can_see_organic_insights"`
+	CanBoostPost          bool   `json:"can_boost_post"`
+
+	*User
+}
+
+// Account is personal account object.
+type AccountOld struct {
 	insta *Instagram
 
 	ID                         int64        `json:"pk"`
@@ -284,7 +293,9 @@ func (account *Account) changePublic(endpoint string) error {
 func (account *Account) Followers(query string) *Users {
 	user := &User{
 		insta: account.insta,
-		ID:    account.ID,
+		UserInfo: &UserInfo{
+			ID: account.ID,
+		},
 	}
 
 	return user.Followers(query)
@@ -301,7 +312,9 @@ func (account *Account) Followers(query string) *Users {
 func (account *Account) Following(query string, order FollowOrder) *Users {
 	user := &User{
 		insta: account.insta,
-		ID:    account.ID,
+		UserInfo: &UserInfo{
+			ID: account.ID,
+		},
 	}
 
 	return user.Following(query, order)
@@ -392,24 +405,26 @@ func (account *Account) Saved() *SavedMedia {
 func (account *Account) UpdateProfile(form map[string]string) error {
 	insta := account.insta
 	query := map[string]string{
-		"external_url": "",
-		"phone_number": "",
-		"username":     insta.Account.Username,
-		"first_name":   insta.Account.FullName,
-		"_uid":         toString(insta.Account.ID),
-		"device_id":    insta.dID,
-		"biography":    insta.Account.Biography,
 		"_uuid":        insta.uuid,
-		"email":        insta.Account.Email,
+		"device_id":    insta.dID,
+		"_uid":         toString(insta.Account.ID),
+		"username":     account.Username,
+		"first_name":   account.FullName,
+		"biography":    account.Biography,
+		"email":        account.Email,
+		"external_url": account.ExternalURL,
+		"phone_number": account.PhoneNumber,
 	}
 
 	for k, v := range form {
 		query[k] = v
 	}
+
 	data, err := json.Marshal(query)
 	if err != nil {
 		return err
 	}
+
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlEditProfile,
@@ -420,20 +435,24 @@ func (account *Account) UpdateProfile(form map[string]string) error {
 	if err != nil {
 		return err
 	}
+
 	resp := struct {
 		Status string   `json:"status"`
 		User   *Account `json:"user"`
 	}{
 		User: insta.Account,
 	}
-	err = json.Unmarshal(body, &resp)
-	if err != nil {
+
+	if err = json.Unmarshal(body, &resp); err != nil {
 		return err
 	}
+
 	if resp.Status != "ok" {
 		return fmt.Errorf("Can't update profile")
 	}
+
 	insta.Account = resp.User
+
 	return nil
 }
 
@@ -472,6 +491,7 @@ func (account *Account) Liked() *FeedMedia {
 // PendingFollowRequests returns pending follow requests.
 func (account *Account) PendingFollowRequests() (*PendingRequests, error) {
 	insta := account.insta
+
 	resp, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlFriendshipPending,
@@ -482,10 +502,10 @@ func (account *Account) PendingFollowRequests() (*PendingRequests, error) {
 	}
 
 	var result PendingRequests
-	err = json.Unmarshal(resp, &result)
-	if err != nil {
+	if err = json.Unmarshal(resp, &result); err != nil {
 		return nil, err
 	}
+
 	if result.Status != "ok" {
 		return nil, fmt.Errorf("bad status: %s", result.Status)
 	}
@@ -514,6 +534,7 @@ func (account *Account) PendingFollowRequests() (*PendingRequests, error) {
 // PendingRequestCount returns the number of open pending friendships as int
 func (account *Account) PendingRequestCount() (int, error) {
 	insta := account.insta
+
 	resp, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlFriendshipPendingCount,
@@ -527,6 +548,7 @@ func (account *Account) PendingRequestCount() (int, error) {
 		Count  int    `json:"count"`
 		Status string `json:"status"`
 	}
+
 	err = json.Unmarshal(resp, &result)
 	if err != nil {
 		return 0, err
@@ -534,11 +556,13 @@ func (account *Account) PendingRequestCount() (int, error) {
 	if result.Status != "ok" {
 		return 0, fmt.Errorf("bad status: %s", result.Status)
 	}
+
 	return result.Count, nil
 }
 
-func (account *Account) FriendhipsShowMany(userIds []string) (map[string]Friendship, error) {
+func (account *Account) FriendhipsShowMany(userIds []string) (map[string]*Friendship, error) {
 	insta := account.insta
+
 	resp, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: urlFriendshipShowMany,
@@ -554,22 +578,24 @@ func (account *Account) FriendhipsShowMany(userIds []string) (map[string]Friends
 	}
 
 	var result struct {
-		Friendships map[string]Friendship `json:"friendship_statuses"`
-		Status      string                `json:"status"`
+		Friendships map[string]*Friendship `json:"friendship_statuses"`
+		Status      string                 `json:"status"`
 	}
-	err = json.Unmarshal(resp, &result)
-	if err != nil {
+
+	if err = json.Unmarshal(resp, &result); err != nil {
 		return nil, err
 	}
+
 	if result.Status != "ok" {
 		return nil, fmt.Errorf("bad status: %s", result.Status)
 	}
+
 	return result.Friendships, nil
 }
 
 // Archived returns current account archive feed
 //
-// For pagination use FeedMedia.Next()
+// For pagination use FeedMedia.Next().
 func (account *Account) Archived(params ...interface{}) *FeedMedia {
 	insta := account.insta
 

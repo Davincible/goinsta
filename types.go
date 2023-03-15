@@ -167,8 +167,8 @@ type Nametag struct {
 }
 
 type friendResp struct {
-	Status     string     `json:"status"`
-	Friendship Friendship `json:"friendship_status"`
+	Status     string      `json:"status"`
+	Friendship *Friendship `json:"friendship_status"`
 }
 
 // Location stores media location information.
@@ -237,19 +237,19 @@ type PendingRequests struct {
 }
 
 // Friendship stores the details of the relationship between two users.
-type Friendship struct {
-	Following       bool `json:"following"`
-	FollowedBy      bool `json:"followed_by"`
-	IncomingRequest bool `json:"incoming_request"`
-	OutgoingRequest bool `json:"outgoing_request"`
-	Muting          bool `json:"muting"`
-	Blocking        bool `json:"blocking"`
-	IsBestie        bool `json:"is_bestie"`
-	IsBlockingReel  bool `json:"is_blocking_reel"`
-	IsMutingReel    bool `json:"is_muting_reel"`
-	IsPrivate       bool `json:"is_private"`
-	IsRestricted    bool `jsoN:"is_restricted"`
-}
+// type Friendship struct {
+// 	Following       bool `json:"following"`
+// 	FollowedBy      bool `json:"followed_by"`
+// 	IncomingRequest bool `json:"incoming_request"`
+// 	OutgoingRequest bool `json:"outgoing_request"`
+// 	Muting          bool `json:"muting"`
+// 	Blocking        bool `json:"blocking"`
+// 	IsBestie        bool `json:"is_bestie"`
+// 	IsBlockingReel  bool `json:"is_blocking_reel"`
+// 	IsMutingReel    bool `json:"is_muting_reel"`
+// 	IsPrivate       bool `json:"is_private"`
+// 	IsRestricted    bool `jsoN:"is_restricted"`
+// }
 
 // Images are different quality images
 type Images struct {
@@ -405,7 +405,7 @@ type BlockedUser struct {
 
 // Unblock unblocks blocked user.
 func (b *BlockedUser) Unblock() error {
-	u := User{ID: b.UserID}
+	u := User{UserInfo: &UserInfo{ID: b.UserID}}
 	return u.Unblock()
 }
 

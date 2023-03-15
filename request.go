@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/sanity-io/litter"
 )
 
 type reqOptions struct {
@@ -82,7 +83,7 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 	}
 
 	// Check if a challenge is in progress, if so wait for it to complete (with timeout)
-	if insta.privacyRequested.Get() && !insta.privacyCalled.Get() {
+	if insta.privacyRequestInProgress.Load() && !insta.privacyCalled.Get() {
 		if !insta.checkPrivacy() {
 			return nil, nil, errors.New("Privacy check timedout")
 		}
@@ -108,63 +109,69 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 	} else {
 		nu = instaAPIUrl
 	}
+
 	if o.UseV2 && !o.Useb {
 		nu = instaAPIUrlv2
 	} else if o.UseV2 && o.Useb {
 		nu = instaAPIUrlv2b
 	}
+
 	if o.OmitAPI {
 		nu = baseUrl
 		o.IgnoreHeaders = append(o.IgnoreHeaders, omitAPIHeadersExclude...)
 	}
 
 	nu = nu + o.Endpoint
+
 	u, err := url.Parse(nu)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	vs := url.Values{}
-	bf := bytes.NewBuffer([]byte{})
+	urlValues := url.Values{}
+	bodyBuffer := bytes.NewBuffer([]byte{})
 	reqData := bytes.NewBuffer([]byte{})
 
 	for k, v := range o.Query {
-		vs.Add(k, v)
+		urlValues.Add(k, v)
 	}
 
 	// If DataBytes has been passed, use that as data, else use Query
 	if o.DataBytes != nil {
 		reqData = o.DataBytes
 	} else {
-		reqData.WriteString(vs.Encode())
+		reqData.WriteString(urlValues.Encode())
 	}
 
 	var contentEncoding string
 	if o.IsPost && o.Gzip {
 		// If gzip encoding needs to be applied
-		zw := gzip.NewWriter(bf)
+		zw := gzip.NewWriter(bodyBuffer)
 		defer zw.Close()
+
 		if _, err := zw.Write(reqData.Bytes()); err != nil {
 			return nil, nil, err
 		}
+
 		if err := zw.Close(); err != nil {
 			return nil, nil, err
 		}
+
 		contentEncoding = "gzip"
 	} else if o.IsPost {
 		// use post form if POST request
-		bf = reqData
+		bodyBuffer = reqData
 	} else {
 		// append query to url if GET request
 		for k, v := range u.Query() {
-			vs.Add(k, strings.Join(v, " "))
+			urlValues.Add(k, strings.Join(v, " "))
 		}
 
-		u.RawQuery = vs.Encode()
+		u.RawQuery = urlValues.Encode()
 	}
 
 	var req *http.Request
-	req, err = http.NewRequest(method, u.String(), bf)
+	req, err = http.NewRequest(method, u.String(), bodyBuffer)
 	if err != nil {
 		return
 	}
@@ -235,17 +242,45 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 	setHeaders(o.ExtraHeaders)
 	insta.headerOptions.Range(setHeadersAsync)
 
+	req.Close = true
+
 	resp, err := insta.c.Do(req)
+	if errors.Is(err, io.EOF) {
+		if resp != nil {
+			litter.Dump(
+				map[string]any{
+					"location": "do",
+					"status":   resp.Status,
+					"resp":     resp.Header.Clone(),
+				},
+			)
+		} else {
+			litter.Dump(
+				map[string]any{
+					"location": "do",
+				},
+			)
+		}
+	}
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("do req: %w", err)
 	}
 	defer resp.Body.Close()
 
 	insta.extractHeaders(resp.Header)
 
 	body, err = io.ReadAll(resp.Body)
+	if errors.Is(err, io.EOF) {
+		litter.Dump(
+			map[string]any{
+				"status":   resp.Status,
+				"location": "readbody",
+				"headers":  resp.Header.Clone(),
+			},
+		)
+	}
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("read body: %w", err)
 	}
 
 	// Extract error from request body, if present
@@ -258,12 +293,12 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 
 		zr, err := gzip.NewReader(buf)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("gzip read: %w", err)
 		}
 
 		body, err = io.ReadAll(zr)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("read gzip compressed: %w", err)
 		}
 
 		if err := zr.Close(); err != nil {
@@ -358,7 +393,7 @@ func (insta *Instagram) checkPrivacy() bool {
 	for {
 		select {
 		case <-time.After(3 * time.Second):
-			if insta.privacyRequested.Get() {
+			if !insta.privacyRequestInProgress.Load() {
 				return true
 			}
 		case <-ctx.Done():
@@ -394,25 +429,31 @@ func (insta *Instagram) isError(code int, body []byte, status, endpoint string) 
 			insta.warnHandler(ierr)
 			insta.Checkpoint = &ierr.Checkpoint
 			insta.Checkpoint.insta = insta
-			return ErrCheckpointRequired
 
+			return ErrCheckpointRequired
 		case "checkpoint_challenge_required":
 			fallthrough
 		case "challenge_required":
 			insta.warnHandler(ierr)
 			insta.Challenge = ierr.Challenge
 			insta.Challenge.insta = insta
-			return ErrChallengeRequired
 
+			return ErrChallengeRequired
 		case "two_factor_required":
 			insta.TwoFactorInfo = ierr.TwoFactorInfo
 			insta.TwoFactorInfo.insta = insta
+
 			if insta.Account == nil {
 				insta.Account = &Account{
-					ID:       insta.TwoFactorInfo.ID,
-					Username: insta.TwoFactorInfo.Username,
+					User: &User{
+						UserInfo: &UserInfo{
+							ID:       insta.TwoFactorInfo.ID,
+							Username: insta.TwoFactorInfo.Username,
+						},
+					},
 				}
 			}
+
 			return Err2FARequired
 		case "Please check the code we sent you and try again.":
 			return ErrInvalidCode
@@ -426,17 +467,20 @@ func (insta *Instagram) isError(code int, body []byte, status, endpoint string) 
 			Code:     403,
 			Endpoint: endpoint,
 		}
-		err = json.Unmarshal(body, &ierr)
-		if err == nil {
+
+		if err = json.Unmarshal(body, &ierr); err == nil {
 			switch ierr.Message {
 			case "login_required":
 				if ierr.ErrorTitle == "You've Been Logged Out" {
 					return ErrLoggedOut
 				}
+
 				return ErrLoginRequired
 			}
+
 			return ierr
 		}
+
 		return err
 	case 429:
 		return ErrTooManyRequests
@@ -447,6 +491,7 @@ func (insta *Instagram) isError(code int, body []byte, status, endpoint string) 
 			Message:   string(body),
 			ErrorType: status,
 		}
+
 		return ierr
 	case 503:
 		return Error503{
@@ -459,6 +504,7 @@ func (insta *Instagram) isError(code int, body []byte, status, endpoint string) 
 			Message:   string(body),
 			ErrorType: status,
 		}
+
 		json.Unmarshal(body, &ierr)
 		if ierr.Message == "Transcode not finished yet." {
 			return nil

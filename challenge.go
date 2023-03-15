@@ -2,6 +2,7 @@ package goinsta
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 )
 
@@ -231,12 +232,17 @@ func (c *Challenge) GetScreenshot() ([]byte, error) {
 //	get a /privacy/checks/ checkpoint error.
 func (c *Checkpoint) Process() error {
 	insta := c.insta
-	if insta.privacyRequested.Get() {
-		panic("Privacy request again, it thus failed, panicing")
+	v := insta.privacyRequested.Load()
+
+	if v > 2 {
+		return fmt.Errorf("cookies requested again after attempted processing, failing")
 	}
 
+	insta.privacyRequestInProgress.Store(true)
+	defer insta.privacyRequestInProgress.Store(false)
+
 	insta.infoHandler("Attempting to solve checkpoint and accept cookies, opening up browser")
-	insta.privacyRequested.Set(true)
+	insta.privacyRequested.Store(v + 1)
 
 	err := insta.acceptPrivacyCookies(c.URL)
 	if err = checkHeadlessErr(err); err != nil {

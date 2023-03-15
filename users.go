@@ -151,7 +151,7 @@ type userResp struct {
 }
 
 // User is the representation of instagram's user profile
-type User struct {
+type UserOld struct {
 	insta       *Instagram
 	Collections *Collections
 
@@ -360,7 +360,7 @@ func (user *User) Info(params ...interface{}) error {
 	}
 
 	body, _, err := insta.sendRequest(&reqOptions{
-		Endpoint: fmt.Sprintf(urlUserInfo, user.ID),
+		Endpoint: fmt.Sprintf(urlUserIDInfo, user.ID),
 		Query:    query,
 	})
 	if err != nil {
@@ -675,18 +675,23 @@ func (user *User) Unfollow() error {
 // GetFriendship allows user to get friend relationship.
 //
 // The result is stored in user.Friendship
-func (user *User) GetFriendship() (fr *Friendship, err error) {
+func (user *User) GetFriendship() (*Friendship, error) {
 	insta := user.insta
+
 	body, _, err := insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(urlFriendship, user.ID),
 		},
 	)
-	if err == nil {
-		fr = &user.Friendship
-		err = json.Unmarshal(body, fr)
+	if err != nil {
+		return nil, err
 	}
-	return
+
+	if err := json.Unmarshal(body, user.Friendship); err != nil {
+		return nil, err
+	}
+
+	return user.Friendship, nil
 }
 
 // GetFeaturedAccounts will call the featured accounts enpoint.
@@ -705,7 +710,9 @@ func (user *User) GetFeaturedAccounts() ([]*User, error) {
 		Accounts []*User `json:"accounts"`
 		Status   string  `json:"status"`
 	}{}
+
 	err = json.Unmarshal(body, &d)
+
 	return d.Accounts, err
 }
 
@@ -780,12 +787,14 @@ func (user *User) DownloadProfilePic() ([]byte, error) {
 	if user.ProfilePicURL == "" {
 		return nil, ErrNoProfilePicURL
 	}
-	insta := user.insta
-	b, err := insta.download(user.ProfilePicURL)
+
+	b, err := user.insta.download(user.ProfilePicURL)
 	if err != nil {
 		return nil, err
 	}
-	user.ProfilePic = b
+
+	user.ProfilePicBytes = b
+
 	return b, nil
 }
 
@@ -847,14 +856,46 @@ func (user *User) changePending(endpoint string) error {
 	}
 
 	var result friendResp
-	err = json.Unmarshal(resp, &result)
-	if err != nil {
+	if err = json.Unmarshal(resp, &result); err != nil {
 		return err
 	}
 
 	if result.Status != "ok" {
 		return fmt.Errorf("bad status: %s", result.Status)
 	}
+
 	user.Friendship = result.Friendship
+
 	return nil
+}
+
+// UserInfo fetches a user profile by username.
+func (insta *Instagram) UserInfo(username string) (*User, error) {
+	body, _, err := insta.sendRequest(&reqOptions{
+		Endpoint: fmt.Sprintf(urlUsernameInfo, username),
+		Query: map[string]string{
+			"entry_point": "profile",
+			"from_module": "deep_link_util",
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var resp struct {
+		User   *User  `json:"user"`
+		Status string `json:"status"`
+	}
+
+	if err = json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("unmarshal json: %w", err)
+	}
+
+	if resp.Status != "ok" {
+		return nil, fmt.Errorf("userinfo status not ok: %s", string(body))
+	}
+
+	resp.User.insta = insta
+
+	return resp.User, nil
 }

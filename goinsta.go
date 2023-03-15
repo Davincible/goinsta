@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Davincible/goinsta/v3/utilities"
@@ -132,7 +133,8 @@ type Instagram struct {
 	// Keep track of a challenge response requesting to accept cookies
 	privacyCalled *utilities.ABool
 	// Keep track of whether an attempt has been made to accept the cookies
-	privacyRequested *utilities.ABool
+	privacyRequested         atomic.Int64
+	privacyRequestInProgress atomic.Bool
 }
 
 func defaultHandler(args ...interface{}) {
@@ -247,14 +249,13 @@ func New(username, password string, totp_seed ...string) *Instagram {
 			},
 			Jar: jar,
 		},
-		infoHandler:      defaultHandler,
-		warnHandler:      defaultHandler,
-		debugHandler:     defaultHandler,
-		reqWrapper:       DefaultWrapper(),
-		Debug:            os.Getenv("GOINSTA_DEBUG") != "",
-		privacyCalled:    utilities.NewABool(),
-		privacyRequested: utilities.NewABool(),
-		pubKeyID:         -1,
+		infoHandler:   defaultHandler,
+		warnHandler:   defaultHandler,
+		debugHandler:  defaultHandler,
+		reqWrapper:    DefaultWrapper(),
+		Debug:         os.Getenv("GOINSTA_DEBUG") != "",
+		privacyCalled: utilities.NewABool(),
+		pubKeyID:      -1,
 	}
 	insta.init()
 
@@ -418,15 +419,14 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 		},
 		Account: config.Account,
 
-		infoHandler:      defaultHandler,
-		warnHandler:      defaultHandler,
-		debugHandler:     defaultHandler,
-		reqWrapper:       DefaultWrapper(),
-		Debug:            os.Getenv("GOINSTA_DEBUG") != "",
-		privacyCalled:    utilities.NewABool(),
-		privacyRequested: utilities.NewABool(),
-		pubKeyID:         -1,
-		session:          config.SessionNonce,
+		infoHandler:   defaultHandler,
+		warnHandler:   defaultHandler,
+		debugHandler:  defaultHandler,
+		reqWrapper:    DefaultWrapper(),
+		Debug:         os.Getenv("GOINSTA_DEBUG") != "",
+		privacyCalled: utilities.NewABool(),
+		pubKeyID:      -1,
+		session:       config.SessionNonce,
 	}
 	insta.userAgent = createUserAgent(insta.device)
 
@@ -448,8 +448,12 @@ func ImportConfig(config ConfigFile, args ...interface{}) (*Instagram, error) {
 		insta.Account.insta = insta
 	} else {
 		insta.Account = &Account{
-			insta: insta,
-			ID:    config.ID,
+			User: &User{
+				insta: insta,
+				UserInfo: &UserInfo{
+					ID: config.ID,
+				},
+			},
 		}
 		err := insta.Account.Sync()
 		if err != nil {
@@ -497,7 +501,7 @@ func (insta *Instagram) Login(password ...string) (err error) {
 		if errIsFatal(err) {
 			return err
 		}
-		insta.warnHandler("Non fatal error while fetching prefill:", err)
+		insta.warnHandler("Non fatal error while fetching prefill: " + err.Error())
 	}
 
 	err = insta.contactPrefill()
@@ -505,7 +509,7 @@ func (insta *Instagram) Login(password ...string) (err error) {
 		if errIsFatal(err) {
 			return err
 		}
-		insta.warnHandler("Non fatal error while fetching contact prefill:", err)
+		insta.warnHandler("Non fatal error while fetching contact prefill: " + err.Error())
 	}
 
 	err = insta.sync()
@@ -602,7 +606,7 @@ func (insta *Instagram) OpenApp() (err error) {
 				errChan <- err
 				return
 			}
-			insta.warnHandler("Non fatal error while fetching ndx steps:", err)
+			insta.warnHandler("Non fatal error while fetching ndx steps: " + err.Error())
 		}
 	}(wg)
 
@@ -626,7 +630,7 @@ func (insta *Instagram) OpenApp() (err error) {
 				errChan <- err
 				return
 			}
-			insta.warnHandler("Non fatal error while fetching notify badge", err)
+			insta.warnHandler("Non fatal error while fetching notify badge: " + err.Error())
 		}
 	}(wg)
 
@@ -639,7 +643,7 @@ func (insta *Instagram) OpenApp() (err error) {
 				errChan <- err
 				return
 			}
-			insta.warnHandler("Non fatal error while fetching banyan", err)
+			insta.warnHandler("Non fatal error while fetching banyan: " + err.Error())
 		}
 	}(wg)
 
@@ -652,7 +656,7 @@ func (insta *Instagram) OpenApp() (err error) {
 				errChan <- err
 				return
 			}
-			insta.warnHandler("Non fatal error while fetching blocked media", err)
+			insta.warnHandler("Non fatal error while fetching blocked media: " + err.Error())
 		}
 	}(wg)
 
@@ -666,7 +670,7 @@ func (insta *Instagram) OpenApp() (err error) {
 				errChan <- err
 				return
 			}
-			insta.warnHandler("Non fatal error while fetching cool downs", err)
+			insta.warnHandler("Non fatal error while fetching cool downs: " + err.Error())
 		}
 	}(wg)
 
@@ -679,8 +683,7 @@ func (insta *Instagram) OpenApp() (err error) {
 				errChan <- err
 				return
 			}
-			insta.warnHandler("Non fatal error while fetching explore page",
-				insta.Discover.Error())
+			insta.warnHandler("Non fatal error while fetching explore page: " + insta.Discover.Error().Error())
 		}
 	}(wg)
 
@@ -693,7 +696,7 @@ func (insta *Instagram) OpenApp() (err error) {
 				errChan <- err
 				return
 			}
-			insta.warnHandler("Non fatal error while fetching config", err)
+			insta.warnHandler("Non fatal error while fetching config: " + err.Error())
 		}
 	}(wg)
 
@@ -707,7 +710,7 @@ func (insta *Instagram) OpenApp() (err error) {
 				errChan <- err
 				return
 			}
-			insta.warnHandler("Non fatal error while fetching bootstrap user scores", err)
+			insta.warnHandler("Non fatal error while fetching bootstrap user scores: " + err.Error())
 		}
 	}(wg)
 
@@ -731,7 +734,7 @@ func (insta *Instagram) OpenApp() (err error) {
 				errChan <- err
 				return
 			}
-			insta.warnHandler("Non fatal error while sending ad id", err)
+			insta.warnHandler("Non fatal error while sending ad id: " + err.Error())
 		}
 	}(wg)
 
@@ -744,7 +747,7 @@ func (insta *Instagram) OpenApp() (err error) {
 				errChan <- err
 				return
 			}
-			insta.warnHandler("Non fatal error while calling store client push permissions", err)
+			insta.warnHandler("Non fatal error while calling store client push permissions: " + err.Error())
 		}
 	}(wg)
 
@@ -769,7 +772,7 @@ func (insta *Instagram) OpenApp() (err error) {
 				errChan <- err
 				return
 			}
-			insta.warnHandler("Non fatal error while calling contact point signal:", err)
+			insta.warnHandler("Non fatal error while calling contact point signal: " + err.Error())
 		}
 	}(wg)
 
@@ -1010,7 +1013,7 @@ func (insta *Instagram) sync(args ...map[string]string) error {
 		},
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("urlSync: %w", err)
 	}
 
 	hkey := h["Ig-Set-Password-Encryption-Pub-Key"]
@@ -1189,4 +1192,9 @@ func (insta *Instagram) GetMedia(o interface{}) (*FeedMedia, error) {
 		NextID: o,
 	}
 	return media, media.Sync()
+}
+
+// Close idle connections.
+func (insta *Instagram) Close() {
+	insta.c.CloseIdleConnections()
 }

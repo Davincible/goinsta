@@ -39,7 +39,8 @@ type IGTV struct {
 }
 
 // IGTVItem is a media item that can be found inside the IGTV struct, from the
-//   IGTV Discover endpoint.
+//
+//	IGTV Discover endpoint.
 type IGTVItem struct {
 	Title      string      `json:"title"`
 	Type       string      `json:"type"`
@@ -56,11 +57,12 @@ type IGTVItem struct {
 }
 
 // IGTVChannel can represent a single user's collection of IGTV posts, or it can
-//   e.g. represent a user's IGTV series.
+//
+//	e.g. represent a user's IGTV series.
 //
 // It's called a channel, however the Items inside the Channel struct can, but
-//   don't have to, belong to the same account, depending on the request. It's a bit dubious
 //
+//	don't have to, belong to the same account, depending on the request. It's a bit dubious
 type IGTVChannel struct {
 	insta *Instagram
 	id    string // user id parameter
@@ -90,7 +92,6 @@ func newIGTV(insta *Instagram) *IGTV {
 // IGTV returns the IGTV items of a user
 //
 // Use IGTVChannel.Next for pagination.
-//
 func (user *User) IGTV() (*IGTVChannel, error) {
 	insta := user.insta
 	igtv := &IGTVChannel{
@@ -104,9 +105,9 @@ func (user *User) IGTV() (*IGTVChannel, error) {
 }
 
 // IGTVSeries will fetch the igtv series of a user. Usually the slice length
-//   of the return value is 1, as there is one channel, which contains multiple
-//   series.
 //
+//	of the return value is 1, as there is one channel, which contains multiple
+//	series.
 func (user *User) IGTVSeries() ([]*IGTVChannel, error) {
 	if !user.HasIGTVSeries {
 		return nil, ErrIGTVNoSeries

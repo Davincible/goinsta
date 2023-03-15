@@ -147,7 +147,7 @@ func (user *User) VisitProfile() (*Profile, error) {
 
 		info.Wait()
 
-		if user.IGTVCount > 0 {
+		if user.TotalIGTVVideos > 0 {
 			igtv, err := user.IGTV()
 			if err != nil {
 				errChan <- err

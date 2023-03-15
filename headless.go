@@ -305,7 +305,7 @@ func (insta *Instagram) runHeadless(options *headlessOptions) error {
 
 	ctx, cancel, err := cu.New(cu.NewConfig(opts...))
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("create ChromeDP browser context: %w", err)
 	}
 	defer cancel()
 

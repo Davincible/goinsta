@@ -161,7 +161,8 @@ const (
 	urlUserStories            = "feed/user/%d/story/"
 	urlUserTags               = "usertags/%d/feed/"
 	urlBlockedList            = "users/blocked_list/"
-	urlUserInfo               = "users/%d/info/"
+	urlUserIDInfo             = "users/%d/info/"
+	urlUsernameInfo           = "users/%s/usernameinfo/"
 	urlUserHighlights         = "highlights/%d/highlights_tray/"
 
 	// Timeline
