@@ -63,7 +63,7 @@ func main() {
 }
 ```
 
-For the full documentation, check the [wiki](https://github.com/Davincible/goinsta/v3/wiki/1.-Getting-Started), or run `go doc -all`.
+For the full documentation, check the [wiki](https://github.com/Davincible/goinsta/wiki/01.-Getting-Started), or run `go doc -all`.
 
 ### Legal
 
