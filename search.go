@@ -53,7 +53,7 @@ type SearchResult struct {
 		Name             string  `json:"name"`
 	} `json:"venues"`
 
-	ClearClientCache bool `json:"clear_client_cache"`
+	ClearClientCache interface{} `json:"clear_client_cache"`
 }
 
 type Place struct {
