@@ -46,7 +46,7 @@ type Item struct {
 	DeviceTimestamp   int64       `json:"device_timestamp"`
 	FacepileTopLikers []struct {
 		FollowFrictionType float64 `json:"follow_friction_type"`
-		FullNeme           string  `json:"ful_name"`
+		FullNeme           string  `json:"full_name"`
 		IsPrivate          bool    `json:"is_private"`
 		IsVerified         bool    `json:"is_verified"`
 		Pk                 float64 `json:"pk"`
