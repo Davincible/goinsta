@@ -77,7 +77,7 @@ func (w *Wrapper) GoInstaWrapper(o *ReqWrapperArgs) ([]byte, http.Header, error)
 		if o.Ignore429() {
 			return o.Body, o.Headers, nil
 		}
-			insta.warnHandler("Too many requests, sleeping for %d seconds", TooManyRequestsTimeout)
+			insta.warnHandler("Too many requests, sleeping for %d seconds", int(TooManyRequestsTimeout.Seconds()))
 			time.Sleep(TooManyRequestsTimeout)
 
 	case errors.Is(o.Error, Err2FARequired):
