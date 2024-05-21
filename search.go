@@ -53,7 +53,7 @@ type SearchResult struct {
 		Name             string  `json:"name"`
 	} `json:"venues"`
 
-	ClearClientCache interface{} `json:"clear_client_cache"`
+	ClearClientCache []interface{} `json:"clear_client_cache"`
 }
 
 type Place struct {
@@ -86,29 +86,33 @@ func newSearch(insta *Instagram) *Search {
 
 // Search is a wrapper for insta.Searchbar.Search()
 // Search will perform a topsearch query returning users, locations and tags,
-//  just like the app would.
+//
+//	just like the app would.
 //
 // By default search behavior will be mimicked by sending a search request per
-//  added letter, and waiting a few millis in between, just as if you were to
-//  type anything into the search bar. However, if you only want to make one
-//  search request passing in the full query immediately, you can turn on quick
-//  search by passing in one bool:true parameter, like so:
 //
-//  Search("myquery", true)  // this will perform a quick search
+//	added letter, and waiting a few millis in between, just as if you were to
+//	type anything into the search bar. However, if you only want to make one
+//	search request passing in the full query immediately, you can turn on quick
+//	search by passing in one bool:true parameter, like so:
+//
+//	Search("myquery", true)  // this will perform a quick search
 func (insta *Instagram) Search(query string, p ...bool) (*SearchResult, error) {
 	return insta.Searchbar.Search(query, p...)
 }
 
 // Search will perform a topsearch query returning users, locations and tags,
-//  just like the app would.
+//
+//	just like the app would.
 //
 // By default search behavior will be mimicked by sending a search request per
-//  added letter, and waiting a few millis in between, just as if you were to
-//  type anything into the search bar. However, if you only want to make one
-//  search request passing in the full query immediately, you can turn on quick
-//  search by passing in one bool:true parameter, like so:
 //
-//  Search("myquery", true)  // this will perform a quick search
+//	added letter, and waiting a few millis in between, just as if you were to
+//	type anything into the search bar. However, if you only want to make one
+//	search request passing in the full query immediately, you can turn on quick
+//	search by passing in one bool:true parameter, like so:
+//
+//	Search("myquery", true)  // this will perform a quick search
 func (sb *Search) Search(query string, p ...bool) (*SearchResult, error) {
 	if isQuickSearch(p) {
 		return sb.topsearch(query)
@@ -119,12 +123,13 @@ func (sb *Search) Search(query string, p ...bool) (*SearchResult, error) {
 // SearchUser will perorm a user search with the provided query.
 //
 // By default search behavior will be mimicked by sending a search request per
-//  added letter, and waiting a few millis in between, just as if you were to
-//  type anything into the search bar. However, if you only want to make one
-//  search request passing in the full query immediately, you can turn on quick
-//  search by passing in one bool:true parameter, like so:
 //
-//  SearchUser("myquery", true)  // this will perform a quick search
+//	added letter, and waiting a few millis in between, just as if you were to
+//	type anything into the search bar. However, if you only want to make one
+//	search request passing in the full query immediately, you can turn on quick
+//	search by passing in one bool:true parameter, like so:
+//
+//	SearchUser("myquery", true)  // this will perform a quick search
 func (sb *Search) SearchUser(query string, p ...bool) (*SearchResult, error) {
 	if isQuickSearch(p) {
 		return sb.user(query)
@@ -135,12 +140,13 @@ func (sb *Search) SearchUser(query string, p ...bool) (*SearchResult, error) {
 // SearchHashtag will perform a hashtag search with the provided query.
 //
 // By default search behavior will be mimicked by sending a search request per
-//  added letter, and waiting a few millis in between, just as if you were to
-//  type anything into the search bar. However, if you only want to make one
-//  search request passing in the full query immediately, you can turn on quick
-//  search by passing in one bool:true parameter, like so:
 //
-//  SearchHashtag("myquery", true)  // this will perform a quick search
+//	added letter, and waiting a few millis in between, just as if you were to
+//	type anything into the search bar. However, if you only want to make one
+//	search request passing in the full query immediately, you can turn on quick
+//	search by passing in one bool:true parameter, like so:
+//
+//	SearchHashtag("myquery", true)  // this will perform a quick search
 func (sb *Search) SearchHashtag(query string, p ...bool) (*SearchResult, error) {
 	if isQuickSearch(p) {
 		return sb.tags(query)
@@ -151,12 +157,13 @@ func (sb *Search) SearchHashtag(query string, p ...bool) (*SearchResult, error) 
 // SearchLocation will perform a location search with the provided query.
 //
 // By default search behavior will be mimicked by sending a search request per
-//  added letter, and waiting a few millis in between, just as if you were to
-//  type anything into the search bar. However, if you only want to make one
-//  search request passing in the full query immediately, you can turn on quick
-//  search by passing in one bool:true parameter, like so:
 //
-//  SearchLocation("myquery", true)  // this will perform a quick search
+//	added letter, and waiting a few millis in between, just as if you were to
+//	type anything into the search bar. However, if you only want to make one
+//	search request passing in the full query immediately, you can turn on quick
+//	search by passing in one bool:true parameter, like so:
+//
+//	SearchLocation("myquery", true)  // this will perform a quick search
 func (sb *Search) SearchLocation(query string, p ...bool) (*SearchResult, error) {
 	if isQuickSearch(p) {
 		return sb.places(query)
