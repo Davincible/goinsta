@@ -8,6 +8,7 @@ import (
 	neturl "net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -666,7 +667,7 @@ func (item *Item) changeLike(endpoint string) error {
 // }
 func (item *Item) DownloadTo(dst string) error {
 	insta := item.insta
-	folder, file := path.Split(dst)
+	folder, file := filepath.Split(dst)
 
 	if err := os.MkdirAll(folder, 0o777); err != nil {
 		return err
