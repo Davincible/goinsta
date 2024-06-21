@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	TooManyRequestsTimeout = 60 * time.Second
+	TooManyRequestsTimeout = 60 * time.Second * 8
 )
 
 type ReqWrapper interface {
@@ -77,8 +77,8 @@ func (w *Wrapper) GoInstaWrapper(o *ReqWrapperArgs) ([]byte, http.Header, error)
 		if o.Ignore429() {
 			return o.Body, o.Headers, nil
 		}
-			insta.warnHandler("Too many requests, sleeping for %d seconds", TooManyRequestsTimeout)
-			time.Sleep(TooManyRequestsTimeout)
+		insta.warnHandler("Too many requests, sleeping for ", TooManyRequestsTimeout)
+		time.Sleep(TooManyRequestsTimeout)
 
 	case errors.Is(o.Error, Err2FARequired):
 		// Attempt auto 2FA login with TOTP code generation
