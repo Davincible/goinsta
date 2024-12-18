@@ -84,9 +84,7 @@ func (comments *Comments) toggleComments(endpoint string) error {
 }
 
 // Next allows comment pagination.
-//
 // This function support concurrency methods to get comments using Last and Next ID
-//
 // New comments are stored in Comments.Items
 func (comments *Comments) Next() bool {
 	if comments.err != nil {
@@ -199,8 +197,8 @@ func (insta *Instagram) bulkDelComments(c []*Comment) error {
 //
 // If limit is <= 0 DeleteMine will delete all your comments.
 // Be careful with using this on posts with a large number of comments,
-//  as a large number of requests will be made to index all comments.This
-//  can result in a ratelimiter being tripped.
+// as a large number of requests will be made to index all comments.This
+// can result in a ratelimiter being tripped.
 //
 // See example: examples/media/commentsDelMine.go
 func (comments *Comments) DeleteMine(limit int) error {
@@ -229,8 +227,7 @@ floop:
 
 // Comment is a type of Media retrieved by the Comments methods
 type Comment struct {
-	insta *Instagram
-	item  *Item
+	item *Item
 
 	ID                             interface{} `json:"pk"`
 	Text                           string      `json:"text"`
@@ -290,7 +287,7 @@ func (c *Comment) Unlike() error {
 }
 
 func (c *Comment) changeLike(endpoint string) error {
-	insta := c.insta
+	insta := c.item.insta
 	item := c.item
 	query := map[string]string{
 		"feed_position":           "0",
@@ -317,7 +314,7 @@ func (c *Comment) changeLike(endpoint string) error {
 		return err
 	}
 
-	_, _, err = c.insta.sendRequest(
+	_, _, err = insta.sendRequest(
 		&reqOptions{
 			Endpoint: fmt.Sprintf(endpoint, c.getid()),
 			IsPost:   true,
