@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 )
 
 type ChallengeStepData struct {
@@ -232,6 +233,28 @@ func (c *Challenge) GetScreenshot() ([]byte, error) {
 //	get a /privacy/checks/ checkpoint error.
 func (c *Checkpoint) Process() error {
 	insta := c.insta
+
+	if insta.privacyRequestInProgress.Load() {
+		// Another request is already processing the checkpoint
+		after := time.After(time.Minute)
+
+		for {
+			select {
+			case <-after:
+				return fmt.Errorf("timeout reached waiting for checkpoint to complete")
+
+			case <-time.After(time.Millisecond * 100):
+				if !insta.privacyRequestInProgress.Load() {
+					if err := insta.privacyRequestError.Load(); err != nil {
+						return *err
+					}
+
+					return nil
+				}
+			}
+		}
+	}
+
 	v := insta.privacyRequested.Load()
 
 	if v > 2 {
@@ -244,8 +267,8 @@ func (c *Checkpoint) Process() error {
 	insta.infoHandler("Attempting to solve checkpoint and accept cookies, opening up browser")
 	insta.privacyRequested.Store(v + 1)
 
-	err := insta.acceptPrivacyCookies(c.URL)
-	if err = checkHeadlessErr(err); err != nil {
+	if err := checkHeadlessErr(insta.acceptPrivacyCookies(c.URL)); err != nil {
+		insta.privacyRequestError.Store(&err)
 		return err
 	}
 

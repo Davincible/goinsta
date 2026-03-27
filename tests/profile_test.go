@@ -1,7 +1,10 @@
 package tests
 
 import (
+	"encoding/json"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/Davincible/goinsta/v3"
 )
@@ -64,4 +67,20 @@ func TestProfilesBlocked(t *testing.T) {
 	}
 
 	t.Logf("Foud %d blocked users", len(blocked))
+}
+
+func TestUsernameInfo(t *testing.T) {
+	insta, err := goinsta.EnvRandAcc()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Logged in as %s\n", insta.Account.Username)
+
+	user, err := insta.UserInfo("albertheijn")
+	require.NoError(t, err)
+
+	b, err := json.MarshalIndent(user, "", "  ")
+	require.NoError(t, err)
+
+	t.Logf("Fetched user:\n%s\n", string(b))
 }

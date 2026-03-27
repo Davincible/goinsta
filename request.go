@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/sanity-io/litter"
 )
 
 type reqOptions struct {
@@ -83,7 +82,7 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 	}
 
 	// Check if a challenge is in progress, if so wait for it to complete (with timeout)
-	if insta.privacyRequestInProgress.Load() && !insta.privacyCalled.Get() {
+	if insta.privacyRequestInProgress.Load() {
 		if !insta.checkPrivacy() {
 			return nil, nil, errors.New("Privacy check timedout")
 		}
@@ -245,23 +244,6 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 	req.Close = true
 
 	resp, err := insta.c.Do(req)
-	if errors.Is(err, io.EOF) {
-		if resp != nil {
-			litter.Dump(
-				map[string]any{
-					"location": "do",
-					"status":   resp.Status,
-					"resp":     resp.Header.Clone(),
-				},
-			)
-		} else {
-			litter.Dump(
-				map[string]any{
-					"location": "do",
-				},
-			)
-		}
-	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("do req: %w", err)
 	}
@@ -270,15 +252,6 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, h http.Header, 
 	insta.extractHeaders(resp.Header)
 
 	body, err = io.ReadAll(resp.Body)
-	if errors.Is(err, io.EOF) {
-		litter.Dump(
-			map[string]any{
-				"status":   resp.Status,
-				"location": "readbody",
-				"headers":  resp.Header.Clone(),
-			},
-		)
-	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("read body: %w", err)
 	}
@@ -386,13 +359,12 @@ func (insta *Instagram) extractHeaders(h http.Header) {
 }
 
 func (insta *Instagram) checkPrivacy() bool {
-	d := time.Now().Add(5 * time.Minute)
-	ctx, cancel := context.WithDeadline(context.Background(), d)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	for {
 		select {
-		case <-time.After(3 * time.Second):
+		case <-time.After(100 * time.Millisecond):
 			if !insta.privacyRequestInProgress.Load() {
 				return true
 			}

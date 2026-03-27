@@ -144,6 +144,10 @@ func EnvProvision(path string, refresh ...bool) error {
 			return err
 		}
 
+		if acc.Enc == nil {
+			acc.Enc = &EnvEncAcc{}
+		}
+
 		acc.Enc.Base64 = enc
 
 		fmt.Println("Sleeping...")
@@ -486,8 +490,13 @@ func addOrUpdateAcc(accs []*EnvAcc, toAdd interface{}) []*EnvAcc {
 		for _, acc := range accs {
 			if (acc.Plain != nil && newAcc.Username == acc.Plain.Username) ||
 				(acc.Enc != nil && newAcc.Username == acc.Enc.Username) {
+
 				if newAcc.Name == "" {
-					newAcc.Name = acc.Enc.Name
+					if acc.Plain != nil {
+						newAcc.Name = acc.Plain.Name
+					} else {
+						newAcc.Name = acc.Enc.Name
+					}
 				}
 
 				acc.Enc = newAcc

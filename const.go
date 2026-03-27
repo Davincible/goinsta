@@ -17,8 +17,12 @@ const (
 	connType           = "WIFI"
 	instaSigKeyVersion = "4"
 	locale             = "en_US"
-	appVersion         = "195.0.0.31.123"
-	appVersionCode     = "302733750"
+	// 388.0.0.34.75
+	// 379405560
+	appVersion     = "388.0.0.34.75"
+	appVersionCode = "379405560"
+	// appVersion         = "195.0.0.31.123"
+	// appVersionCode     = "302733750"
 
 	// Used for supported_capabilities value used in some requests, e.g. tray requests
 	supportedSdkVersions = "100.0,101.0,102.0,103.0,104.0,105.0,106.0,107.0,108.0,109.0,110.0,111.0,112.0,113.0,114.0,115.0,116.0,117.0"
@@ -275,6 +279,7 @@ var (
 	ErrLoginRequired   = errors.New("you are not logged in, please login")
 	ErrSessionNotSet   = errors.New("session identifier is not set, please log in again to set it")
 	ErrLogoutFailed    = errors.New("failed to logout")
+	ErrInvalidUsername = errors.New("username is invalid and does not exist")
 
 	ErrChallengeRequired  = errors.New("challenge required")
 	ErrCheckpointRequired = errors.New("checkpoint required")

@@ -141,7 +141,7 @@ func (insta *Instagram) openChallenge(url string) error {
 				chromedp.Navigate(url),
 
 				// Wait for a few seconds, and screenshot the page after
-				chromedp.Sleep(time.Second * 5),
+				chromedp.Sleep(time.Second * 7),
 				printButtons(insta),
 				saveScreenshotToFile(fname),
 
@@ -239,10 +239,11 @@ func (insta *Instagram) runHeadless(options *headlessOptions) error {
 
 	opts := []cu.Option{
 		cu.WithTimeout(time.Duration(options.timeout) * time.Second),
+		cu.WithChromeFlags(chromedp.DisableGPU),
 	}
 
-	if insta.proxy != "" {
-		opts = append(opts, cu.WithChromeFlags(chromedp.ProxyServer(insta.proxy)))
+	if insta.proxyBrowser != "" {
+		opts = append(opts, cu.WithChromeFlags(chromedp.ProxyServer(insta.proxyBrowser)))
 	}
 
 	if insta.proxyInsecure {

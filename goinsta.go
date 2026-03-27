@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -128,6 +129,7 @@ type Instagram struct {
 
 	// Proxy string
 	proxy         string
+	proxyBrowser  string
 	proxyInsecure bool
 
 	// Keep track of a challenge response requesting to accept cookies
@@ -135,6 +137,10 @@ type Instagram struct {
 	// Keep track of whether an attempt has been made to accept the cookies
 	privacyRequested         atomic.Int64
 	privacyRequestInProgress atomic.Bool
+	privacyRequestError      atomic.Pointer[error]
+
+	isLogin    atomic.Bool
+	loginError atomic.Pointer[error]
 }
 
 func defaultHandler(args ...interface{}) {
@@ -293,21 +299,35 @@ func (insta *Instagram) SetTOTPSeed(seed string) {
 }
 
 // SetProxy sets proxy for connection.
+//
+// This proxy will be used for both the goinsta client and the headless browser.
 func (insta *Instagram) SetProxy(url string, insecure bool, forceHTTP2 bool) error {
 	insta.proxy = url
 	insta.proxyInsecure = insecure
 
-	uri, err := neturl.Parse(url)
-	if err == nil {
-		insta.c.Transport = &http.Transport{
-			Proxy:             http.ProxyURL(uri),
-			ForceAttemptHTTP2: forceHTTP2,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: insecure,
-			},
-		}
+	if len(insta.proxyBrowser) == 0 {
+		insta.proxyBrowser = url
 	}
-	return err
+
+	uri, err := neturl.Parse(url)
+	if err != nil {
+		return err
+	}
+
+	insta.c.Transport = &http.Transport{
+		Proxy:             http.ProxyURL(uri),
+		ForceAttemptHTTP2: forceHTTP2,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: insecure,
+		},
+	}
+
+	return nil
+}
+
+// SetBrowserProxy sets the proxy that only will be used for the headless browser.
+func (insta *Instagram) SetBrowserProxy(proxy string) {
+	insta.proxyBrowser = proxy
 }
 
 // UnsetProxy unsets proxy for connection.
@@ -476,31 +496,60 @@ func Import(path string, args ...interface{}) (*Instagram, error) {
 	return ImportReader(f, args...)
 }
 
+func (insta *Instagram) waitLogin() error {
+	deadline := time.After(time.Minute * 2)
+
+	for {
+		select {
+		case <-deadline:
+			return fmt.Errorf("deadline exceeded while waiting for login to complete")
+		case <-time.After(time.Millisecond * 100):
+			if !insta.isLogin.Load() {
+				if err := insta.loginError.Load(); err != nil {
+					return *err
+				}
+
+				return nil
+			}
+		}
+	}
+}
+
 // Login performs instagram login sequence in close resemblance to the android apk.
 //
 // Password can optionally be provided for re-logins.
 // If you create the insta object with goinsta.New(), there is no need to.
 //
-// Password will be deleted after login
+// Password will be deleted after login.
 func (insta *Instagram) Login(password ...string) (err error) {
+	if insta.isLogin.Load() {
+		return insta.waitLogin()
+	}
+
+	insta.isLogin.Store(true)
+	defer insta.isLogin.Store(false)
+	defer func() {
+		insta.loginError.Store(&err)
+	}()
+
 	if len(password) > 0 && password[0] != "" {
 		insta.pass = password[0]
 	}
+
 	// pre-login sequence
-	err = insta.zrToken()
-	if err != nil {
-		return
-	}
-	err = insta.sync()
-	if err != nil {
+	if err = insta.zrToken(); err != nil {
 		return
 	}
 
-	err = insta.getPrefill()
-	if err != nil {
+	if err = insta.sync(); err != nil {
+		return
+	}
+
+	if err = insta.getPrefill(); err != nil {
 		if errIsFatal(err) {
 			return err
 		}
+
 		insta.warnHandler("Non fatal error while fetching prefill: " + err.Error())
 	}
 
@@ -509,25 +558,28 @@ func (insta *Instagram) Login(password ...string) (err error) {
 		if errIsFatal(err) {
 			return err
 		}
+
 		insta.warnHandler("Non fatal error while fetching contact prefill: " + err.Error())
 	}
 
-	err = insta.sync()
-	if err != nil {
+	if err = insta.sync(); err != nil {
 		return
 	}
+
 	if insta.pubKey == "" || insta.pubKeyID == -1 {
 		return errors.New("Sync returned empty public key and/or public key id")
 	}
 
-	err = insta.login()
-	if err != nil {
+	if err = insta.login(); err != nil {
+		if strings.Contains(err.Error(), "Please check your username and try again") {
+			return ErrInvalidUsername
+		}
+
 		return err
 	}
 
 	// post-login sequence
-	err = insta.OpenApp()
-	if err != nil {
+	if err = insta.OpenApp(); err != nil {
 		return err
 	}
 
@@ -593,6 +645,7 @@ func (insta *Instagram) OpenApp() (err error) {
 				errChan <- err
 				return
 			}
+
 			insta.warnHandler(fmt.Sprintf("Non fatal error while fetching account family: %v", err))
 		}
 	}(wg)

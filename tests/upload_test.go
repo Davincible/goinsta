@@ -29,10 +29,13 @@ func TestUploadPhoto(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(results.Places) == 0 {
 		t.Fatal(errors.New("No search result found"))
 	}
+
 	location := results.Places[0].Location
+
 	if err := results.RegisterLocationClick(location); err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +48,9 @@ func TestUploadPhoto(t *testing.T) {
 			UserTags: &[]goinsta.UserTag{
 				{
 					User: &goinsta.User{
-						ID: insta.Account.ID,
+						UserInfo: &goinsta.UserInfo{
+							ID: insta.Account.ID,
+						},
 					},
 				},
 			},
@@ -101,7 +106,9 @@ func TestUploadThumbVideo(t *testing.T) {
 			UserTags: &[]goinsta.UserTag{
 				{
 					User: &goinsta.User{
-						ID: insta.Account.ID,
+						UserInfo: &goinsta.UserInfo{
+							ID: insta.Account.ID,
+						},
 					},
 				},
 			},
@@ -150,7 +157,9 @@ func TestUploadVideo(t *testing.T) {
 			UserTags: &[]goinsta.UserTag{
 				{
 					User: &goinsta.User{
-						ID: insta.Account.ID,
+						UserInfo: &goinsta.UserInfo{
+							ID: insta.Account.ID,
+						},
 					},
 				},
 			},
@@ -297,7 +306,9 @@ func TestUploadCarousel(t *testing.T) {
 			UserTags: &[]goinsta.UserTag{
 				{
 					User: &goinsta.User{
-						ID: insta.Account.ID,
+						UserInfo: &goinsta.UserInfo{
+							ID: insta.Account.ID,
+						},
 					},
 				},
 			},

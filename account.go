@@ -14,11 +14,9 @@ import (
 
 // Account is personal account object.
 type Account struct {
-	Email                 string `json:"email"`
-	PhoneNumber           string `json:"phone_number"`
-	Gender                int    `json:"gender"`
-	CanSeeOrganicInsights bool   `json:"can_see_organic_insights"`
-	CanBoostPost          bool   `json:"can_boost_post"`
+	Gender                int  `json:"gender"`
+	CanSeeOrganicInsights bool `json:"can_see_organic_insights"`
+	CanBoostPost          bool `json:"can_boost_post"`
 
 	*User
 }

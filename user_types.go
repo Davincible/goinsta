@@ -255,6 +255,8 @@ func (b *BiographyInfo) HasBiographyExtendedData() bool {
 
 type ContactInfo struct {
 	BusinessContactMethod  string `json:"business_contact_method"`
+	Email                  string `json:"email,omitempty"`
+	PhoneNumber            string `json:"phone_number,omitempty"`
 	PublicEmail            string `json:"public_email"`
 	PublicPhoneCountryCode string `json:"public_phone_country_code"`
 	PublicPhoneNumber      string `json:"public_phone_number"`
@@ -321,8 +323,15 @@ type ExtraUnknown struct {
 	ShoppingPostOnboardNuxType     any `json:"shopping_post_onboard_nux_type,omitempty"`
 	NumOfAdminedPages              any `json:"num_of_admined_pages,omitempty"`
 
-	DisplayedActionButtonPartner any    `json:"displayed_action_button_partner"`
-	DisplayedActionButtonType    string `json:"displayed_action_button_type"`
+	// display_category_name=Order food, partner_name=Zomato, partner_type=SMB, category_type=food_delivery, app_id=2737372818, url=https://www.zomato.com/404
+	DisplayedActionButtonPartner struct {
+		CategoryName string `json:"display_category_name"`
+		CategoryType string `json:"category_type"`
+		Name         string `json:"partner_name"`
+		Type         string `json:"partner_type"`
+		URL          string `json:"url"`
+	} `json:"displayed_action_button_partner"`
+	DisplayedActionButtonType string `json:"displayed_action_button_type"`
 
 	CurrentCatalogID any    `json:"current_catalog_id"`
 	DirectMessaging  string `json:"direct_messaging"`
